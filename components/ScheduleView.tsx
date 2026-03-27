@@ -20,7 +20,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
   employees?: Profile[];
-  currentUser?: { name: string; role: string; sector_id?: string };
+  currentUser?: { full_name: string; role: string; sector_id?: string };
 }
 
 // Ensure we have defaults if props are missing
@@ -78,7 +78,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     s1Start: '08:00',
     s1End: '17:00',
     s2Start: '',
-    s2End: ''
+    s2End: '',
+    startDate: '',
+    endDate: ''
   });
 
   // Sector Filter State
@@ -159,7 +161,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         s1Start: '08:00',
         s1End: '16:00',
         s2Start: '',
-        s2End: ''
+        s2End: '',
+        startDate: dateKey,
+        endDate: dateKey
       });
     }
     setIsModalOpen(true);
@@ -179,7 +183,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     // Construct start time for validation
     let startTimeStr = editForm.s1Start;
-    if (!startTimeStr) startTimeStr = "23:59"; // if empty/off
+    if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59"; // if empty/off/vacation
 
     const targetDateTime = new Date(`${targetDateStr}T${startTimeStr}`);
 
@@ -200,40 +204,69 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       }
     }
 
-    const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
+    const shiftsToSave: ShiftData[] = [];
+    
+    if (editForm.type === 'vacation') {
+        // Use either provided range or fallback to target date
+        const startStr = editForm.startDate || targetDateStr;
+        const endStr = editForm.endDate || startStr;
+        
+        const start = new Date(startStr + 'T00:00:00');
+        const end = new Date(endStr + 'T00:00:00');
+        
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dKey = formatDate(d);
+            shiftsToSave.push({
+                id: `${selectedTarget.empId}_${dKey}`,
+                employee_id: selectedTarget.empId,
+                date: dKey,
+                type: 'vacation',
+                segments: [],
+                last_modified_by: currentUser.full_name || 'Admin',
+                last_modified_at: new Date().toISOString()
+            });
+        }
+    } else {
+        const segments: ShiftSegment[] = [];
+        if (editForm.type === 'continuous') {
+          segments.push({ start: editForm.s1Start, end: editForm.s1End });
+        } else if (editForm.type === 'split') {
+          segments.push({ start: editForm.s1Start, end: editForm.s1End });
+          segments.push({ start: editForm.s2Start, end: editForm.s2End });
+        }
 
-    const segments: ShiftSegment[] = [];
-    if (editForm.type === 'continuous') {
-      segments.push({ start: editForm.s1Start, end: editForm.s1End });
-    } else if (editForm.type === 'split') {
-      segments.push({ start: editForm.s1Start, end: editForm.s1End });
-      segments.push({ start: editForm.s2Start, end: editForm.s2End });
+        const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
+        shiftsToSave.push({
+            id: shiftKey,
+            employee_id: selectedTarget.empId,
+            date: targetDateStr,
+            type: editForm.type,
+            segments,
+            last_modified_by: currentUser.full_name || 'Admin',
+            last_modified_at: new Date().toISOString()
+        });
     }
 
-    const newShift: ShiftData = {
-      id: shiftKey,
-      employee_id: selectedTarget.empId,
-      date: targetDateStr,
-      type: editForm.type,
-      segments,
-      last_modified_by: currentUser.name,
-      last_modified_at: new Date().toISOString()
-    };
-
-    const savedShift = await scheduleService.save(newShift);
-    if (savedShift) {
-      setShifts(prev => ({ ...prev, [shiftKey]: savedShift }));
+    const saved = await scheduleService.save(shiftsToSave);
+    if (saved) {
+      const savedArray = Array.isArray(saved) ? saved : [saved];
+      const newShiftsMap = { ...shifts };
+      savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
+      setShifts(newShiftsMap);
 
       // Log to Audit
       await auditService.logAction({
-        manager_name: currentUser.name,
+        manager_name: currentUser.full_name || 'Admin',
         employee_name: selectedTarget.empName,
-        action: 'Cambio de Turno',
+        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 'Cambio de Turno',
         old_value: 'N/A',
-        new_value: `${editForm.type}: ${editForm.s1Start}-${editForm.s1End}`,
-        reason: 'Modificación manual por encargado'
+        new_value: editForm.type === 'vacation' 
+            ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}` 
+            : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
+        reason: 'Modificación manual de cronograma'
       });
     }
+
     setIsModalOpen(false);
   };
 
@@ -260,6 +293,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         <div className="flex flex-col items-center">
           <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
             Descanso
+          </span>
+        </div>
+      );
+    }
+
+    if (shift.type === 'vacation') {
+      return (
+        <div className="flex flex-col items-center">
+          <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+            Vacaciones
           </span>
         </div>
       );
@@ -469,14 +512,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
             <div className="space-y-6">
               {/* Shift Type Selector */}
-              <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off'] as const).map((t) => (
+              <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
+                {(['continuous', 'split', 'off', 'vacation'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : 'Descanso'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : 'Vacaciones'}
                   </button>
                 ))}
               </div>
@@ -511,6 +554,33 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       <input type="time" value={editForm.s2End} onChange={e => setEditForm({ ...editForm, s2End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
                     </div>
                   </div>
+                </div>
+              )}
+              {editForm.type === 'vacation' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Desde (Inicio)</label>
+                        <input 
+                            type="date" 
+                            value={editForm.startDate} 
+                            onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hasta (Fin)</label>
+                        <input 
+                            type="date" 
+                            value={editForm.endDate} 
+                            onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                        />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic mt-1 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                    Se marcarán todos los días en el rango seleccionado como vacaciones. Asegúrese de que las fechas sean correctas antes de guardar.
+                  </p>
                 </div>
               )}
 

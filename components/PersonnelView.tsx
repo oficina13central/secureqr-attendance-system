@@ -22,11 +22,11 @@ import { roleService } from '../services/roleService';
 import { Role } from '../types';
 
 interface PersonnelViewProps {
-    employees: Profile[];
     setEmployees: React.Dispatch<React.SetStateAction<Profile[]>>;
+    currentUser: Profile;
 }
 
-const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }) => {
+const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, currentUser }) => {
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showCardModal, setShowCardModal] = useState<Profile | null>(null);
@@ -53,13 +53,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
         id: '',
         full_name: '',
         email: '',
+        dni: '',
         role: 'encargado',
         sector_id: ''
     });
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', role: 'encargado', sector_id: '' });
+        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', sector_id: '' });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -83,6 +84,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                 const updatedProfile = {
                     full_name: formData.full_name!,
                     email: formData.email || '',
+                    dni: formData.dni || '',
                     role: formData.role as string,
                     sector_id: formData.sector_id,
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_${formData.id}`
@@ -101,6 +103,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                 const newProfile: Omit<Profile, 'id'> = {
                     full_name: formData.full_name || 'Nuevo Empleado',
                     email: formData.email || '',
+                    dni: formData.dni || '',
                     role: formData.role as string,
                     sector_id: formData.sector_id || 'General',
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_PENDING`
@@ -118,7 +121,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
 
                     // Log to Audit
                     await auditService.logAction({
-                        manager_name: 'Admin',
+                        manager_name: currentUser.full_name,
                         employee_name: savedResult.full_name,
                         action: 'Alta de Empleado',
                         old_value: 'N/A',
@@ -151,7 +154,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                 // Log to Audit
                 if (employeeToDelete) {
                     await auditService.logAction({
-                        manager_name: 'Admin',
+                        manager_name: currentUser.full_name,
                         employee_name: employeeToDelete.full_name,
                         action: 'Baja de Empleado',
                         old_value: employeeToDelete.role,
@@ -223,6 +226,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                         <thead>
                             <tr className="bg-slate-50/50">
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Nombre</th>
+                                <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">DNI</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Rol</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Sector</th>
                                 <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Acciones</th>
@@ -238,6 +242,9 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                                             </div>
                                             <span className="font-bold text-slate-700">{emp.full_name}</span>
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-4 text-sm font-medium text-slate-500">
+                                        {emp.dni || '---'}
                                     </td>
                                     <td className="px-8 py-4">
                                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 uppercase tracking-wider">
@@ -309,7 +316,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                         )}
 
                         <form onSubmit={handleSaveEmployee} className="space-y-6">
-                            <div className="space-y-2">
+                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nombre Completo</label>
                                 <input
                                     type="text"
@@ -318,6 +325,16 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees }
                                     onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                                     placeholder="Ej. Ana García"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">DNI</label>
+                                <input
+                                    type="text"
+                                    value={formData.dni}
+                                    onChange={e => setFormData({ ...formData, dni: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                                    placeholder="Ej. 12345678"
                                 />
                             </div>
                             <div className="space-y-2">

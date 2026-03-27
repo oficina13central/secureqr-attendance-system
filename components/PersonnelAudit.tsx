@@ -9,17 +9,30 @@ import {
     ChevronRight,
     Search,
     CheckCircle2,
-    XCircle
+    XCircle,
+    RefreshCw,
+    Info,
+    Calendar
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
+import AttendanceCalendarView from './AttendanceCalendarView';
 
-const PersonnelAudit: React.FC = () => {
+interface PersonnelAuditProps {
+    employees?: Profile[];
+    currentUser?: { name: string; role: string; sector_id?: string; full_name?: string };
+}
+
+const PersonnelAudit: React.FC<PersonnelAuditProps> = ({ 
+    employees: initialEmployees = [], 
+    currentUser 
+}) => {
+    const [viewMode, setViewMode] = useState<'summary' | 'calendar'>('summary');
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
-    const [employees, setEmployees] = useState<Profile[]>([]);
+    const [employees, setEmployees] = useState<Profile[]>(initialEmployees);
     const [rules, setRules] = useState<AttendanceRules | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -44,22 +57,35 @@ const PersonnelAudit: React.FC = () => {
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ];
 
+    const [recalculating, setRecalculating] = useState(false);
+
+    const loadData = async () => {
+        setLoading(true);
+        const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors] = await Promise.all([
+            attendanceService.getAll(),
+            initialEmployees.length > 0 ? Promise.resolve(initialEmployees) : personnelService.getAll(),
+            settingsService.getRules(),
+            sectorService.getAll()
+        ]);
+        setRecords(fetchedRecords);
+        setEmployees(fetchedEmployees);
+        setRules(fetchedRules);
+        setSectors(fetchedSectors);
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors] = await Promise.all([
-                attendanceService.getAll(),
-                personnelService.getAll(),
-                settingsService.getRules(),
-                sectorService.getAll()
-            ]);
-            setRecords(fetchedRecords);
-            setEmployees(fetchedEmployees);
-            setRules(fetchedRules);
-            setSectors(fetchedSectors);
-            setLoading(false);
-        };
         loadData();
+    }, [initialEmployees]);
+
+    useEffect(() => {
+        const handleToggleView = (e: any) => {
+            if (e.detail === 'attendance-calendar') {
+                setViewMode('calendar');
+            }
+        };
+        window.addEventListener('change-view', handleToggleView);
+        return () => window.removeEventListener('change-view', handleToggleView);
     }, []);
 
     const changeMonth = (delta: number) => {
@@ -68,6 +94,35 @@ const PersonnelAudit: React.FC = () => {
             newDate.setMonth(newDate.getMonth() + delta);
             return newDate;
         });
+    };
+
+    const handleRecalculate = async () => {
+        if (!selectedEmployeeId || !currentUser) return;
+        
+        const emp = employees.find(e => e.id === selectedEmployeeId);
+        const targetMonth = selectedDate.getMonth();
+        const targetYear = selectedDate.getFullYear();
+        const startDate = new Date(targetYear, targetMonth, 1).toISOString().split('T')[0];
+        const endDate = new Date(targetYear, targetMonth + 1, 0).toISOString().split('T')[0];
+
+        if (!window.confirm(`¿Desea recalcular todos los registros de ${emp?.full_name} para el periodo ${startDate} al ${endDate}? Se respetarán los cambios manuales.`)) return;
+
+        setRecalculating(true);
+        try {
+            const result = await attendanceService.recalculateAttendance(
+                selectedEmployeeId,
+                startDate,
+                endDate,
+                currentUser.full_name || 'Sistema'
+            );
+            alert(`Recálculo finalizado: ${result.updated} registros actualizados.`);
+            await loadData(); // Reload all data to reflect changes
+        } catch (error) {
+            console.error(error);
+            alert('Error al recalcular asistencias.');
+        } finally {
+            setRecalculating(false);
+        }
     };
 
     const auditData = useMemo(() => {
@@ -85,7 +140,14 @@ const PersonnelAudit: React.FC = () => {
             const totalLateMinutes = monthRecords.reduce((sum, r) => sum + (r.minutes_late || 0), 0);
             const absences = monthRecords.filter(r => r.status === 'ausente').length;
             const lostPresentismo = monthRecords.filter(r => r.status === 'sin_presentismo').length;
-            const presents = monthRecords.filter(r => ['en_horario', 'tarde', 'manual', 'presente'].includes(r.status)).length;
+            const onTime = monthRecords.filter(r => ['en_horario', 'manual', 'presente'].includes(r.status)).length;
+            const late = monthRecords.filter(r => r.status === 'tarde').length;
+            const severeLate = monthRecords.filter(r => r.status === 'sin_presentismo').length;
+            const totalRequiredDays = onTime + late + severeLate + absences;
+
+            const complianceScore = totalRequiredDays > 0 
+                ? ((onTime * 1.0) + (late * 0.7) + (severeLate * 0.4)) / totalRequiredDays * 100 
+                : 0;
 
             // Resolve sector name robustly (ID, Name match, or legacy string)
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name ||
@@ -99,8 +161,8 @@ const PersonnelAudit: React.FC = () => {
                 totalLateMinutes,
                 absences,
                 lostPresentismo,
-                presents,
-                compliance: monthRecords.length > 0 ? (presents / (presents + absences)) * 100 : 0,
+                presents: onTime + late + severeLate,
+                compliance: complianceScore,
                 detailedRecords: monthRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             };
         }).filter(data => {
@@ -131,8 +193,8 @@ const PersonnelAudit: React.FC = () => {
         return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     };
 
-    const handleExportReport = () => {
-        const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Sin Presentismo", "Eficiencia (%)"];
+    const handleExport = () => { // Renamed from handleExportReport
+        const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdió el Presentismo", "Eficiencia (%)"];
         const rows = auditData.map(d => [
             d.name,
             d.sector,
@@ -142,18 +204,43 @@ const PersonnelAudit: React.FC = () => {
             Math.round(d.compliance)
         ]);
 
-        // Excel compatibility: Use semicolon delimiter, add BOM and sep=; header
+        // Excel compatibility: Use explicit UTF-8 BOM to ensure accents are displayed correctly
         const csvContent = [
-            "sep=;",
             headers.join(";"),
             ...rows.map(row => row.join(";"))
         ].join("\n");
 
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", `Reporte_Personal_${months[selectedDate.getMonth()]}_${selectedDate.getFullYear()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportDetailedReport = () => {
+        if (!selectedEmployeeData) return;
+
+        const headers = ["Fecha", "Entrada", "Estado", "Retraso (min)"];
+        const rows = selectedEmployeeData.detailedRecords.map(r => [
+            r.date,
+            formatTime(r.check_in),
+            r.status === 'sin_presentismo' ? 'Perdió el Presentismo' : r.status.replace('_', ' '),
+            r.minutes_late > 0 ? r.minutes_late : '-'
+        ]);
+
+        const csvContent = [
+            headers.join(";"),
+            ...rows.map(row => row.join(";"))
+        ].join("\n");
+
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Detalle_${selectedEmployeeData.name}_${months[selectedDate.getMonth()]}_${selectedDate.getFullYear()}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -169,60 +256,48 @@ const PersonnelAudit: React.FC = () => {
                     <p className="text-slate-500 font-medium italic mt-1">Consolidado mensual de cumplimiento y presentismo.</p>
                 </div>
 
-                <div className="flex items-center space-x-4 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-                    <button
-                        onClick={() => changeMonth(-1)}
-                        className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
-                    >
-                        <ChevronLeft className="w-6 h-6" />
-                    </button>
-
-                    <div className="px-4 text-center min-w-[140px]">
-                        <span className="block text-sm font-black text-slate-400 uppercase tracking-widest">{selectedDate.getFullYear()}</span>
-                        <span className="block text-xl font-black text-indigo-600 leading-tight">{months[selectedDate.getMonth()]}</span>
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="flex items-center space-x-1 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
+                        <button
+                            onClick={() => setViewMode('summary')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'summary' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Resumen Mensual
+                        </button>
+                        <button
+                            onClick={() => setViewMode('calendar')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'calendar' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Vista Calendario
+                        </button>
                     </div>
 
-                    <button
-                        onClick={() => changeMonth(1)}
-                        className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
-                    >
-                        <ChevronRight className="w-6 h-6" />
-                    </button>
+                    {viewMode === 'summary' && (
+                        <div className="flex items-center space-x-4 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+                            <button
+                                onClick={() => changeMonth(-1)}
+                                className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+
+                            <div className="px-4 text-center min-w-[140px]">
+                                <span className="block text-sm font-black text-slate-400 uppercase tracking-widest">{selectedDate.getFullYear()}</span>
+                                <span className="block text-xl font-black text-indigo-600 leading-tight">{months[selectedDate.getMonth()]}</span>
+                            </div>
+
+                            <button
+                                onClick={() => changeMonth(1)}
+                                className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </header>
 
-            {/* Stats Summary Area */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
-                    <div className="p-4 bg-amber-50 rounded-2xl group-hover:scale-110 transition-transform">
-                        <Clock className="w-6 h-6 text-amber-500" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Minutos Tarde</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.totalLateMinutes, 0)} min</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
-                    <div className="p-4 bg-red-50 rounded-2xl group-hover:scale-110 transition-transform">
-                        <UserX className="w-6 h-6 text-red-500" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Ausencias</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.absences, 0)}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
-                    <div className="p-4 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
-                        <AlertCircle className="w-6 h-6 text-indigo-500" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Sin Presentismo</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.lostPresentismo, 0)} casos</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters Bar */}
+            {/* Filters Bar - Visible in both views */}
             <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col xl:flex-row xl:items-center gap-6">
                 <div className="flex-1 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -270,7 +345,7 @@ const PersonnelAudit: React.FC = () => {
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${showOnlyNoPresentismo ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             <AlertCircle className={`w-3.5 h-3.5 inline mr-1.5 ${showOnlyNoPresentismo ? 'text-white' : 'text-indigo-400'}`} />
-                            Sin Presentismo
+                            Perdió el Presentismo
                         </button>
                     </div>
 
@@ -290,13 +365,64 @@ const PersonnelAudit: React.FC = () => {
                     )}
                 </div>
 
-                <button
-                    onClick={handleExportReport}
-                    className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-600 transition-all shadow-lg active:scale-95 ml-auto"
-                >
-                    <Download className="w-4 h-4" />
-                    <span>Informe</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-4 ml-auto">
+                    {selectedEmployeeId && (
+                        <button
+                            onClick={handleRecalculate}
+                            disabled={recalculating}
+                            className={`flex items-center space-x-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                            <span>{recalculating ? 'Recalculando...' : 'Recalcular Periodo'}</span>
+                        </button>
+                    )}
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 active:scale-95"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span>Informe</span>
+                    </button>
+                </div>
+            </div>
+
+            {viewMode === 'calendar' ? (
+                <AttendanceCalendarView 
+                    employees={employees.filter(emp => auditData.some(d => d.id === emp.id))} 
+                    currentUser={currentUser || { name: 'Invitado', role: 'invitado' } as any} 
+                />
+            ) : (
+                <>
+
+            {/* Stats Summary Area */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
+                    <div className="p-4 bg-amber-50 rounded-2xl group-hover:scale-110 transition-transform">
+                        <Clock className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Minutos Tarde</p>
+                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.totalLateMinutes, 0)} min</p>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
+                    <div className="p-4 bg-red-50 rounded-2xl group-hover:scale-110 transition-transform">
+                        <UserX className="w-6 h-6 text-red-500" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Ausencias</p>
+                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.absences, 0)}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
+                    <div className="p-4 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
+                        <AlertCircle className="w-6 h-6 text-indigo-500" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Perdió el Presentismo</p>
+                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.lostPresentismo, 0)} casos</p>
+                    </div>
+                </div>
             </div>
 
             {/* Main Table Area */}
@@ -308,7 +434,7 @@ const PersonnelAudit: React.FC = () => {
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Empleado / Sector</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tardanza Total</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ausencias</th>
-                                <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Sin Presentismo</th>
+                                <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Perdió el Presentismo</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Cumplimiento</th>
                                 <th className="px-8 py-5"></th>
                             </tr>
@@ -421,9 +547,10 @@ const PersonnelAudit: React.FC = () => {
                                                 <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${['en_horario', 'presente'].includes(record.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     record.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         record.status === 'ausente' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                            'bg-red-100 text-red-700 border-red-200' // sin presentismo
+                                                            record.status === 'vacaciones' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                                                'bg-red-100 text-red-700 border-red-200' // sin presentismo
                                                     }`}>
-                                                    {record.status === 'sin_presentismo' ? 'Sin Presentismo' : record.status.replace('_', ' ')}
+                                                    {record.status === 'sin_presentismo' ? 'Perdió el Presentismo' : record.status.replace('_', ' ')}
                                                 </span>
                                             </td>
                                             <td className="py-4 text-right text-sm font-black text-slate-700">
@@ -435,7 +562,22 @@ const PersonnelAudit: React.FC = () => {
                             </table>
                         </div>
 
-                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                            <button
+                                onClick={handleExportDetailedReport}
+                                className="flex items-center space-x-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span>Exportar Detalle</span>
+                            </button>
+                            <button
+                                onClick={handleRecalculate}
+                                disabled={recalculating}
+                                className={`flex items-center space-x-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                                <span>{recalculating ? 'Recalcular' : 'Recalcular'}</span>
+                            </button>
                             <button
                                 onClick={() => setSelectedEmployeeId(null)}
                                 className="px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-slate-900/10"
@@ -445,6 +587,8 @@ const PersonnelAudit: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+                </>
             )}
         </div>
     );

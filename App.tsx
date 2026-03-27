@@ -16,6 +16,8 @@ import PersonnelView from './components/PersonnelView';
 import AuditView from './components/AuditView';
 import PersonnelAudit from './components/PersonnelAudit';
 import SettingsView from './components/SettingsView';
+import FraudAnalysis from './components/FraudAnalysis';
+import AttendanceCalendarView from './components/AttendanceCalendarView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
@@ -23,7 +25,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings';
+type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud';
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -86,6 +88,15 @@ const App: React.FC = () => {
     fetchEmployees();
   }, [session]);
 
+  React.useEffect(() => {
+    const handleChangeView = (e: any) => {
+      const view = e.detail as AdminSubView;
+      setAdminSubView(view);
+    };
+    window.addEventListener('change-view', handleChangeView);
+    return () => window.removeEventListener('change-view', handleChangeView);
+  }, []);
+
   const renderAdminView = () => {
     // Si no tiene permisos para ver dashboard y no es admin/super, mostrar vista de empleado
     const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
@@ -109,11 +120,12 @@ const App: React.FC = () => {
 
     switch (adminSubView) {
       case 'dashboard': return <AdminDashboard />;
+      case 'audit_personnel': return <PersonnelAudit employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'schedule': return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
-      case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} />;
+      case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'audit': return <AuditView />;
-      case 'audit_personnel': return <PersonnelAudit />;
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
+      case 'fraud': return <FraudAnalysis />;
       default: return <AdminDashboard />;
     }
   };
@@ -152,6 +164,7 @@ const App: React.FC = () => {
               { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
               { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
               { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users, permission: 'VIEW_PERSONNEL_AUDIT' },
+              { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
               { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
             ]
               .filter(item => {

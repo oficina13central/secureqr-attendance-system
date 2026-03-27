@@ -15,7 +15,13 @@ export const auditService = {
         return data || [];
     },
 
-    async logAction(log: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog | null> {
+    async logAction(logInput: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog | null> {
+        const log = {
+            ...logInput,
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString()
+        };
+
         const { data, error } = await supabase
             .from('audit_logs')
             .insert([log])

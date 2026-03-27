@@ -20,6 +20,7 @@ export interface Profile {
   email: string;
   role: string; // Dynamic role ID
   sector_id?: string;
+  dni?: string;
   photo_url?: string;
   qr_token?: string;
   roles?: Role; // Joined data
@@ -27,11 +28,12 @@ export interface Profile {
 
 export interface AttendanceRecord {
   id: string;
+  employee_id: string;
   employee_name: string;
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso';
+  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones';
   minutes_late: number;
   manual_reason?: string;
 }

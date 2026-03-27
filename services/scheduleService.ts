@@ -5,7 +5,7 @@ export interface ShiftSegment {
     end: string;
 }
 
-export type ShiftType = 'continuous' | 'split' | 'off';
+export type ShiftType = 'continuous' | 'split' | 'off' | 'vacation';
 
 export interface ShiftData {
     id: string; // employeeId_dateIso
@@ -32,17 +32,17 @@ export const scheduleService = {
         return data || [];
     },
 
-    async save(shift: ShiftData): Promise<ShiftData | null> {
+    async save(shifts: ShiftData | ShiftData[]): Promise<(ShiftData | null)[] | ShiftData | null> {
+        const shiftsToSave = Array.isArray(shifts) ? shifts : [shifts];
         const { data, error } = await supabase
             .from('schedules')
-            .upsert([shift])
-            .select()
-            .single();
+            .upsert(shiftsToSave)
+            .select();
 
         if (error) {
-            console.error('Error saving schedule:', error);
-            return null;
+            console.error('Error saving schedule(s):', error);
+            return Array.isArray(shifts) ? [] : null;
         }
-        return data;
+        return Array.isArray(shifts) ? data : data[0];
     }
 };

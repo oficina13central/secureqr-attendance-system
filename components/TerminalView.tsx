@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert } from 'lucide-react';
+import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X } from 'lucide-react';
 import jsQR from 'jsqr';
 import { attendanceService } from '../services/attendanceService';
+import { supabase } from '../services/supabaseClient';
 
 interface TerminalViewProps {
   onExit: () => void;
@@ -16,6 +17,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const [attendanceMsg, setAttendanceMsg] = useState<string>('');
   const [msgColor, setMsgColor] = useState<string>('text-emerald-300');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualDni, setManualDni] = useState('');
+  const [processingManual, setProcessingManual] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -152,6 +156,50 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
     }
   };
 
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualDni.trim() || processingManual) return;
+
+    setProcessingManual(true);
+    setScanning(false);
+    
+    try {
+      // Intentar obtener el nombre del empleado para la UI
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('dni', manualDni.trim())
+        .maybeSingle();
+      
+      const employeeName = data?.full_name || "Usuario";
+      
+      const result = await attendanceService.processScan(manualDni.trim(), employeeName);
+
+      if (result.type === 'in' || result.type === 'out') {
+        setStatus('success');
+        setLastUser(employeeName);
+        setScanType(result.type);
+        setAttendanceMsg(result.type === 'in' ? 'Entrada Manual' : 'Salida Manual');
+        setMsgColor(result.type === 'in' ? 'text-emerald-300' : 'text-blue-300');
+        setShowManualModal(false);
+        setManualDni('');
+      } else {
+        setStatus('error');
+        setAttendanceMsg('DNI no encontrado');
+        setShowManualModal(false);
+      }
+    } catch (err) {
+      console.error("Manual entry failed:", err);
+      setStatus('error');
+    } finally {
+      setProcessingManual(false);
+      setTimeout(() => {
+        setStatus('idle');
+        setScanning(true);
+      }, 3500);
+    }
+  };
+
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white p-4 md:p-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950"></div>
@@ -266,6 +314,18 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
 
         <div className="flex flex-col items-center text-center max-w-md space-y-4">
           <div className="flex space-x-4">
+            <button
+              onClick={() => {
+                setScanning(false);
+                setShowManualModal(true);
+              }}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center space-x-2 transition-all border border-white/10"
+            >
+              <Keyboard className="w-5 h-5 text-indigo-400" />
+              <span className="text-sm font-bold uppercase tracking-wider">Ingreso Manual</span>
+            </button>
+          </div>
+          <div className="flex space-x-4">
             <div className="flex items-center space-x-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
               <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Hardware OK</span>
@@ -276,11 +336,52 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
             </div>
           </div>
           <p className="text-slate-500 text-sm leading-relaxed">
-            Muestre su código QR personal frente a la cámara.
-            Asegúrese de que haya suficiente iluminación.
+            Muestre su código QR personal frente a la cámara o ingrese su DNI manualmente.
           </p>
         </div>
       </div>
+
+      {showManualModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Ingreso Manual</h3>
+              <button 
+                onClick={() => {
+                  setShowManualModal(false);
+                  setScanning(true);
+                }} 
+                className="p-2 hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-500" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleManualSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Número de DNI</label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={manualDni}
+                  onChange={e => setManualDni(e.target.value)}
+                  className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-6 py-4 text-white text-2xl font-black focus:outline-none focus:border-indigo-500 transition-colors"
+                  placeholder="00.000.000"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={processingManual}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+              >
+                {processingManual ? 'PROCESANDO...' : 'REGISTRAR ASISTENCIA'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes scan {

@@ -17,7 +17,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     const [rules, setRules] = useState<AttendanceRules>({
         en_horario: 5,
         llego_tarde: 30,
-        max_mensual: 15
+        max_mensual: 15,
+        ausente_gracia: 120
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -118,6 +119,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                                 type="number"
                                                 value={rules.llego_tarde}
                                                 onChange={e => setRules({ ...rules, llego_tarde: parseInt(e.target.value) })}
+                                                className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-slate-500">Minutos</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Tiempo de Gracia para Ausencia</label>
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="number"
+                                                value={rules.ausente_gracia}
+                                                onChange={e => setRules({ ...rules, ausente_gracia: parseInt(e.target.value) })}
                                                 className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <span className="text-sm font-bold text-slate-500">Minutos</span>

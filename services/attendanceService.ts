@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { AttendanceRecord, Profile } from '../types';
 import { settingsService } from './settingsService';
+import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 export const attendanceService = {
@@ -12,6 +13,20 @@ export const attendanceService = {
 
         if (error) {
             console.error('Error fetching attendance records:', error);
+            return [];
+        }
+        return data || [];
+    },
+
+    async getByDateRange(startDate: string, endDate: string): Promise<AttendanceRecord[]> {
+        const { data, error } = await supabase
+            .from('attendance_records')
+            .select('*')
+            .gte('date', startDate)
+            .lte('date', endDate);
+
+        if (error) {
+            console.error('Error fetching attendance records by range:', error);
             return [];
         }
         return data || [];
@@ -194,7 +209,7 @@ export const attendanceService = {
         return data;
     },
 
-    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso'): Promise<AttendanceRecord | null> {
+    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones'): Promise<AttendanceRecord | null> {
         const { data, error } = await supabase
             .from('attendance_records')
             .insert([
@@ -249,18 +264,15 @@ export const attendanceService = {
                         .eq('date', dateStr)
                         .single();
 
-                    let status: 'ausente' | 'descanso' | null = null;
+                    let status: 'ausente' | 'descanso' | 'vacaciones' | null = null;
 
                     if (schedule) {
-                        status = schedule.type === 'off' ? 'descanso' : 'ausente';
-                    } else if (isSunday) {
-                        status = 'descanso';
-                    } else {
-                        status = 'ausente'; // Opcional: si no hay horario, ¿se considera ausente? 
+                        status = schedule.type === 'off' ? 'descanso' : 
+                                 schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
                     }
 
                     if (status) {
-                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status);
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
                     }
                 }
             }
@@ -279,10 +291,21 @@ export const attendanceService = {
                 .maybeSingle();
 
             if (exists) return id;
-            console.warn(`UUID ${id} no encontrado en perfiles. Intentando recuperar por nombre...`);
+            console.warn(`UUID ${id} no encontrado en perfiles. Intentando recuperar por nombre o DNI...`);
         }
 
-        // 2. Si no es UUID o no se encontró, buscar por nombre (Case Insensitive)
+        // 2. Buscar por DNI (si el id pasado parece un DNI o si el nombre se omitió en modo manual)
+        if (id && id !== 'PENDING') {
+            const { data: byDni } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('dni', id)
+                .maybeSingle();
+            
+            if (byDni) return byDni.id;
+        }
+
+        // 3. Si no es UUID o no se encontró por DNI, buscar por nombre (Case Insensitive)
         console.log(`Resolving by name: ${name}`);
         const { data } = await supabase
             .from('profiles')
@@ -343,6 +366,102 @@ export const attendanceService = {
             } else {
                 return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
+        }
+    },
+
+    async recalculateAttendance(employeeId: string, startDate: string, endDate: string, managerName: string): Promise<{ updated: number, errors: number }> {
+        let updatedCount = 0;
+        let errorCount = 0;
+
+        try {
+            // 1. Obtener registros de asistencia en el rango (excluyendo manuales)
+            const { data: records, error: recordsError } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .eq('employee_id', employeeId)
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .not('status', 'eq', 'manual');
+
+            if (recordsError) throw recordsError;
+            if (!records || records.length === 0) return { updated: 0, errors: 0 };
+
+            // 2. Obtener cronogramas para el mismo rango
+            const { data: schedules, error: schedError } = await supabase
+                .from('schedules')
+                .select('date, type, segments')
+                .eq('employee_id', employeeId)
+                .gte('date', startDate)
+                .lte('date', endDate);
+
+            if (schedError) throw schedError;
+
+            // 3. Obtener reglas actuales
+            const rules = await settingsService.getRules();
+
+            // 4. Procesar cada registro
+            for (const record of records) {
+                const schedule = schedules?.find(s => s.date === record.date);
+                if (!schedule) continue;
+
+                let newStatus = record.status;
+                let newMinutesLate = record.minutes_late;
+
+                if (record.check_in && schedule.segments && schedule.segments.length > 0) {
+                    const checkInDate = new Date(record.check_in);
+                    const firstSegment = schedule.segments[0];
+                    const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
+                    
+                    const scheduledTime = new Date(checkInDate);
+                    scheduledTime.setHours(schedHours, schedMins, 0, 0);
+
+                    const diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+                    newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
+
+                    if (newMinutesLate > rules.llego_tarde) {
+                        newStatus = 'sin_presentismo';
+                    } else if (newMinutesLate > rules.en_horario) {
+                        newStatus = 'tarde';
+                    } else {
+                        newStatus = 'en_horario';
+                    }
+                } else if (!record.check_in) {
+                    // Recalcular inasistencias basadas en nuevo tipo de cronograma
+                    newStatus = schedule.type === 'off' ? 'descanso' : 
+                               schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
+                }
+
+                // Solo actualizar si algo cambió
+                if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
+                    const { error: updateError } = await supabase
+                        .from('attendance_records')
+                        .update({ status: newStatus, minutes_late: newMinutesLate })
+                        .eq('id', record.id);
+                    
+                    if (updateError) {
+                        console.error(`Error updating record ${record.id}:`, updateError);
+                        errorCount++;
+                    } else {
+                        updatedCount++;
+                    }
+                }
+            }
+
+            // 5. Registrar en auditoría
+            const { data: empData } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+            await auditService.logAction({
+                manager_name: managerName,
+                employee_name: empData?.full_name || 'Empleado Desconocido',
+                action: 'Recálculo de Asistencia',
+                old_value: 'N/A',
+                new_value: `Periodo: ${startDate} al ${endDate}`,
+                reason: 'Ajuste masivo por cambio de cronograma'
+            });
+
+            return { updated: updatedCount, errors: errorCount };
+        } catch (err) {
+            console.error('Error in recalculateAttendance:', err);
+            return { updated: updatedCount, errors: 1 };
         }
     }
 };

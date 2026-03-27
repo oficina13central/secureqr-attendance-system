@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
+  dni TEXT,
   role TEXT REFERENCES roles(id),
   sector_id TEXT REFERENCES sectors(id),
   photo_url TEXT,
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   date TEXT NOT NULL,
   check_in TEXT,
   check_out TEXT,
-  status TEXT CHECK(status IN ('presente', 'en_horario', 'tarde', 'ausente', 'manual', 'sin_presentismo', 'pendiente', 'descanso')) NOT NULL,
+  status TEXT CHECK(status IN ('presente', 'en_horario', 'tarde', 'ausente', 'manual', 'sin_presentismo', 'pendiente', 'descanso', 'vacaciones')) NOT NULL,
+  minutes_late INTEGER DEFAULT 0,
   manual_reason TEXT
 );
 
@@ -74,7 +76,7 @@ CREATE TABLE IF NOT EXISTS schedules (
   id TEXT PRIMARY KEY,
   employee_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
-  type TEXT CHECK(type IN ('continuous', 'split', 'off')) NOT NULL,
+  type TEXT CHECK(type IN ('continuous', 'split', 'off', 'vacation')) NOT NULL,
   segments JSONB NOT NULL,
   last_modified_by TEXT,
   last_modified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
