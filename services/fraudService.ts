@@ -3,8 +3,8 @@ import { attendanceService } from './attendanceService';
 import { auditService } from './auditService';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Usamos v1 (estable) en lugar de v1beta para mayor compatibilidad
-const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1/models`;
+// Usamos v1beta ya que es la que soporta los modelos 1.5 Flash y Pro actualmente
+const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models`;
 
 export const fraudService = {
   async analyzeRecentAttendance(): Promise<FraudReport> {
@@ -60,10 +60,10 @@ export const fraudService = {
       // Intentar primero con gemini-1.5-flash
       let response = await callGemini('gemini-1.5-flash');
       
-      // Si falla con 404, intentar con gemini-1.5-pro como fallback
+      // Si falla con 404, intentar con gemini-pro (el alias más compatible para v1/v1beta)
       if (response.status === 404) {
-        console.warn('gemini-1.5-flash no encontrado (404), intentando fallback con gemini-1.5-pro...');
-        response = await callGemini('gemini-1.5-pro');
+        console.warn('gemini-1.5-flash no encontrado (404), intentando fallback con gemini-pro...');
+        response = await callGemini('gemini-pro');
       }
 
       if (!response.ok) {
