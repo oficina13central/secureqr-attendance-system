@@ -16,6 +16,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
   const [lastUser, setLastUser] = useState<string | null>(null);
   const [scanType, setScanType] = useState<'in' | 'out' | null>(null);
+  const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null);
   const [attendanceMsg, setAttendanceMsg] = useState<string>('');
   const [msgColor, setMsgColor] = useState<string>('text-emerald-300');
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -30,7 +31,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
 
-  const startSession = () => {
+  const startSession = (mode: 'in' | 'out') => {
+    setScanMode(mode);
     setSessionActive(true);
     setScanning(true);
     setStatus('idle');
@@ -134,8 +136,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       }
 
       if (employeeId && employeeId !== "PENDING") {
-        console.log(`Procesando escaneo: Nombre=${employeeName}, ID=${employeeId}`);
-        const result = await attendanceService.processScan(employeeId, employeeName);
+        console.log(`Procesando escaneo (${scanMode}): Nombre=${employeeName}, ID=${employeeId}`);
+        const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined);
 
         if (result.type === 'in' || result.type === 'out') {
           setStatus('success');
@@ -158,13 +160,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
             setAttendanceMsg('Salida Registrada');
             setMsgColor('text-blue-300');
           }
-        } else if (result.reason === 'check_out_too_soon') {
-          setStatus('wait');
-          setLastUser(employeeName);
+        } else if (result.reason === 'already_checked_in') {
+          setStatus('duplicate');
+          setAttendanceMsg('Ya tenés una entrada abierta');
+        } else if (result.reason === 'no_open_record') {
+          setStatus('error');
+          setAttendanceMsg('No tenés entrada registrada');
         } else if (result.reason === 'queued_offline') {
           setStatus('success');
           setLastUser(employeeName);
-          setScanType('in'); // Default for offline feedback
+          setScanType(scanMode || 'in'); 
           setAttendanceMsg('Guardado Offline (Sin Internet)');
           setMsgColor('text-amber-400');
           setPendingCount(offlineService.count);
@@ -223,19 +228,27 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       
       const employeeName = data?.full_name || "Usuario";
       
-      const result = await attendanceService.processScan(manualDni.trim(), employeeName);
+      const result = await attendanceService.processScan(manualDni.trim(), employeeName, scanMode || undefined);
 
       if (result.type === 'in' || result.type === 'out') {
         setStatus('success');
         setLastUser(employeeName);
         setScanType(result.type);
-        setAttendanceMsg(result.type === 'in' ? 'Entrada Manual' : 'Salida Manual');
+        setAttendanceMsg(result.type === 'in' ? 'Entrada Registrada' : 'Salida Registrada');
         setMsgColor(result.type === 'in' ? 'text-emerald-300' : 'text-blue-300');
         setShowManualModal(false);
         setManualDni('');
+      } else if (result.reason === 'already_checked_in') {
+        setStatus('duplicate');
+        setAttendanceMsg('Ya Marcó Entrada');
+        setShowManualModal(false);
+      } else if (result.reason === 'no_open_record') {
+        setStatus('error');
+        setAttendanceMsg('No Marcó Entrada');
+        setShowManualModal(false);
       } else {
         setStatus('error');
-        setAttendanceMsg('DNI no encontrado');
+        setAttendanceMsg('Error al registrar');
         setShowManualModal(false);
       }
     } catch (err) {
@@ -296,13 +309,22 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
                 <h2 className="text-2xl font-black text-white uppercase tracking-widest">Listo para Fichar</h2>
                 <p className="text-slate-400 text-sm max-w-[250px] mx-auto">Presione registrar para encender la cámara y escanear su código.</p>
               </div>
-              <button
-                  onClick={startSession}
-                  className="w-full md:w-auto px-10 py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl rounded-[2rem] shadow-[0_0_50px_rgba(79,70,229,0.3)] transition-all active:scale-95 flex items-center justify-center space-x-4 uppercase tracking-wider group"
-              >
-                  <Camera className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                  <span>Registrar Fichaje</span>
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
+                <button
+                    onClick={() => startSession('in')}
+                    className="px-8 py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xl rounded-[2rem] shadow-[0_0_50px_rgba(16,185,129,0.3)] transition-all active:scale-95 flex items-center justify-center space-x-4 uppercase tracking-wider group"
+                >
+                    <CheckCircle2 className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                    <span>ENTRADA</span>
+                </button>
+                <button
+                    onClick={() => startSession('out')}
+                    className="px-8 py-6 bg-rose-600 hover:bg-rose-500 text-white font-black text-xl rounded-[2rem] shadow-[0_0_50px_rgba(225,29,72,0.3)] transition-all active:scale-95 flex items-center justify-center space-x-4 uppercase tracking-wider group"
+                >
+                    <RefreshCcw className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                    <span>SALIDA</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -432,7 +454,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Ingreso Manual</h3>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">
+                {scanMode === 'in' ? 'Registrar Entrada' : 'Registrar Salida'}
+              </h3>
               <button 
                 onClick={() => {
                   setShowManualModal(false);

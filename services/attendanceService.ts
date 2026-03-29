@@ -256,12 +256,14 @@ export const attendanceService = {
         return { success: successCount, failed: failedCount };
     },
 
-    async processScan(employeeId: string, employeeName: string): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
+    async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out'): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
         try {
             const resolvedId = await this.resolveEmployeeId(employeeId, employeeName);
             if (!resolvedId) return { type: 'error', record: null, reason: 'user_not_found' };
 
             const today = getLocalDateString();
+            
+            // 1. Buscar si hay un registro abierto hoy
             const { data: openRecord, error: fetchError } = await supabase
                 .from('attendance_records')
                 .select('*')
@@ -275,11 +277,27 @@ export const attendanceService = {
 
             if (fetchError) throw fetchError;
 
+            // MODO ENFORZADO: ENTRADA
+            if (enforcedMode === 'in') {
+                if (openRecord) {
+                    return { type: 'error', record: null, reason: 'already_checked_in' };
+                }
+                const result = await this.recordCheckIn(resolvedId, employeeName);
+                if (result) return { type: 'in', record: result, reason: 'check_in_success' };
+                else return { type: 'error', record: null, reason: 'daily_limit_reached' };
+            }
+
+            // MODO ENFORZADO: SALIDA
+            if (enforcedMode === 'out') {
+                if (!openRecord) {
+                    return { type: 'error', record: null, reason: 'no_open_record' };
+                }
+                const result = await this.recordCheckOut(openRecord.id);
+                return { type: 'out', record: result, reason: 'check_out_success' };
+            }
+
+            // MODO AUTOMÁTICO (Fallback o Legacy)
             if (openRecord) {
-                const checkInTime = new Date(openRecord.check_in!).getTime();
-                const nowTime = new Date().getTime();
-                const elapsedMinutes = (nowTime - checkInTime) / (1000 * 60);
-                if (elapsedMinutes < 10) return { type: 'error', record: null, reason: 'check_out_too_soon' };
                 const result = await this.recordCheckOut(openRecord.id);
                 return { type: 'out', record: result, reason: 'check_out_success' };
             } else {
