@@ -3,7 +3,8 @@ import { attendanceService } from './attendanceService';
 import { auditService } from './auditService';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Usamos gemini-1.5-flash para máxima velocidad y estabilidad regional
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 export const fraudService = {
   async analyzeRecentAttendance(): Promise<FraudReport> {
@@ -36,6 +37,10 @@ export const fraudService = {
         }
       `;
 
+      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'PLACEHOLDER_API_KEY') {
+        throw new Error('API_KEY_NOT_CONFIGURED');
+      }
+
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: {
@@ -44,28 +49,53 @@ export const fraudService = {
         body: JSON.stringify({
           contents: [{
             parts: [{ text: prompt }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.1, // Baja creatividad para resultados más exactos
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 2048,
+          }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Error en la comunicación con Gemini');
+        const errorData = await response.json();
+        console.error('Gemini API Error details:', errorData);
+        throw new Error(`Error en la comunicación con Gemini: ${response.status}`);
       }
 
       const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       
-      // Limpiar el markdown si Gemini lo incluye
-      const jsonStr = text.replace(/```json|```/g, '').trim();
-      return JSON.parse(jsonStr) as FraudReport;
+      if (!text) {
+        throw new Error('No se recibió texto de la IA');
+      }
+      
+      // Limpiar el markdown si Gemini lo incluye (regex más robusta)
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No se encontró un bloque JSON válido en la respuesta');
+      }
 
-    } catch (error) {
+      return JSON.parse(jsonMatch[0]) as FraudReport;
+
+    } catch (error: any) {
       console.error('Error en el análisis de fraude cruzado:', error);
+      
+      const isMissingKey = error.message === 'API_KEY_NOT_CONFIGURED';
+
       return {
         risk_level: 'bajo',
-        summary: 'No se pudo realizar el análisis de IA en este momento.',
-        anomalies: ['Error de conexión cruzada con el servicio de IA y los registros de auditoría'],
-        recommendations: ['Verifique su conexión a internet y la configuración de la API Key.']
+        summary: isMissingKey 
+          ? 'Análisis desactivado: No se ha configurado la API Key de Gemini.' 
+          : 'No se pudo realizar el análisis de IA en este momento.',
+        anomalies: isMissingKey 
+          ? ['Configuración pendiente de VITE_GEMINI_API_KEY'] 
+          : ['Error de conexión cruzada con el servicio de IA'],
+        recommendations: isMissingKey 
+          ? ['Obtenga una API Key gratuita en https://aistudio.google.com/ e instálela en su archivo .env.local'] 
+          : ['Verifique su conexión a internet y el estado de la cuota de la API Key.']
       };
     }
   }
