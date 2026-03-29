@@ -81,21 +81,27 @@ export const fraudService = {
       return JSON.parse(jsonMatch[0]) as FraudReport;
 
     } catch (error: any) {
-      console.error('Error en el análisis de fraude cruzado:', error);
+      console.error('Error en el análisis de fraude:', error);
       
       const isMissingKey = error.message === 'API_KEY_NOT_CONFIGURED';
+      const keySnippet = GEMINI_API_KEY && GEMINI_API_KEY !== 'PLACEHOLDER_API_KEY' 
+        ? `${GEMINI_API_KEY.substring(0, 4)}... (Cargada)` 
+        : 'No detectada / Placeholder';
 
       return {
         risk_level: 'bajo',
         summary: isMissingKey 
-          ? 'Análisis desactivado: No se ha configurado la API Key de Gemini.' 
-          : 'No se pudo realizar el análisis de IA en este momento.',
-        anomalies: isMissingKey 
-          ? ['Configuración pendiente de VITE_GEMINI_API_KEY'] 
-          : ['Error de conexión cruzada con el servicio de IA'],
-        recommendations: isMissingKey 
-          ? ['Obtenga una API Key gratuita en https://aistudio.google.com/ e instálela en su archivo .env.local'] 
-          : ['Verifique su conexión a internet y el estado de la cuota de la API Key.']
+          ? 'Error: API Key de Gemini no detectada.' 
+          : `Error de Diagnóstico: ${error.message}`,
+        anomalies: [
+          `Estado de Key: ${keySnippet}`,
+          `Detalle del error: ${error.message || 'Error desconocido'}`
+        ],
+        recommendations: [
+          'Si está en VERCEL: Agregue VITE_GEMINI_API_KEY en Settings > Environment Variables.',
+          'Si está LOCAL: Reinicie el servidor (npm run dev) para cargar .env.local.',
+          'Verifique que la "Generative Language API" esté habilitada en Google Cloud para esta Key.'
+        ]
       };
     }
   }
