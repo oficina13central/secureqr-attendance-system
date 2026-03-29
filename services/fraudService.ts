@@ -2,11 +2,25 @@ import { AttendanceRecord, FraudReport } from '../types';
 import { attendanceService } from './attendanceService';
 import { auditService } from './auditService';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Usamos v1beta ya que es la que soporta los modelos 1.5 Flash y Pro actualmente
+// Sanitización de la API Key (elimina espacios accidentales de Vercel)
+const RAW_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_API_KEY = RAW_KEY.trim();
+
 const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models`;
+const GEMINI_STABLE_URL = `https://generativelanguage.googleapis.com/v1/models`;
 
 export const fraudService = {
+  async listAvailableModels(): Promise<string[]> {
+    try {
+      const response = await fetch(`${GEMINI_BASE_URL}?key=${GEMINI_API_KEY}`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.models?.map((m: any) => m.name.replace('models/', '')) || [];
+    } catch {
+      return [];
+    }
+  },
+
   async analyzeRecentAttendance(): Promise<FraudReport> {
     try {
       const [records, auditLogs] = await Promise.all([
@@ -14,7 +28,6 @@ export const fraudService = {
         auditService.getAll()
       ]);
       
-      // Tomar los últimos 100 registros de asistencia y 50 logs de auditoría
       const recentRecords = records.slice(0, 100);
       const recentLogs = auditLogs.slice(0, 50);
 
@@ -68,46 +81,46 @@ export const fraudService = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Gemini API Error details:', errorData);
-        throw new Error(`Error en la comunicación con Gemini: ${response.status} ${errorData.error?.message || ''}`);
+        const errorMsg = errorData.error?.message || 'Error desconocido';
+        const models = await this.listAvailableModels();
+        
+        throw new Error(`[${response.status}] ${errorMsg} | Modelos disponibles: ${models.join(', ') || 'Ninguno'}`);
       }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       
       if (!text) {
-        throw new Error('No se recibió texto de la IA');
+        throw new Error('La IA no devolvió texto. Revise su cuota.');
       }
       
-      // Limpiar el markdown si Gemini lo incluye (regex más robusta)
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No se encontró un bloque JSON válido en la respuesta');
+        console.log('Respuesta cruda de Gemini:', text);
+        throw new Error('Formato de respuesta inválido (No JSON)');
       }
 
       return JSON.parse(jsonMatch[0]) as FraudReport;
 
     } catch (error: any) {
-      console.error('Error en el análisis de fraude:', error);
+      console.error('Error de diagnóstico profundo:', error);
       
-      const isMissingKey = error.message === 'API_KEY_NOT_CONFIGURED';
-      const keySnippet = GEMINI_API_KEY && GEMINI_API_KEY !== 'PLACEHOLDER_API_KEY' 
-        ? `${GEMINI_API_KEY.substring(0, 4)}... (Cargada)` 
-        : 'No detectada / Placeholder';
+      const isMissingKey = !GEMINI_API_KEY || GEMINI_API_KEY === 'PLACEHOLDER_API_KEY';
+      const keySnippet = GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 6)}...` : 'Nula';
 
       return {
         risk_level: 'bajo',
         summary: isMissingKey 
-          ? 'Error: API Key de Gemini no detectada.' 
-          : `Error de Diagnóstico: ${error.message}`,
+          ? 'Error: API Key de Gemini no detectada o vacía.' 
+          : `Diagnóstico: ${error.message}`,
         anomalies: [
-          `Estado de Key: ${keySnippet}`,
-          `Detalle del error: ${error.message || 'Error desconocido'}`
+          `Key Detectada: ${keySnippet}`,
+          `Origen del error: ${error.message}`
         ],
         recommendations: [
-          'Si está en VERCEL: Agregue VITE_GEMINI_API_KEY en Settings > Environment Variables.',
-          'Si está LOCAL: Reinicie el servidor (npm run dev) para cargar .env.local.',
-          'Verifique que la "Generative Language API" esté habilitada en Google Cloud para esta Key.'
+          'VERCEL: Settings > Environment Variables > VITE_GEMINI_API_KEY (sin espacios!).',
+          'GOOGLE: Asegúrese de que la Generative Language API esté HABILITADA.',
+          'Consulte los modelos listados arriba en el mensaje de error.'
         ]
       };
     }
