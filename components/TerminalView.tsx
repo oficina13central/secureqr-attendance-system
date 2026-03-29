@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X } from 'lucide-react';
+import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X, Settings } from 'lucide-react';
 import jsQR from 'jsqr';
 import { attendanceService } from '../services/attendanceService';
 import { supabase } from '../services/supabaseClient';
@@ -18,6 +17,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const [scanType, setScanType] = useState<'in' | 'out' | null>(null);
   const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null);
   const [attendanceMsg, setAttendanceMsg] = useState<string>('');
+  const [terminalName, setTerminalName] = useState<string>(() => localStorage.getItem('terminal_branch_name') || 'PLANTA INDUSTRIAL NORTE');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(terminalName);
   const [msgColor, setMsgColor] = useState<string>('text-emerald-300');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -37,6 +39,13 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
     setScanning(true);
     setStatus('idle');
     setCameraError(null);
+  };
+
+  const handleSaveName = () => {
+    const finalName = tempName.trim().toUpperCase() || 'PLANTA INDUSTRIAL NORTE';
+    setTerminalName(finalName);
+    localStorage.setItem('terminal_branch_name', finalName);
+    setIsEditingName(false);
   };
 
   useEffect(() => {
@@ -293,9 +302,38 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 z-10 w-full pt-12 md:pt-0">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-2 group relative">
           <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400">LECTOR DE ACCESO</h1>
-          <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">Planta Industrial Norte</p>
+          {isEditingName ? (
+            <div className="flex items-center justify-center space-x-2 animate-in fade-in zoom-in duration-200">
+              <input 
+                autoFocus
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                className="bg-slate-800 text-white text-[10px] md:text-xs font-black uppercase text-center px-4 py-1 rounded-full border border-indigo-500/50 outline-none"
+              />
+              <button onClick={handleSaveName} className="text-emerald-400 p-1">
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center space-x-2">
+              <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">
+                {terminalName}
+              </p>
+              <button 
+                onClick={() => {
+                  setTempName(terminalName);
+                  setIsEditingName(true);
+                }} 
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600 hover:text-indigo-400"
+              >
+                <Settings className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="relative w-full max-w-xl flex-grow md:flex-none h-full min-h-[400px] md:h-[550px] bg-slate-900 rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-4 md:border-8 border-slate-800 shadow-2xl flex items-center justify-center">
