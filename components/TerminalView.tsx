@@ -182,14 +182,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         setStatus('idle');
         setSessionActive(false);
         setScanning(false);
-      }, 3500);
+      }, 6000);
     } else {
       setStatus('error');
       setTimeout(() => {
         setStatus('idle');
         setSessionActive(false);
         setScanning(false);
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -247,7 +247,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         setStatus('idle');
         setSessionActive(false);
         setScanning(false);
-      }, 3500);
+      }, 6000);
     }
   };
 
