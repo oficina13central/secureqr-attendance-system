@@ -3,11 +3,13 @@ import {
   Users,
   Calendar,
   ShieldCheck,
+  ShieldAlert,
   BarChart3,
   LogOut,
   ScanLine,
   Settings,
-  History
+  History,
+  UserCog
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -18,6 +20,7 @@ import PersonnelAudit from './components/PersonnelAudit';
 import SettingsView from './components/SettingsView';
 import FraudAnalysis from './components/FraudAnalysis';
 import AttendanceCalendarView from './components/AttendanceCalendarView';
+import UserManagementView from './components/UserManagementView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
@@ -25,7 +28,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud';
+type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud' | 'users';
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -33,6 +36,11 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   React.useEffect(() => {
     // Initial session check
@@ -51,8 +59,13 @@ const App: React.FC = () => {
       });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordResetModal(true);
+      }
+
       if (session) {
         fetchProfile(session.user.id);
       } else {
@@ -97,6 +110,31 @@ const App: React.FC = () => {
     return () => window.removeEventListener('change-view', handleChangeView);
   }, []);
 
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setResetError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setResettingPassword(true);
+    setResetError('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setResetSuccess(true);
+      setTimeout(() => {
+        setShowPasswordResetModal(false);
+        setResetSuccess(false);
+        setNewPassword('');
+      }, 3000);
+    } catch (err: any) {
+      setResetError(err.message || 'Error al actualizar la contraseña');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const renderAdminView = () => {
     // Si no tiene permisos para ver dashboard y no es admin/super, mostrar vista de empleado
     const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
@@ -126,6 +164,7 @@ const App: React.FC = () => {
       case 'audit': return <AuditView />;
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'fraud': return <FraudAnalysis />;
+      case 'users': return <UserManagementView currentUser={currentUser!} />;
       default: return <AdminDashboard />;
     }
   };
@@ -143,6 +182,43 @@ const App: React.FC = () => {
 
   if (!session) {
     return <Login onLoginSuccess={setSession} />;
+  }
+
+  // Check for suspension
+  if (currentUser?.is_suspended) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white">
+        <div className="max-w-md w-full bg-slate-800 rounded-[3rem] p-10 shadow-2xl border border-slate-700 text-center space-y-8 animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto border border-red-500/30">
+            <ShieldAlert className="w-10 h-10 text-red-500" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black tracking-tight">Acceso Bloqueado</h2>
+            <p className="text-slate-400 font-medium leading-relaxed">
+              Lo sentimos, <strong>{currentUser.full_name}</strong>. Su cuenta ha sido suspendida por la administración del sistema.
+            </p>
+            {currentUser.suspended_reason && (
+              <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50">
+                <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1">Motivo informado:</p>
+                <p className="text-sm text-red-400 font-bold italic">"{currentUser.suspended_reason}"</p>
+              </div>
+            )}
+            {currentUser.suspended_until && (
+              <p className="text-xs font-bold text-amber-500 bg-amber-500/10 py-2 px-4 rounded-xl inline-block border border-amber-500/20">
+                Válido hasta: {new Date(currentUser.suspended_until).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <button 
+            onClick={() => authService.signOut()}
+            className="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-2xl font-black text-sm transition-all flex items-center justify-center space-x-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>CERRAR SESIÓN</span>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -165,6 +241,7 @@ const App: React.FC = () => {
               { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
               { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users, permission: 'VIEW_PERSONNEL_AUDIT' },
               { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
+              { id: 'users', label: 'Usuarios', icon: UserCog, permission: 'MANAGE_USERS' },
               { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
             ]
               .filter(item => {
@@ -236,6 +313,51 @@ const App: React.FC = () => {
           <TerminalView onExit={() => setMainView('admin')} />
         )}
       </main>
+      {/* Password Reset Modal */}
+      {showPasswordResetModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800">Nueva Contraseña</h3>
+              <p className="text-sm text-slate-500 font-medium">Establece la nueva clave de acceso para tu cuenta.</p>
+            </div>
+
+            {resetSuccess ? (
+              <div className="bg-emerald-50 text-emerald-700 p-6 rounded-2xl flex flex-col items-center space-y-3 animate-in fade-in zoom-in-95">
+                <ShieldCheck className="w-10 h-10" />
+                <p className="font-bold text-center">¡Contraseña actualizada con éxito!</p>
+                <p className="text-xs opacity-60">Redirigiendo...</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nueva Contraseña</label>
+                  <input 
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-lg font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                  />
+                  {resetError && <p className="text-xs text-red-500 font-bold px-1">{resetError}</p>}
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={resettingPassword}
+                  className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {resettingPassword ? 'ACTUALIZANDO...' : 'GUARDAR CONTRASEÑA'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

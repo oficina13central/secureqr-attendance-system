@@ -23,7 +23,7 @@ import AttendanceCalendarView from './AttendanceCalendarView';
 
 interface PersonnelAuditProps {
     employees?: Profile[];
-    currentUser?: { name: string; role: string; sector_id?: string; full_name?: string };
+    currentUser?: { name: string; role: string; sector_id?: string; full_name?: string; managed_sectors?: string[] };
 }
 
 const PersonnelAudit: React.FC<PersonnelAuditProps> = ({ 
@@ -38,6 +38,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [sectors, setSectors] = useState<Sector[]>([]);
+    const [verazScores, setVerazScores] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
 
     // Filtros avanzados
     const [selectedSectorId, setSelectedSectorId] = useState<string>('all');
@@ -74,9 +75,31 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         setLoading(false);
     };
 
+    // Returns all sector IDs the currentUser has access to
+    const getAccessibleSectorIds = (): string[] => {
+        if (!currentUser) return [];
+        const ids = new Set<string>();
+        if (currentUser.sector_id) ids.add(currentUser.sector_id);
+        (currentUser.managed_sectors || []).forEach(id => ids.add(id));
+        return Array.from(ids);
+    };
+
     useEffect(() => {
         loadData();
     }, [initialEmployees]);
+
+    useEffect(() => {
+        const fetchScores = async () => {
+            if (employees.length === 0) return;
+            const scoresMap: Record<string, any> = {};
+            await Promise.all(employees.map(async (emp) => {
+                const s = await attendanceService.calculateVerazScore(emp.id);
+                scoresMap[emp.id] = s;
+            }));
+            setVerazScores(scoresMap);
+        };
+        fetchScores();
+    }, [employees]);
 
     useEffect(() => {
         const handleToggleView = (e: any) => {
@@ -170,6 +193,15 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 data.sector.toLowerCase().includes(searchTerm.toLowerCase());
 
             const employee = employees.find(e => e.id === data.id);
+            const accessibleSectorIds = getAccessibleSectorIds();
+
+            // If role is admin/superusuario, show all; otherwise restrict to accessible sectors
+            const isAdmin = currentUser?.role === 'administrador' || currentUser?.role === 'superusuario';
+            const empSectorId = employee?.sector_id || '';
+            const hasAccess = isAdmin || accessibleSectorIds.length === 0 ||
+                accessibleSectorIds.includes(empSectorId) ||
+                sectors.find(s => s.name === empSectorId && accessibleSectorIds.includes(s.id)) !== undefined;
+
             const matchesSector = selectedSectorId === 'all' ||
                 employee?.sector_id === selectedSectorId ||
                 sectors.find(s => s.id === selectedSectorId)?.name === employee?.sector_id;
@@ -178,7 +210,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 (!showOnlyAbsences || data.absences > 0) &&
                 (!showOnlyNoPresentismo || data.lostPresentismo > 0);
 
-            return matchesSearch && matchesSector && matchesIssue;
+            return matchesSearch && hasAccess && matchesSector && matchesIssue;
         });
     }, [employees, records, selectedDate, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors]);
 
@@ -435,7 +467,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tardanza Total</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ausencias</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Perdió el Presentismo</th>
-                                <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Cumplimiento</th>
+                                <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Scoring</th>
                                 <th className="px-8 py-5"></th>
                             </tr>
                         </thead>
@@ -479,14 +511,17 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                         </span>
                                     </td>
                                     <td className="px-8 py-6 text-center">
-                                        <div className="flex flex-col items-center">
-                                            <div className="w-16 h-1 w-full bg-slate-100 rounded-full overflow-hidden mb-2">
-                                                <div
-                                                    className={`h-full transition-all duration-1000 ${data.compliance > 90 ? 'bg-emerald-500' : data.compliance > 75 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                                    style={{ width: `${data.compliance}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{Math.round(data.compliance)}% Eficiencia</span>
+                                        <div className="flex justify-center">
+                                            {verazScores[data.id] ? (
+                                                <div className={`inline-flex items-center px-4 py-2 rounded-xl border shadow-sm ${verazScores[data.id].color}`}>
+                                                    <div className="flex flex-col text-center w-full">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">{verazScores[data.id].label}</span>
+                                                        <span className="text-sm font-bold opacity-90">{verazScores[data.id].score} pts</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="w-32 h-12 bg-slate-100 animate-pulse rounded-xl border border-slate-200"></div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">

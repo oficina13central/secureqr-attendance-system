@@ -16,6 +16,7 @@ import {
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
+import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
@@ -25,7 +26,7 @@ interface ScheduleViewProps {
 
 // Ensure we have defaults if props are missing
 const defaultEmployees: Profile[] = [];
-const defaultUser = { name: 'Guest', role: 'invitado', sector_id: '' };
+const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' };
 
 // Types are now imported from scheduleService
 
@@ -33,7 +34,7 @@ const defaultUser = { name: 'Guest', role: 'invitado', sector_id: '' };
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const diff = d.getDate() - day; // Subtract current day of week to jump to Sunday (0)
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -55,6 +56,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 }) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
+  const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchSectors = async () => {
+      try {
+        const s = await sectorService.getAll();
+        const dict: Record<string, string> = {};
+        s.forEach(sec => dict[sec.id] = sec.name);
+        setSectorMap(dict);
+      } catch (e) {}
+    };
+    fetchSectors();
+  }, []);
 
   useEffect(() => {
     const fetchShifts = async () => {
@@ -354,7 +368,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
               >
                 <option value="all">Todos</option>
-                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+                {sectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
               </select>
             </div>
           )}

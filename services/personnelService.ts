@@ -38,7 +38,7 @@ export const personnelService = {
             .single();
 
         if (error) {
-            console.error('Error updating profile:', error);
+            console.error('Error updating profile:', error.message, '| Code:', error.code, '| Details:', error.details, '| Hint:', error.hint);
             return null;
         }
         return data;

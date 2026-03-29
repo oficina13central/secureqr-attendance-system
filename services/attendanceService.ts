@@ -463,5 +463,75 @@ export const attendanceService = {
             console.error('Error in recalculateAttendance:', err);
             return { updated: updatedCount, errors: 1 };
         }
+    },
+
+    async calculateVerazScore(employeeId: string): Promise<{ score: number, category: number, label: string, color: string }> {
+        const now = new Date();
+        const pastDate = new Date();
+        pastDate.setDate(now.getDate() - 90); // Ventana de 90 días
+        
+        const startDate = getLocalDateString(pastDate);
+        const endDate = getLocalDateString(now);
+
+        const { data: records, error } = await supabase
+            .from('attendance_records')
+            .select('date, status')
+            .eq('employee_id', employeeId)
+            .gte('date', startDate)
+            .lte('date', endDate);
+
+        let finalScore = 999;
+        let category = 1;
+        let label = 'Clase 1 (Normal)';
+        let color = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+
+        if (error || !records || records.length === 0) {
+            return { score: finalScore, category, label, color }; 
+        }
+
+        let totalPenalty = 0;
+
+        for (const record of records) {
+            // Ignorar justificados y llegadas en tiempo
+            if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+
+            const rDate = new Date(`${record.date}T12:00:00`); // Usar mediodía para evitar husos horarios extraños
+            const diffTime = Math.abs(now.getTime() - rDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            // Factor de decaimiento (Curva de Sanación en 90 días)
+            let weight = 0;
+            if (diffDays <= 30) weight = 1.0;
+            else if (diffDays <= 60) weight = 0.6; // 31-60 días pesa menos
+            else if (diffDays <= 90) weight = 0.3; // 61-90 días pesa casi nada
+            
+            if (weight === 0) continue;
+
+            let penalty = 0;
+            if (record.status === 'ausente') penalty = 50;
+            else if (record.status === 'sin_presentismo') penalty = 20;
+            else if (record.status === 'tarde') penalty = 10;
+
+            totalPenalty += (penalty * weight);
+        }
+
+        finalScore = 999 - Math.round(totalPenalty);
+        if (finalScore < 0) finalScore = 0;
+        if (finalScore > 999) finalScore = 999;
+
+        // Categorización Visual
+        if (finalScore >= 850) {
+            category = 1; label = 'Clase 1 (Asistencia Perfecta)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        } else if (finalScore >= 700) {
+            category = 2; label = 'Clase 2 (Asistencia Mejorable)'; color = 'bg-amber-100 text-amber-700 border-amber-300';
+        } else if (finalScore >= 500) {
+            category = 3; label = 'Clase 3 (Asistencia Deficiente)'; color = 'bg-orange-100 text-orange-700 border-orange-300';
+        } else if (finalScore >= 300) {
+            category = 4; label = 'Clase 4 (Llegador tarde Crónico)'; color = 'bg-rose-100 text-rose-700 border-rose-300';
+        } else {
+            category = 5; label = 'Clase 5 (Irrecuperable)'; color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner';
+        }
+
+        return { score: finalScore, category, label, color };
     }
 };

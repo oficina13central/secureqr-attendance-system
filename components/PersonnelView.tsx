@@ -19,6 +19,7 @@ import { personnelService } from '../services/personnelService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { roleService } from '../services/roleService';
+import { attendanceService } from '../services/attendanceService';
 import { Role } from '../types';
 
 interface PersonnelViewProps {
@@ -34,6 +35,17 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [success, setSuccess] = useState<boolean>(false);
     const [sectors, setSectors] = useState<Sector[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [verazScores, setVerazScores] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedClass, setSelectedClass] = useState<string>('all');
+
+    // Helper: get all sector IDs this user can manage (own sector + managed_sectors)
+    const getAccessibleSectorIds = (user: Profile): string[] => {
+        const ids = new Set<string>();
+        if (user.sector_id) ids.add(user.sector_id);
+        (user.managed_sectors || []).forEach(id => ids.add(id));
+        return Array.from(ids);
+    };
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -47,6 +59,33 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         fetchData();
     }, []);
 
+    React.useEffect(() => {
+        const fetchScores = async () => {
+            if (employees.length === 0) return;
+            const scoresMap: Record<string, any> = {};
+            await Promise.all(employees.map(async (emp) => {
+                const s = await attendanceService.calculateVerazScore(emp.id);
+                scoresMap[emp.id] = s;
+            }));
+            setVerazScores(scoresMap);
+        };
+        fetchScores();
+    }, [employees]);
+
+    const filteredEmployees = React.useMemo(() => {
+        return employees.filter(emp => {
+            const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
+            const matchesSearch = emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                sectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (emp.dni && emp.dni.includes(searchTerm));
+            
+            const scoreCategory = verazScores[emp.id]?.category?.toString() || '1';
+            const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
+            
+            return matchesSearch && matchesClass;
+        });
+    }, [employees, searchTerm, selectedClass, sectors, verazScores]);
+
     // Initial Data is now passed via props from App.tsx
 
     const [formData, setFormData] = useState<Partial<Profile>>({
@@ -55,12 +94,30 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         email: '',
         dni: '',
         role: 'encargado',
-        sector_id: ''
+        sector_id: '',
+        managed_sectors: []
     });
+
+    // Toggle a sector in the managed_sectors array of formData
+    const toggleManagedSector = (sectorId: string) => {
+        const current = formData.managed_sectors || [];
+        const updated = current.includes(sectorId)
+            ? current.filter(id => id !== sectorId)
+            : [...current, sectorId];
+        setFormData({ ...formData, managed_sectors: updated });
+    };
+
+    // Check if a role name suggests manager-level access
+    const isManagerRole = (roleId: string): boolean => {
+        const roleData = roles.find(r => r.id === roleId);
+        if (!roleData) return false;
+        const name = roleData.name.toLowerCase();
+        return name.includes('encargado') || name.includes('administrador') || name.includes('supervisor') || name.includes('superusuario');
+    };
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', sector_id: '' });
+        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', sector_id: '', managed_sectors: [] });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -68,7 +125,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openEditModal = (employee: Profile) => {
         setIsEditing(true);
-        setFormData({ ...employee });
+        setFormData({ ...employee, managed_sectors: employee.managed_sectors || [] });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -80,13 +137,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
         try {
             if (isEditing && formData.id) {
-                // Update existing
-                const updatedProfile = {
+                // Update existing — only include columns that exist in the DB, exclude joined fields like 'roles'
+                const updatedProfile: Record<string, any> = {
                     full_name: formData.full_name!,
                     email: formData.email || '',
                     dni: formData.dni || '',
                     role: formData.role as string,
-                    sector_id: formData.sector_id,
+                    sector_id: formData.sector_id || null,
+                    managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_${formData.id}`
                 };
 
@@ -95,7 +153,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     setEmployees(employees.map(emp => emp.id === formData.id ? result : emp));
                     setSuccess(true);
                 } else {
-                    setError('Error al actualizar el empleado. Intente de nuevo.');
+                    setError('Error al actualizar el empleado. Verifique los permisos en Supabase (RLS).');
                     return;
                 }
             } else {
@@ -106,6 +164,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     dni: formData.dni || '',
                     role: formData.role as string,
                     sector_id: formData.sector_id || 'General',
+                    managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_PENDING`
                 };
 
@@ -189,6 +248,51 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
     };
 
+    const handleExportList = () => {
+        // Ordenar primero por Sector y luego por Nombre
+        const sorted = [...filteredEmployees].sort((a, b) => {
+            const sectorA = (sectors.find(s => s.id === a.sector_id)?.name || a.sector_id || 'General').toLowerCase();
+            const sectorB = (sectors.find(s => s.id === b.sector_id)?.name || b.sector_id || 'General').toLowerCase();
+            
+            if (sectorA < sectorB) return -1;
+            if (sectorA > sectorB) return 1;
+            
+            if (a.full_name.toLowerCase() < b.full_name.toLowerCase()) return -1;
+            if (a.full_name.toLowerCase() > b.full_name.toLowerCase()) return 1;
+            return 0;
+        });
+
+        const headers = ["Nombre", "DNI", "Rol", "Sector", "Clasificacion", "Puntos"];
+        const rows = sorted.map(emp => {
+            const roleName = roles.find(r => r.id === emp.role)?.name || emp.role;
+            const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
+            const scoreData = verazScores[emp.id];
+            
+            return [
+                emp.full_name,
+                emp.dni || '-',
+                roleName,
+                sectorName,
+                scoreData ? scoreData.label : 'Sin Datos',
+                scoreData ? scoreData.score : '-'
+            ];
+        });
+
+        const csvContent = [
+            headers.join(";"),
+            ...rows.map(row => row.join(";"))
+        ].join("\n");
+
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Directorio_Personal_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
             {/* Header */}
@@ -202,6 +306,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
                 <div className="flex items-center space-x-3">
                     <button
+                        onClick={handleExportList}
+                        className="flex items-center space-x-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+                    >
+                        <Download className="w-5 h-5 text-slate-400" />
+                        <span className="hidden sm:inline">Exportar Lista</span>
+                    </button>
+                    <button
                         onClick={openAddModal}
                         className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all active:scale-95"
                     >
@@ -213,13 +324,36 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
             {/* Directory Table */}
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden print:hidden">
-                <div className="p-6 border-b border-slate-50 flex items-center space-x-4">
-                    <Search className="w-5 h-5 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o sector..."
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-medium text-slate-700 placeholder-slate-400"
-                    />
+                <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row items-center gap-4">
+                    <div className="relative flex-1 w-full">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, DNI o sector..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all cursor-text text-left"
+                            style={{ WebkitAppearance: 'none' }}
+                        />
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+                            style={{ minWidth: '220px' }}
+                        >
+                            <option value="all">Todos los Scorings</option>
+                            <option value="1">🟢 Clase 1 (Perfecta)</option>
+                            <option value="2">🟡 Clase 2 (Mejorable)</option>
+                            <option value="3">🟠 Clase 3 (Deficiente)</option>
+                            <option value="4">🔴 Clase 4 (Crónico)</option>
+                            <option value="5">🌑 Clase 5 (Irrecuperable)</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -229,11 +363,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">DNI</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Rol</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Sector</th>
+                                <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Scoring</th>
                                 <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {employees.map((emp) => (
+                            {filteredEmployees.map((emp) => (
                                 <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-8 py-4">
                                         <div className="flex items-center space-x-3">
@@ -253,6 +388,18 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     </td>
                                     <td className="px-8 py-4 text-sm font-medium text-slate-500">
                                         {sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General'}
+                                    </td>
+                                    <td className="px-8 py-4">
+                                        {verazScores[emp.id] ? (
+                                            <div className={`inline-flex items-center px-3 py-1.5 rounded-xl border ${verazScores[emp.id].color}`}>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">{verazScores[emp.id].label}</span>
+                                                    <span className="text-xs font-bold mt-1 opacity-90">{verazScores[emp.id].score} pts</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="w-24 h-10 bg-slate-100 animate-pulse rounded-xl"></div>
+                                        )}
                                     </td>
                                     <td className="px-8 py-4 text-right">
                                         <div className="flex items-center justify-end space-x-3">
@@ -289,86 +436,134 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             {/* Add/Edit Employee Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-                    <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
-                        <div className="flex justify-between items-center mb-6">
+                    <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col" style={{ maxHeight: '90vh' }}>
+                        
+                        {/* Fixed Header */}
+                        <div className="flex justify-between items-center px-8 pt-7 pb-4 border-b border-slate-100 flex-shrink-0">
                             <h3 className="text-2xl font-black text-slate-800">{isEditing ? 'Editar Empleado' : 'Nuevo Empleado'}</h3>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                                 <X className="w-6 h-6 text-slate-400" />
                             </button>
                         </div>
 
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
-                                <div className="flex items-center space-x-2">
-                                    <X className="w-5 h-5" />
-                                    <span>{error}</span>
+                        {/* Scrollable Body */}
+                        <div className="overflow-y-auto flex-1 px-8 py-5">
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
+                                    <div className="flex items-center space-x-2">
+                                        <X className="w-5 h-5" />
+                                        <span>{error}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {success && (
-                            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
-                                <div className="flex items-center space-x-2">
-                                    <Check className="w-5 h-5" />
-                                    <span>{isEditing ? 'Empleado actualizado' : 'Empleado registrado correctamente'}</span>
+                            {success && (
+                                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
+                                    <div className="flex items-center space-x-2">
+                                        <Check className="w-5 h-5" />
+                                        <span>{isEditing ? 'Empleado actualizado' : 'Empleado registrado correctamente'}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        <form onSubmit={handleSaveEmployee} className="space-y-6">
-                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nombre Completo</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.full_name}
-                                    onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                                    placeholder="Ej. Ana García"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">DNI</label>
-                                <input
-                                    type="text"
-                                    value={formData.dni}
-                                    onChange={e => setFormData({ ...formData, dni: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                                    placeholder="Ej. 12345678"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sector / Área</label>
-                                <select
-                                    required
-                                    value={formData.sector_id}
-                                    onChange={e => setFormData({ ...formData, sector_id: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                                >
-                                    <option value="">Seleccionar Sector...</option>
-                                    {sectors.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rol</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                                >
-                                    <option value="">Seleccionar Rol...</option>
-                                    {roles.map(r => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            <form id="employee-form" onSubmit={handleSaveEmployee} className="space-y-4">
+                                {/* Nombre y DNI en grid de 2 columnas */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nombre Completo</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.full_name}
+                                            onChange={e => setFormData({ ...formData, full_name: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. Ana García"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">DNI</label>
+                                        <input
+                                            type="text"
+                                            value={formData.dni}
+                                            onChange={e => setFormData({ ...formData, dni: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. 12345678"
+                                        />
+                                    </div>
+                                </div>
 
-                            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/30 transition-all">
+                                {/* Sector y Rol en grid de 2 columnas */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sector / Área</label>
+                                        <select
+                                            required
+                                            value={formData.sector_id}
+                                            onChange={e => setFormData({ ...formData, sector_id: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {sectors.map(s => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rol</label>
+                                        <select
+                                            value={formData.role}
+                                            onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {roles.map(r => (
+                                                <option key={r.id} value={r.id}>{r.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Panel de sectores adicionales */}
+                                {isManagerRole(formData.role || '') && sectors.length > 0 && (
+                                    <div className="space-y-2 pt-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sectores a Cargo (Adicionales)</label>
+                                            <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-lg">
+                                                {(formData.managed_sectors || []).length} seleccionados
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1 bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto">
+                                            {sectors.filter(s => s.id !== formData.sector_id).map(sector => {
+                                                const isChecked = (formData.managed_sectors || []).includes(sector.id);
+                                                return (
+                                                    <label key={sector.id} className={`flex items-center space-x-3 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm ${isChecked ? 'bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold' : 'hover:bg-white text-slate-600 font-medium border border-transparent'}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => toggleManagedSector(sector.id)}
+                                                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 flex-shrink-0"
+                                                        />
+                                                        <span>{sector.name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 italic">Sector principal asignado arriba. Aquí marque los sectores extra.</p>
+                                    </div>
+                                )}
+                            </form>
+                        </div>
+
+                        {/* Fixed Footer with Save Button */}
+                        <div className="px-8 py-5 border-t border-slate-100 flex-shrink-0 bg-slate-50/80 rounded-b-[2rem]">
+                            <button
+                                type="submit"
+                                form="employee-form"
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-base shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                            >
                                 {isEditing ? 'Guardar Cambios' : 'Registrar Empleado'}
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}

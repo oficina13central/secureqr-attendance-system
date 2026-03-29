@@ -15,6 +15,7 @@ import {
 import { Profile, AttendanceRecord } from '../types';
 import { scheduleService, ShiftData } from '../services/scheduleService';
 import { attendanceService } from '../services/attendanceService';
+import { sectorService } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface AttendanceCalendarViewProps {
@@ -26,7 +27,7 @@ interface AttendanceCalendarViewProps {
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const diff = d.getDate() - day; // Subtract current day of week to jump to Sunday (0)
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -49,6 +50,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord[]>>({});
+  const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   // Modal State
@@ -60,9 +62,10 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
       const startDate = formatDate(currentWeekStart);
       const endDate = formatDate(addDays(currentWeekStart, 6));
 
-      const [shiftsData, attendanceData] = await Promise.all([
+      const [shiftsData, attendanceData, sectorsData] = await Promise.all([
         scheduleService.getByWeek(startDate, endDate),
-        attendanceService.getByDateRange(startDate, endDate)
+        attendanceService.getByDateRange(startDate, endDate),
+        sectorService.getAll()
       ]);
 
       const shiftMap = shiftsData.reduce((acc, shift) => {
@@ -77,8 +80,12 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
         return acc;
       }, {} as Record<string, AttendanceRecord[]>);
 
+      const sMap: Record<string, string> = {};
+      sectorsData.forEach(s => sMap[s.id] = s.name);
+
       setShifts(shiftMap);
       setAttendance(attendanceMap);
+      setSectorMap(sMap);
       setLoading(false);
     };
     fetchData();
@@ -234,7 +241,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                       </div>
                       <div>
                         <p className="font-bold text-slate-700 text-sm whitespace-nowrap">{emp.full_name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{emp.sector_id || 'Sin Sector'}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{emp.sector_id ? (sectorMap[emp.sector_id] || emp.sector_id) : 'Sin Sector'}</p>
                       </div>
                     </div>
                   </td>

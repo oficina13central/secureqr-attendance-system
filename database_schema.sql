@@ -37,7 +37,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   sector_id TEXT REFERENCES sectors(id),
   photo_url TEXT,
   qr_token TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- User management fields
+  is_suspended BOOLEAN DEFAULT FALSE,
+  suspended_until TIMESTAMP WITH TIME ZONE DEFAULT NULL, -- NULL = permanent
+  suspended_reason TEXT DEFAULT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL       -- NULL = active
 );
 
 CREATE TABLE IF NOT EXISTS attendance_records (
@@ -87,6 +92,7 @@ INSERT INTO permissions (id, name, category) VALUES
 ('MANAGE_RULES', 'Configuración de reglas', 'Sistema'),
 ('MANAGE_SECTORS', 'Gestión de sectores', 'Empresa'),
 ('MANAGE_ROLES', 'Gestión de roles y permisos', 'Sistema'),
+('MANAGE_USERS', 'Administración de usuarios', 'Sistema'),
 ('VIEW_AUDIT_LOGS', 'Ver logs de sistema', 'Auditoría'),
 ('VIEW_PERSONNEL_AUDIT', 'Auditoría de personal completa', 'Auditoría'),
 ('MANAGE_PERSONNEL', 'Gestión de personal global', 'Personal'),

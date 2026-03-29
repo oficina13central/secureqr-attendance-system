@@ -123,10 +123,12 @@ export const authService = {
             full_name: 'Isaac Gomez (Admin)',
             email: 'isaacgomez78@gmail.com',
             role: 'superusuario',
+            is_suspended: false,
+            deleted_at: null,
             roles: {
                 id: 'superusuario',
                 name: 'Modo Emergencia',
-                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES']
+                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
             }
         };
 
@@ -151,12 +153,25 @@ export const authService = {
         // Forzar permisos de superusuario siempre para este usuario específico
         if (profile.email === 'isaacgomez78@gmail.com') {
             profile.role = 'superusuario';
+            profile.is_suspended = false;
+            profile.deleted_at = null;
             profile.roles = {
                 id: 'superusuario',
                 name: 'Superusuario',
-                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES']
+                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
             };
             return profile;
+        }
+
+        // Logic for checking effective suspension
+        if (profile.is_suspended) {
+            if (profile.suspended_until) {
+                const isStillSuspended = new Date(profile.suspended_until) > new Date();
+                if (!isStillSuspended) {
+                    // Auto-lift in-memory (DB will be updated when an admin views the user list or next login)
+                    profile.is_suspended = false;
+                }
+            }
         }
 
         try {

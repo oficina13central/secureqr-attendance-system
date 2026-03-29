@@ -10,7 +10,8 @@ interface TerminalViewProps {
 }
 
 const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
-  const [scanning, setScanning] = useState(true);
+  const [sessionActive, setSessionActive] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
   const [lastUser, setLastUser] = useState<string | null>(null);
   const [scanType, setScanType] = useState<'in' | 'out' | null>(null);
@@ -24,6 +25,13 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
+
+  const startSession = () => {
+    setSessionActive(true);
+    setScanning(true);
+    setStatus('idle');
+    setCameraError(null);
+  };
 
   useEffect(() => {
     async function setupCamera() {
@@ -145,13 +153,15 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
 
       setTimeout(() => {
         setStatus('idle');
-        setScanning(true);
+        setSessionActive(false);
+        setScanning(false);
       }, 3500);
     } else {
       setStatus('error');
       setTimeout(() => {
         setStatus('idle');
-        setScanning(true);
+        setSessionActive(false);
+        setScanning(false);
       }, 3000);
     }
   };
@@ -195,7 +205,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       setProcessingManual(false);
       setTimeout(() => {
         setStatus('idle');
-        setScanning(true);
+        setSessionActive(false);
+        setScanning(false);
       }, 3500);
     }
   };
@@ -219,7 +230,27 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         </div>
 
         <div className="relative w-full max-w-lg aspect-square bg-slate-900 rounded-[2.5rem] overflow-hidden border-8 border-slate-800 shadow-2xl flex items-center justify-center">
-          {scanning && !cameraError && (
+          
+          {!sessionActive && status === 'idle' && (
+            <div className="flex flex-col items-center justify-center w-full h-full p-8 text-center bg-slate-900 space-y-8 animate-in zoom-in duration-300">
+              <div className="p-8 bg-indigo-900/30 rounded-full border border-indigo-500/20">
+                <ScanLine className="w-20 h-20 text-indigo-400 opacity-90" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-white uppercase tracking-widest">Listo para Fichar</h2>
+                <p className="text-slate-400 text-sm max-w-[250px] mx-auto">Presione registrar para encender la cámara y escanear su código.</p>
+              </div>
+              <button
+                  onClick={startSession}
+                  className="px-8 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg rounded-2xl shadow-[0_0_40px_rgba(79,70,229,0.4)] transition-all active:scale-95 flex items-center space-x-3 uppercase tracking-wider"
+              >
+                  <Camera className="w-6 h-6" />
+                  <span>Registrar Asistencia</span>
+              </button>
+            </div>
+          )}
+
+          {sessionActive && scanning && !cameraError && (
             <>
               <video
                 ref={videoRef}

@@ -24,6 +24,12 @@ export interface Profile {
   photo_url?: string;
   qr_token?: string;
   roles?: Role; // Joined data
+  managed_sectors?: string[]; // IDs de sectores adicionales que este encargado controla
+  // User management fields
+  is_suspended?: boolean;
+  suspended_until?: string | null;  // ISO date string, null = permanent
+  suspended_reason?: string;
+  deleted_at?: string | null;       // ISO date string, null = active
 }
 
 export interface AttendanceRecord {
