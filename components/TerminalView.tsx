@@ -318,11 +318,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
                     <span>ENTRADA</span>
                 </button>
                 <button
-                    onClick={() => startSession('out')}
-                    className="px-8 py-6 bg-rose-600 hover:bg-rose-500 text-white font-black text-xl rounded-[2rem] shadow-[0_0_50px_rgba(225,29,72,0.3)] transition-all active:scale-95 flex items-center justify-center space-x-4 uppercase tracking-wider group"
+                    disabled
+                    className="px-8 py-6 bg-slate-800 text-slate-500 font-black text-xl rounded-[2rem] flex items-center justify-center space-x-4 uppercase tracking-wider cursor-not-allowed opacity-60 border border-slate-700"
                 >
-                    <RefreshCcw className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                    <span>SALIDA</span>
+                    <RefreshCcw className="w-8 h-8 opacity-50" />
+                    <div className="flex flex-col items-center">
+                      <span>SALIDA</span>
+                      <span className="text-[10px] text-slate-600 font-black">Próximamente</span>
+                    </div>
                 </button>
               </div>
             </div>
