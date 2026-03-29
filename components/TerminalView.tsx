@@ -229,7 +229,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
           <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">Planta Industrial Norte</p>
         </div>
 
-        <div className="relative w-full max-w-xl flex-grow md:flex-none md:h-[550px] bg-slate-900 rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-4 md:border-8 border-slate-800 shadow-2xl flex items-center justify-center">
+        <div className="relative w-full max-w-xl flex-grow md:flex-none h-full min-h-[400px] md:h-[550px] bg-slate-900 rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-4 md:border-8 border-slate-800 shadow-2xl flex items-center justify-center">
           
           {!sessionActive && status === 'idle' && (
             <div className="flex flex-col items-center justify-center w-full h-full p-8 text-center bg-slate-900 space-y-8 animate-in zoom-in duration-300">
@@ -254,7 +254,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
             <>
               <video
                 ref={videoRef}
-                className="absolute inset-0 w-full h-full object-cover opacity-60"
+                className="absolute inset-0 w-full h-full object-cover"
               />
               <canvas ref={canvasRef} className="hidden" />
               <div className="absolute inset-0 border-[0.5rem] md:border-[1.5rem] border-slate-900 pointer-events-none"></div>
