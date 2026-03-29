@@ -393,12 +393,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
                 <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Número de DNI</label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   autoFocus
                   required
                   value={manualDni}
-                  onChange={e => setManualDni(e.target.value)}
+                  onChange={e => setManualDni(e.target.value.replace(/\D/g, ''))}
                   className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-6 py-4 text-white text-2xl font-black focus:outline-none focus:border-indigo-500 transition-colors"
-                  placeholder="00.000.000"
+                  placeholder="00000000"
                 />
               </div>
               
