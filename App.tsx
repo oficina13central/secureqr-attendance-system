@@ -21,6 +21,7 @@ import SettingsView from './components/SettingsView';
 import FraudAnalysis from './components/FraudAnalysis';
 import AttendanceCalendarView from './components/AttendanceCalendarView';
 import UserManagementView from './components/UserManagementView';
+import MyCredentialView from './components/MyCredentialView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
@@ -140,20 +141,7 @@ const App: React.FC = () => {
     const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
 
     if (!hasDashboardAccess && currentUser) {
-      return (
-        <div className="p-8 flex flex-col items-center justify-center h-full text-slate-500">
-          <div className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center max-w-md">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <ShieldCheck className="w-8 h-8 text-slate-400" />
-            </div>
-            <h2 className="text-xl font-black text-slate-800 mb-2">Acceso Limitado</h2>
-            <p className="text-sm mb-6">Su cuenta de empleado está activa, pero no tiene permisos administrativos.</p>
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-500">
-              {currentUser.full_name}
-            </p>
-          </div>
-        </div>
-      );
+      return <MyCredentialView user={currentUser} />;
     }
 
     switch (adminSubView) {
