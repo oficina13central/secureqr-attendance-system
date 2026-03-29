@@ -4,6 +4,7 @@ import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldA
 import jsQR from 'jsqr';
 import { attendanceService } from '../services/attendanceService';
 import { supabase } from '../services/supabaseClient';
+import { offlineService } from '../services/offlineService';
 
 interface TerminalViewProps {
   onExit: () => void;
@@ -21,6 +22,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualDni, setManualDni] = useState('');
   const [processingManual, setProcessingManual] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncing, setSyncing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,6 +38,20 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   };
 
   useEffect(() => {
+    setPendingCount(offlineService.count);
+
+    const handleOnline = async () => {
+      setIsOnline(true);
+      await performSync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Sync inicial si estamos online
+    if (navigator.onLine) performSync();
+
     async function setupCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -56,6 +74,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
     }
 
     return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
@@ -141,6 +161,13 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         } else if (result.reason === 'check_out_too_soon') {
           setStatus('wait');
           setLastUser(employeeName);
+        } else if (result.reason === 'queued_offline') {
+          setStatus('success');
+          setLastUser(employeeName);
+          setScanType('in'); // Default for offline feedback
+          setAttendanceMsg('Guardado Offline (Sin Internet)');
+          setMsgColor('text-amber-400');
+          setPendingCount(offlineService.count);
         } else if (result.reason === 'daily_limit_reached') {
           setStatus('duplicate');
         } else {
@@ -163,6 +190,19 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         setSessionActive(false);
         setScanning(false);
       }, 3000);
+    }
+  };
+
+  const performSync = async () => {
+    if (offlineService.count === 0 || syncing) return;
+    setSyncing(true);
+    try {
+      await attendanceService.syncOfflineRecords();
+      setPendingCount(offlineService.count);
+    } catch (err) {
+      console.error("Sync process error:", err);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -222,6 +262,22 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         <ArrowLeft className="w-5 h-5" />
         <span className="font-bold text-xs uppercase tracking-widest">Salir</span>
       </button>
+
+      <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col items-end space-y-2 z-50">
+        <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+          <span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? 'Online' : 'Sin Conexión'}</span>
+        </div>
+        
+        {(pendingCount > 0 || syncing) && (
+          <div className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full backdrop-blur-md animate-in slide-in-from-right duration-300">
+            {syncing ? <RefreshCcw className="w-3 h-3 animate-spin" /> : <ShieldAlert className="w-3 h-3" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {syncing ? 'Sincronizando...' : `${pendingCount} Pendiente${pendingCount > 1 ? 's' : ''}`}
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 z-10 w-full pt-12 md:pt-0">
         <div className="text-center space-y-2">
