@@ -70,13 +70,13 @@ export const fraudService = {
         return response;
       };
 
-      // Intentar primero con gemini-2.0-flash (confirmado en el diagnóstico del usuario)
-      let response = await callGemini('gemini-2.0-flash');
+      // Intentar primero con gemini-flash-latest (alias estable para el tier gratuito)
+      let response = await callGemini('gemini-flash-latest');
       
-      // Si falla, intentar con gemini-flash-latest como fallback universal
-      if (response.status === 404) {
-        console.warn('gemini-2.0-flash no encontrado, intentando fallback con gemini-flash-latest...');
-        response = await callGemini('gemini-flash-latest');
+      // Si falla, intentar con gemini-pro-latest como fallback robusto
+      if (response.status === 404 || response.status === 429) {
+        console.warn('Falla con flash, intentando fallback con gemini-pro-latest...');
+        response = await callGemini('gemini-pro-latest');
       }
 
       if (!response.ok) {
