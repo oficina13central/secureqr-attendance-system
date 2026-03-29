@@ -23,8 +23,9 @@ const FraudAnalysis: React.FC = () => {
     setLoading(false);
   };
 
+  // Eliminamos el autostart para dar control al usuario
   useEffect(() => {
-    runAnalysis();
+    // Solo mostramos el estado inicial
   }, []);
 
   const getRiskColor = (level: string) => {
@@ -162,8 +163,23 @@ const FraudAnalysis: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="text-center py-20 text-slate-400 font-medium">
-          No hay datos de análisis disponibles. Pulse "Nuevo Análisis" para comenzar.
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-20 flex flex-col items-center justify-center space-y-8 text-center shadow-sm max-w-2xl mx-auto mt-10 animate-in zoom-in duration-500">
+          <div className="p-8 bg-indigo-50 rounded-full">
+            <ShieldAlert className="w-16 h-16 text-indigo-400 opacity-60" />
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Listo para Auditar</h3>
+            <p className="text-slate-500">
+              El análisis cruzado de IA revisará los últimos 100 fichajes y los cambios manuales en el sistema para detectar inconsistencias. Pulse el botón para comenzar.
+            </p>
+          </div>
+          <button
+            onClick={runAnalysis}
+            className="flex items-center space-x-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-600/30 active:scale-95"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>Comenzar Análisis IA</span>
+          </button>
         </div>
       )}
     </div>
