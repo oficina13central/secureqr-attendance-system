@@ -3,8 +3,8 @@ import { attendanceService } from './attendanceService';
 import { auditService } from './auditService';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Usamos gemini-1.5-flash para máxima velocidad y estabilidad regional
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Usamos v1 (estable) en lugar de v1beta para mayor compatibilidad
+const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1/models`;
 
 export const fraudService = {
   async analyzeRecentAttendance(): Promise<FraudReport> {
@@ -41,28 +41,35 @@ export const fraudService = {
         throw new Error('API_KEY_NOT_CONFIGURED');
       }
 
-      const response = await fetch(GEMINI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }],
-          generationConfig: {
-            temperature: 0.1, // Baja creatividad para resultados más exactos
-            topP: 0.95,
-            topK: 40,
-            maxOutputTokens: 2048,
-          }
-        })
-      });
+      const callGemini = async (model: string) => {
+        const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 2048,
+            }
+          })
+        });
+        return response;
+      };
+
+      // Intentar primero con gemini-1.5-flash
+      let response = await callGemini('gemini-1.5-flash');
+      
+      // Si falla con 404, intentar con gemini-1.5-pro como fallback
+      if (response.status === 404) {
+        console.warn('gemini-1.5-flash no encontrado (404), intentando fallback con gemini-1.5-pro...');
+        response = await callGemini('gemini-1.5-pro');
+      }
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         console.error('Gemini API Error details:', errorData);
-        throw new Error(`Error en la comunicación con Gemini: ${response.status}`);
+        throw new Error(`Error en la comunicación con Gemini: ${response.status} ${errorData.error?.message || ''}`);
       }
 
       const data = await response.json();
