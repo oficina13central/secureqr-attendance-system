@@ -212,24 +212,24 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-slate-950 text-white p-4 md:p-8 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950"></div>
+    <div className="fixed inset-0 flex flex-col bg-slate-950 text-white p-4 md:p-10 relative overflow-hidden safe-area-inset">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
       <button
         onClick={onExit}
-        className="absolute top-6 left-6 flex items-center space-x-2 text-slate-400 hover:text-white transition-colors z-20 bg-slate-900/50 px-4 py-2 rounded-full backdrop-blur-sm"
+        className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-slate-400 hover:text-white transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
       >
         <ArrowLeft className="w-5 h-5" />
-        <span className="font-medium">Salir del Terminal</span>
+        <span className="font-bold text-xs uppercase tracking-widest">Salir</span>
       </button>
 
-      <div className="flex-1 flex flex-col items-center justify-center space-y-8 z-10">
+      <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 z-10 w-full pt-12 md:pt-0">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-indigo-400">LECTOR DE ACCESO</h1>
-          <p className="text-slate-500 uppercase tracking-[0.3em] text-xs font-bold">Sucursal: Planta Industrial Norte</p>
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400">LECTOR DE ACCESO</h1>
+          <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">Planta Industrial Norte</p>
         </div>
 
-        <div className="relative w-full max-w-lg aspect-square bg-slate-900 rounded-[2.5rem] overflow-hidden border-8 border-slate-800 shadow-2xl flex items-center justify-center">
+        <div className="relative w-full max-w-xl flex-grow md:flex-none md:h-[550px] bg-slate-900 rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-4 md:border-8 border-slate-800 shadow-2xl flex items-center justify-center">
           
           {!sessionActive && status === 'idle' && (
             <div className="flex flex-col items-center justify-center w-full h-full p-8 text-center bg-slate-900 space-y-8 animate-in zoom-in duration-300">
@@ -242,10 +242,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
               </div>
               <button
                   onClick={startSession}
-                  className="px-8 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg rounded-2xl shadow-[0_0_40px_rgba(79,70,229,0.4)] transition-all active:scale-95 flex items-center space-x-3 uppercase tracking-wider"
+                  className="w-full md:w-auto px-10 py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl rounded-[2rem] shadow-[0_0_50px_rgba(79,70,229,0.3)] transition-all active:scale-95 flex items-center justify-center space-x-4 uppercase tracking-wider group"
               >
-                  <Camera className="w-6 h-6" />
-                  <span>Registrar Asistencia</span>
+                  <Camera className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                  <span>Registrar Fichaje</span>
               </button>
             </div>
           )}
@@ -257,12 +257,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
                 className="absolute inset-0 w-full h-full object-cover opacity-60"
               />
               <canvas ref={canvasRef} className="hidden" />
-              <div className="absolute inset-0 border-[1.5rem] border-slate-900"></div>
-              <div className="absolute inset-12 border-2 border-dashed border-indigo-500/40 rounded-3xl"></div>
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.8)] animate-[scan_2.5s_ease-in-out_infinite]"></div>
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600/20 px-4 py-2 rounded-full backdrop-blur-md border border-indigo-500/30 flex items-center space-x-2">
-                <ScanLine className="w-4 h-4 text-indigo-400 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300">Escaneando...</span>
+              <div className="absolute inset-0 border-[0.5rem] md:border-[1.5rem] border-slate-900 pointer-events-none"></div>
+              <div className="absolute inset-6 md:inset-12 border-2 border-dashed border-indigo-500/30 rounded-3xl pointer-events-none"></div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,1)] animate-scanning-line z-20"></div>
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-indigo-600 px-6 py-3 rounded-full shadow-lg border border-indigo-400/30 flex items-center space-x-3 z-30">
+                <ScanLine className="w-5 h-5 text-white animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-widest text-white">Escaneando QR</span>
               </div>
             </>
           )}
@@ -415,10 +415,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       )}
 
       <style>{`
-        @keyframes scan {
-          0% { transform: translateY(0); opacity: 0.3; }
-          50% { transform: translateY(480px); opacity: 1; }
-          100% { transform: translateY(0); opacity: 0.3; }
+        @keyframes scanning-line {
+          0% { top: 0; opacity: 0; }
+          5% { opacity: 1; }
+          95% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        .animate-scanning-line {
+          animation: scanning-line 3s linear infinite;
         }
         .animate-spin-slow {
           animation: spin 3s linear infinite;
@@ -426,6 +430,19 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .animate-reverse-spin {
+          animation: reverse-spin 2s linear infinite;
+        }
+        @keyframes reverse-spin {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+        .safe-area-inset {
+          padding-top: env(safe-area-inset-top);
+          padding-bottom: env(safe-area-inset-bottom);
+          padding-left: env(safe-area-inset-left);
+          padding-right: env(safe-area-inset-right);
         }
       `}</style>
     </div>
