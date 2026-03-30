@@ -29,7 +29,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud' | 'users';
+type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud' | 'users' | 'my_credential';
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -137,10 +137,12 @@ const App: React.FC = () => {
   };
 
   const renderAdminView = () => {
-    // Si no tiene permisos para ver dashboard y no es admin/super, mostrar vista de empleado
+    // Lógica de renderizado basada en la sub-vista seleccionada
     const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
-
-    if (!hasDashboardAccess && currentUser) {
+    
+    // Si el usuario es un empleado y no estamos en una sub-vista específica válida para él,
+    // o si es su primer ingreso, por defecto mostramos su credencial.
+    if (currentUser?.role === 'empleado' && adminSubView === 'dashboard') {
       return <MyCredentialView user={currentUser} />;
     }
 
@@ -153,6 +155,7 @@ const App: React.FC = () => {
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'fraud': return <FraudAnalysis />;
       case 'users': return <UserManagementView currentUser={currentUser!} />;
+      case 'my_credential': return <MyCredentialView user={currentUser!} />;
       default: return <AdminDashboard />;
     }
   };
@@ -224,6 +227,7 @@ const App: React.FC = () => {
           <nav className="flex-1 space-y-1">
             {[
               { id: 'dashboard', label: 'Panel General', icon: BarChart3, permission: 'VIEW_DASHBOARD' },
+              { id: 'my_credential', label: 'Mi Credencial', icon: ScanLine, permission: 'SELF_VIEW' },
               { id: 'schedule', label: 'Cronogramas', icon: Calendar, permission: 'MANAGE_SCHEDULES' },
               { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
               { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
@@ -233,15 +237,19 @@ const App: React.FC = () => {
               { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
             ]
               .filter(item => {
-                // Si es superusuario, ve todo
-                if (currentUser?.role === 'superusuario') return true;
-                // Si tiene lista de permisos explícita
+                // Si es superusuario o administrador, ve casi todo
+                if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
+                
+                // Empleados y otros roles específicos
+                if (currentUser?.role === 'empleado') {
+                  return ['my_credential', 'schedule'].includes(item.id);
+                }
+
+                // Permisos manuales
                 if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
                   return currentUser.roles.permissions.includes(item.permission);
                 }
-                // Fallback básico por roles si no cargó permisos (e.g. durante migración o error)
-                if (currentUser?.role === 'administrador') return true;
-                // Empleados regulares solo ven cronograma? O nada? Por defecto nada de admin.
+                
                 return false;
               })
               .map((item) => (

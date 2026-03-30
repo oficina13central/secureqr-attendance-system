@@ -21,12 +21,12 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
   employees?: Profile[];
-  currentUser?: { full_name: string; role: string; sector_id?: string };
+  currentUser?: { id?: string; full_name: string; role: string; sector_id?: string };
 }
 
 // Ensure we have defaults if props are missing
 const defaultEmployees: Profile[] = [];
-const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' };
+const defaultUser: { id?: string; full_name: string; role: string; sector_id?: string } = { id: '', full_name: 'Guest', role: 'invitado', sector_id: '' };
 
 // Types are now imported from scheduleService
 
@@ -124,6 +124,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return list.filter(e => e.sector_id === currentUser.sector_id);
     }
 
+    if (currentUser.role === 'empleado') {
+      // Employees only see their own schedule
+      return list.filter(e => e.id === currentUser.id);
+    }
+
     return [];
   }, [employees, currentUser, selectedSector]);
 
@@ -144,7 +149,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleCellClick = (emp: Profile, date: Date) => {
     // Permission Change: Managers can modify.
     const isAuthorized = currentUser.role === 'administrador' || currentUser.role === 'encargado' || currentUser.role === 'superusuario';
-    if (!isAuthorized) return;
+    if (!isAuthorized || currentUser.role === 'empleado') return;
 
     const dateKey = formatDate(date);
     const shiftKey = `${emp.id}_${dateKey}`;
@@ -498,7 +503,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                         {renderCellContent(emp.id, d)}
                         {/* Hover Add Icon */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 pointer-events-none">
-                          {!isPast && <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg"><Clock className="w-3 h-3" /></div>}
+                          {!isPast && currentUser.role !== 'empleado' && (
+                            <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg">
+                              <Clock className="w-3 h-3" />
+                            </div>
+                          )}
                         </div>
                       </td>
                     );
