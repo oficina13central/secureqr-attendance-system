@@ -396,20 +396,35 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         </div>
       </header>
 
-      {/* Print Styles */}
+      {/* Print-Only Header */}
+      <div className="hidden-on-screen print-only print-header">
+        <h1>ASIGNACIÓN SEMANAL DE TURNOS</h1>
+        <div className="print-header-details">
+          <p>Período: {currentWeekStart.toLocaleDateString()} al {addDays(currentWeekStart, 6).toLocaleDateString()}</p>
+          <p>Sector: {selectedSector === 'all' ? 'Todos los Sectores' : selectedSector}</p>
+        </div>
+      </div>
+
       <style>{`
+        .hidden-on-screen {
+          display: none;
+        }
         @media print {
           @page {
-            size: landscape;
-            margin: 10mm;
+            size: A4 landscape;
+            margin: 10mm 15mm;
           }
-          .no-print, button, select, .fixed {
+          .no-print, button, select, .fixed, footer, aside, nav {
             display: none !important;
+          }
+          .print-only {
+            display: block !important;
           }
           body {
             background: white !important;
             padding: 0 !important;
             margin: 0 !important;
+            color: black !important;
           }
           .p-4, .md\\:p-8 {
             padding: 0 !important;
@@ -418,37 +433,92 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             box-shadow: none !important;
           }
           .bg-white {
+            background: white !important;
             border: none !important;
           }
           .rounded-\\[2\\.5rem\\], .rounded-3xl, .rounded-2xl {
             border-radius: 0 !important;
           }
+          
+          /* Professional Print Header */
+          .print-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #1e293b;
+          }
+          .print-header h1 {
+            font-size: 24pt;
+            font-weight: 900;
+            color: #1e293b;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .print-header-details {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 5px;
+          }
+          .print-header-details p {
+            font-size: 11pt;
+            font-weight: 700;
+            color: #475569;
+            margin: 0;
+          }
+
+          /* Table Optimization */
           table {
             width: 100% !important;
             border-collapse: collapse !important;
-            table-layout: auto !important;
+            table-layout: fixed !important;
+            font-size: 10pt !important;
           }
           th, td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 8px 4px !important;
+            border: 1px solid #94a3b8 !important;
+            padding: 6px 2px !important;
+            overflow: hidden;
+            word-wrap: break-word;
           }
-          th.min-w-\\[100px\\] {
-            min-width: auto !important;
+          th {
+            background-color: #f8fafc !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
-          .px-6, .py-6, .px-2, .py-4, .px-8 {
-            padding: 4px !important;
+          .bg-slate-50\\/50 {
+            background-color: #f8fafc !important;
           }
+          
+          /* Adjust columns */
+          th:first-child, td:first-child {
+            width: 180px !important; /* Keep names legible */
+            text-align: left !important;
+            padding-left: 10px !important;
+          }
+
           .sticky {
             position: static !important;
           }
           header {
-            margin-bottom: 10px !important;
-          }
-          .text-3xl {
-            font-size: 1.5rem !important;
+            display: none !important;
           }
           .w-full.overflow-x-auto {
             overflow: visible !important;
+          }
+          
+          /* Visual cell markers */
+          .bg-slate-100 { background-color: #f1f5f9 !important; }
+          .bg-amber-100 { background-color: #fef3c7 !important; }
+          .bg-indigo-100 { background-color: #e0e7ff !important; }
+          .text-amber-700 { color: #b45309 !important; }
+          .text-indigo-700 { color: #4338ca !important; }
+          .text-slate-400 { color: #94a3b8 !important; }
+          
+          /* Force color adjust */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
