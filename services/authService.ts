@@ -123,23 +123,8 @@ export const authService = {
     },
 
     async getUserProfile(userId: string) {
-        // PERFIL DE EMERGENCIA INMEDIATO (Se usa si la BD falla o tarda)
-        const guestProfile = {
-            id: userId,
-            full_name: 'Isaac Gomez (Admin)',
-            email: 'isaacgomez78@gmail.com',
-            role: 'superusuario',
-            is_suspended: false,
-            deleted_at: null,
-            roles: {
-                id: 'superusuario',
-                name: 'Modo Emergencia',
-                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
-            }
-        };
-
         try {
-            // Intentar buscar el real con un timeout corto
+            // Intentar buscar el perfil real con un timeout corto
             const profilePromise = supabase.from('profiles').select('*').eq('id', userId).single();
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000));
 
@@ -148,10 +133,49 @@ export const authService = {
             if (profile) {
                 return await this.enrichProfile(profile);
             }
-            return guestProfile;
+
+            // Failsafe: Si no encontramos el perfil, verificamos si es el superadmin original
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user?.email === 'isaacgomez78@gmail.com') {
+                return {
+                    id: userId,
+                    full_name: 'Isaac Gomez (Admin)',
+                    email: 'isaacgomez78@gmail.com',
+                    role: 'superusuario',
+                    is_suspended: false,
+                    deleted_at: null,
+                    roles: {
+                        id: 'superusuario',
+                        name: 'Modo Emergencia',
+                        permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
+                    }
+                };
+            }
+
+            // Perfil Restringido: Para usuarios que fallaron en la migración o no están aprobados
+            return {
+                id: userId,
+                full_name: 'Usuario Pendiente',
+                email: authData?.user?.email || 'Desconocido',
+                role: 'empleado',
+                is_approved: false,
+                is_suspended: false,
+                deleted_at: null,
+                roles: { id: 'empleado', name: 'Pendiente', permissions: [] }
+            };
         } catch (err) {
             console.error('Bypassing connectivity error:', err);
-            return guestProfile;
+            // Fallback ante desconexión masiva
+            return {
+                id: userId,
+                full_name: 'Usuario Restringido',
+                email: 'Desconocido',
+                role: 'empleado',
+                is_approved: false,
+                is_suspended: false,
+                deleted_at: null,
+                roles: { id: 'empleado', name: 'Desconectado', permissions: [] }
+            };
         }
     },
 

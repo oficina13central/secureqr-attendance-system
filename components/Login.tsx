@@ -24,8 +24,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         try {
             if (isRegistering) {
-                if (!dni || dni.length < 5) {
-                    throw new Error('Debe ingresar un DNI válido');
+                if (!dni || dni.length < 4) {
+                    throw new Error('Debe ingresar un DNI válido (mínimo 4 números)');
                 }
                 await authService.signUp(email, password, fullName, dni);
                 setSuccessMsg('Cuenta creada con éxito. Por favor verifique su correo o inicie sesión.');
