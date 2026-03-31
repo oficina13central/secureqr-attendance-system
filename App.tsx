@@ -265,6 +265,14 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile Backdrop Overlay */}
+      {mainView === 'admin' && isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       {mainView === 'admin' && (
         <aside className={`bg-slate-900 text-white flex flex-col p-4 space-y-8 z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full ${
@@ -308,7 +316,10 @@ const App: React.FC = () => {
               .map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setAdminSubView(item.id as AdminSubView)}
+                  onClick={() => {
+                    setAdminSubView(item.id as AdminSubView);
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  }}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminSubView === item.id ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                 >
                   {React.createElement(item.icon, { className: "w-5 h-5" })}

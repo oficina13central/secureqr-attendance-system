@@ -35,7 +35,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 onLoginSuccess(data.session);
             }
         } catch (err: any) {
-            setError(err.message || 'Error en la operación. Verifique los datos.');
+            if (err.message.includes('User already registered') || err.message.includes('already been registered')) {
+                setError('Esta cuenta ya existe. Por favor, intenta "Iniciar Sesión" con tu contraseña.');
+            } else {
+                setError(err.message || 'Error al crear cuenta. Verifica tus datos.');
+            }
         } finally {
             setLoading(false);
         }

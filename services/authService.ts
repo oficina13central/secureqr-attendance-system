@@ -17,16 +17,35 @@ export const authService = {
 
     async signUp(email: string, password: string, fullName: string, dni: string) {
         // 1. Crear usuario en Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: { full_name: fullName, dni: dni }
-            }
-        });
+        let authData;
+        try {
+            const { data, error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { full_name: fullName, dni: dni }
+                }
+            });
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error("No se pudo crear el usuario");
+            if (authError) {
+                // Si el error es que ya existe, intentamos recuperar la sesión o el ID
+                if (authError.message.toLowerCase().includes('already registered')) {
+                    console.log("Usuario ya existe en Auth. Intentando recuperar perfil...");
+                    // No podemos obtener el ID sin loguear o sin que el usuario confirme, 
+                    // pero podemos intentar el login para 'reparar' si la clave es correcta.
+                    const loginResult = await this.signIn(email, password);
+                    authData = loginResult;
+                } else {
+                    throw authError;
+                }
+            } else {
+                authData = data;
+            }
+        } catch (err: any) {
+             throw err;
+        }
+
+        if (!authData?.user) throw new Error("No se pudo obtener información del usuario");
 
         const newUserId = authData.user.id;
 

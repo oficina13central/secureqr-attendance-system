@@ -255,6 +255,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
               <span className="font-bold text-sm">{message.text}</span>
             </div>
           )}
+          <button 
+            onClick={loadData}
+            disabled={loading}
+            className="p-3 bg-white text-slate-600 hover:text-indigo-600 rounded-2xl shadow-sm border border-slate-100 transition-all hover:bg-slate-50 disabled:opacity-50"
+            title="Recargar Lista"
+          >
+            <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </header>
 
@@ -341,6 +349,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                             <p className="font-black text-slate-800 flex items-center">
                               {user.full_name}
                               {user.id === currentUser.id && <span className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-lg">Tú</span>}
+                              {status === 'pending' && <span className="ml-2 px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase rounded-lg animate-pulse">Pendiente</span>}
                             </p>
                             <p className="text-xs text-slate-400 font-bold">{user.email}</p>
                           </div>
@@ -349,7 +358,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                       <td className="px-8 py-6">
                         <select 
                           value={user.role}
-                          disabled={user.id === currentUser.id || user.deleted_at || isS}
+                          disabled={user.id === currentUser.id || !!user.deleted_at || !!isS}
                           onChange={(e) => handleChangeRole(user.id, user.full_name, user.role, e.target.value)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider outline-none border transition-all ${
                             user.role === 'superusuario' ? 'bg-purple-50 text-purple-600 border-purple-100' :
