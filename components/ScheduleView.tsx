@@ -401,7 +401,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         <h1>ASIGNACIÓN SEMANAL DE TURNOS</h1>
         <div className="print-header-details">
           <p>Período: {currentWeekStart.toLocaleDateString()} al {addDays(currentWeekStart, 6).toLocaleDateString()}</p>
-          <p>Sector: {selectedSector === 'all' ? 'Todos los Sectores' : selectedSector}</p>
+          <p>Sector: {selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector)}</p>
         </div>
       </div>
 
