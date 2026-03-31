@@ -406,15 +406,31 @@ export const attendanceService = {
         if (error || !records || records.length === 0) return { score: 999, category: 1, label: 'Clase 1 (Normal)', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
 
         let totalPenalty = 0;
+        let medicalPenalty = 0;
+        
         for (const record of records) {
-            if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+            if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+            
             const rDate = new Date(`${record.date}T12:00:00`);
             const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
             let weight = diffDays <= 30 ? 1.0 : diffDays <= 60 ? 0.6 : diffDays <= 90 ? 0.3 : 0;
             if (weight === 0) continue;
-            let penalty = record.status === 'ausente' ? 50 : record.status === 'sin_presentismo' ? 20 : 10;
-            totalPenalty += (penalty * weight);
+
+            if (record.status === 'licencia_medica') {
+                medicalPenalty += (10 * weight); // Descuento base por licencia médica (equivale a una llegada tarde)
+            } else {
+                let penalty = record.status === 'ausente' ? 50 : record.status === 'sin_presentismo' ? 20 : 10;
+                totalPenalty += (penalty * weight);
+            }
         }
+
+        // Aplicar la Regla de "Tope por Evento" (Opción A) para licencias médicas
+        // El máximo impacto negativo de una licencia será 50 puntos (el equivalente a 1 sola ausencia injustificada).
+        if (medicalPenalty > 50) {
+            medicalPenalty = 50;
+        }
+
+        totalPenalty += medicalPenalty;
 
         finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
         let category = 1, label = '', color = '';

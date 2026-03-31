@@ -16,6 +16,7 @@ import {
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
+import { attendanceService } from '../services/attendanceService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -212,20 +213,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     // Simple block: if targetDate < today (start of day), block?
     // User said: "before the entry time".
-    if (now > targetDateTime) {
+    if (now > targetDateTime && editForm.type !== 'medical') {
       // Technically this blocks editing past shifts. Which is what they requested ("no despues para evitar amiguismos").
       // But what if they made a mistake?
       // User instruction: "Solo ... antes del horario de entrada no despues". Rigid rule.
-      // I will add a Warning but Allow for "Administrador" maybe? No, stick to rule for "Encargado".
+      // Exception: Medical leaves are usually reported post-facto.
       if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
-        alert("No se puede modificar un horario que ya ha comenzado (Regla: Evitar amiguismos).");
+        alert("No se puede modificar un horario que ya ha comenzado (Regla: Evitar amiguismos). Las únicas excepciones son las Licencias Médicas.");
         return;
       }
     }
 
     const shiftsToSave: ShiftData[] = [];
     
-    if (editForm.type === 'vacation') {
+    if (editForm.type === 'vacation' || editForm.type === 'medical') {
         // Use either provided range or fallback to target date
         const startStr = editForm.startDate || targetDateStr;
         const endStr = editForm.endDate || startStr;
@@ -239,7 +240,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 id: `${selectedTarget.empId}_${dKey}`,
                 employee_id: selectedTarget.empId,
                 date: dKey,
-                type: 'vacation',
+                type: editForm.type,
                 segments: [],
                 last_modified_by: currentUser.full_name || 'Admin',
                 last_modified_at: new Date().toISOString()
@@ -274,16 +275,34 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       setShifts(newShiftsMap);
 
       // Log to Audit
+      const actionName = editForm.type === 'vacation' ? 'Asignación de Vacaciones' : editForm.type === 'medical' ? 'Licencia Médica' : 'Cambio de Turno';
       await auditService.logAction({
         manager_name: currentUser.full_name || 'Admin',
         employee_name: selectedTarget.empName,
-        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 'Cambio de Turno',
+        action: actionName,
         old_value: 'N/A',
-        new_value: editForm.type === 'vacation' 
+        new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
             ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}` 
             : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
         reason: 'Modificación manual de cronograma'
       });
+
+      // Recalcular asistencia retroactiva automáticamente si fuera necesario
+      if (editForm.type === 'medical' || editForm.type === 'vacation') {
+          await attendanceService.recalculateAttendance(
+              selectedTarget.empId,
+              editForm.startDate || targetDateStr,
+              editForm.endDate || targetDateStr,
+              currentUser.full_name || 'Admin'
+          );
+      } else {
+          await attendanceService.recalculateAttendance(
+              selectedTarget.empId,
+              targetDateStr,
+              targetDateStr,
+              currentUser.full_name || 'Admin'
+          );
+      }
     }
 
     setIsModalOpen(false);
@@ -310,7 +329,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'off') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
+          <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
             Descanso
           </span>
         </div>
@@ -320,8 +339,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'vacation') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+          <span className="bg-teal-100 text-teal-700 border border-teal-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
             Vacaciones
+          </span>
+        </div>
+      );
+    }
+
+    if (shift.type === 'medical') {
+      return (
+        <div className="flex flex-col items-center">
+          <span className="bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
+            Licencia
           </span>
         </div>
       );
@@ -330,7 +359,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'continuous') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-md text-[10px] font-bold">
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold print-color print-time">
             {shift.segments[0]?.start} - {shift.segments[0]?.end}
           </span>
         </div>
@@ -339,10 +368,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'split') {
       return (
         <div className="flex flex-col gap-1 items-center">
-          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
+          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold print-color print-time">
             {shift.segments[0]?.start} - {shift.segments[0]?.end}
           </span>
-          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
+          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold print-color print-time">
             {shift.segments[1]?.start} - {shift.segments[1]?.end}
           </span>
         </div>
@@ -518,13 +547,24 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             overflow: visible !important;
           }
           
-          /* Visual cell markers */
+          /* Visual cell markers print adjustments */
+          .print-color {
+             -webkit-print-color-adjust: exact !important;
+             print-color-adjust: exact !important;
+          }
           .bg-slate-100 { background-color: #f1f5f9 !important; }
-          .bg-amber-100 { background-color: #fef3c7 !important; }
-          .bg-indigo-100 { background-color: #e0e7ff !important; }
-          .text-amber-700 { color: #b45309 !important; }
-          .text-indigo-700 { color: #4338ca !important; }
-          .text-slate-400 { color: #94a3b8 !important; }
+          .bg-teal-100 { background-color: #ccfbf1 !important; color: #0f766e !important; }
+          .bg-rose-100 { background-color: #ffe4e6 !important; color: #be123c !important; }
+          .bg-emerald-50 { background-color: #ecfdf5 !important; color: #047857 !important; }
+          .bg-indigo-50 { background-color: #eef2ff !important; color: #4338ca !important; }
+          
+          .text-slate-500 { color: #64748b !important; }
+          .text-slate-400 { color: #94a3b8 !important; border-color: #e2e8f0 !important; }
+          
+          /* Special class for time blocks to make them pop out on print */
+          .print-time {
+              border-width: 1.5px !important;
+          }
           
           /* Force color adjust */
           * {
@@ -616,14 +656,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
             <div className="space-y-6">
               {/* Shift Type Selector */}
-              <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off', 'vacation'] as const).map((t) => (
+              <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100 rounded-xl">
+                {(['continuous', 'split', 'off', 'vacation', 'medical'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`py-2 px-1 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : 'Vacaciones'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'vacation' ? 'Vacaciones' : 'Médica'}
                   </button>
                 ))}
               </div>
@@ -660,7 +700,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   </div>
                 </div>
               )}
-              {editForm.type === 'vacation' && (
+              {(editForm.type === 'vacation' || editForm.type === 'medical') && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -682,8 +722,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                         />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 italic mt-1 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                    Se marcarán todos los días en el rango seleccionado como vacaciones. Asegúrese de que las fechas sean correctas antes de guardar.
+                  <p className={`text-[10px] italic mt-1 p-3 rounded-lg border ${editForm.type === 'medical' ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-emerald-50 text-slate-400 border-emerald-100'}`}>
+                    Se marcarán todos los días en el rango seleccionado como {editForm.type === 'medical' ? 'licencia médica' : 'vacaciones'}. {editForm.type === 'medical' && "Recuerda que esta acción actualizará el estado de asistencias previas vinculadas a estas fechas de forma retroactiva, justificando ausencias."} Asegúrese de que las fechas sean correctas antes de guardar.
                   </p>
                 </div>
               )}

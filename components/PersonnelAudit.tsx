@@ -583,9 +583,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                     record.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         record.status === 'ausente' ? 'bg-red-50 text-red-600 border-red-100' :
                                                             record.status === 'vacaciones' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                                'bg-red-100 text-red-700 border-red-200' // sin presentismo
+                                                                record.status === 'licencia_medica' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
+                                                                    record.status === 'descanso' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                                        'bg-red-100 text-red-700 border-red-200' // sin presentismo
                                                     }`}>
-                                                    {record.status === 'sin_presentismo' ? 'Perdió el Presentismo' : record.status.replace('_', ' ')}
+                                                    {record.status === 'sin_presentismo' ? 'Perdió el Presentismo' : record.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
                                             <td className="py-4 text-right text-sm font-black text-slate-700">

@@ -5,7 +5,7 @@ export interface ShiftSegment {
     end: string;
 }
 
-export type ShiftType = 'continuous' | 'split' | 'off' | 'vacation';
+export type ShiftType = 'continuous' | 'split' | 'off' | 'vacation' | 'medical';
 
 export interface ShiftData {
     id: string; // employeeId_dateIso

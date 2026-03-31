@@ -40,7 +40,7 @@ export interface AttendanceRecord {
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones';
+  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica';
   minutes_late: number;
   manual_reason?: string;
 }
