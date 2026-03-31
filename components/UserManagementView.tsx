@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Shield, ShieldAlert, UserX, UserCheck, 
   Search, Filter, MoreVertical, Key, Trash2, RotateCcw,
-  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine,
-  Layers, Check, X, Save, ChevronDown
+  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine
 } from 'lucide-react';
 import { userManagementService } from '../services/userManagementService';
 import { roleService } from '../services/roleService';
 import { auditService } from '../services/auditService';
-import { sectorService, Sector } from '../services/sectorService';
 import { Profile, Role } from '../types';
 
 interface UserManagementViewProps {
@@ -30,9 +28,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
   const [suspendReason, setSuspendReason] = useState('');
   const [suspendUntil, setSuspendUntil] = useState('');
   const [isPermanent, setIsPermanent] = useState(true);
-  const [sectors, setSectors] = useState<Sector[]>([]);
-  const [showSectorsModal, setShowSectorsModal] = useState<Profile | null>(null);
-  const [selectedManagedSectors, setSelectedManagedSectors] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -41,14 +36,12 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedUsers, fetchedRoles, fetchedSectors] = await Promise.all([
+      const [fetchedUsers, fetchedRoles] = await Promise.all([
         userManagementService.getAllUsers(),
-        roleService.getAllRoles(),
-        sectorService.getAll()
+        roleService.getAllRoles()
       ]);
       setUsers(fetchedUsers);
       setRoles(fetchedRoles);
-      setSectors(fetchedSectors);
     } catch (err: any) {
       console.error("Error loading management data:", err);
       const errorMsg = err.message || 'Error de conexión con la base de datos';
@@ -235,48 +228,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
       loadData();
     } catch (err) {
       showFeedback('Error al cambiar rol', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleOpenSectorsModal = (user: Profile) => {
-    setShowSectorsModal(user);
-    setSelectedManagedSectors(user.managed_sectors || []);
-  };
-
-  const handleToggleManagedSector = (sectorId: string) => {
-    setSelectedManagedSectors(prev => 
-      prev.includes(sectorId) ? prev.filter(id => id !== sectorId) : [...prev, sectorId]
-    );
-  };
-
-  const handleSaveManagedSectors = async () => {
-    if (!showSectorsModal) return;
-    const user = showSectorsModal;
-
-    setActionLoading(user.id);
-    try {
-      await userManagementService.updateManagedSectors(user.id, selectedManagedSectors);
-      
-      const sectorNames = selectedManagedSectors
-        .map(id => sectors.find(s => s.id === id)?.name || id)
-        .join(', ');
-
-      await auditService.logAction({
-        manager_name: currentUser.full_name,
-        employee_name: user.full_name,
-        action: 'Actualización de Sectores Gestionados',
-        old_value: (user.managed_sectors || []).join(', '),
-        new_value: sectorNames || 'Ninguno',
-        reason: 'Ajuste de permisos de supervisión'
-      });
-
-      showFeedback(`Sectores actualizados para ${user.full_name}`, 'success');
-      setShowSectorsModal(null);
-      loadData();
-    } catch (err) {
-      showFeedback('Error al actualizar sectores', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -530,16 +481,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                                     <Key className="w-4 h-4" />
                                   </button>
 
-                                  {user.role === 'encargado' && (
-                                    <button 
-                                      onClick={() => handleOpenSectorsModal(user)}
-                                      className="p-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all"
-                                      title="Asignar Sectores a Cargo"
-                                    >
-                                      <Layers className="w-4 h-4" />
-                                    </button>
-                                  )}
-
                                   <button 
                                     onClick={() => handleSoftDelete(user)}
                                     className="p-2.5 bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-700 rounded-xl transition-all"
@@ -657,79 +598,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
         <span>Sistema de Gestión de Personal v2.1-Security</span>
         <span>Sincronizado: {new Date().toLocaleTimeString()}</span>
       </footer>
-
-      {/* Managed Sectors Modal */}
-      {showSectorsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-black text-slate-800">Sectores a Cargo</h3>
-                <p className="text-sm text-slate-500 font-medium mt-1">
-                  Seleccione los sectores que {showSectorsModal.full_name} podrá supervisar.
-                </p>
-              </div>
-              <button onClick={() => setShowSectorsModal(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                <X className="w-6 h-6 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-              {sectors.length === 0 ? (
-                <p className="text-center py-4 text-slate-400 text-sm font-bold italic">No hay sectores definidos en el sistema.</p>
-              ) : sectors.map(sector => (
-                <label 
-                  key={sector.id} 
-                  className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${
-                    selectedManagedSectors.includes(sector.id) 
-                      ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-500/10' 
-                      : 'bg-slate-50 border-slate-100 hover:border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-xl ${selectedManagedSectors.includes(sector.id) ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    <span className={`font-bold text-sm ${selectedManagedSectors.includes(sector.id) ? 'text-indigo-900' : 'text-slate-600'}`}>
-                      {sector.name}
-                    </span>
-                  </div>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${
-                    selectedManagedSectors.includes(sector.id) 
-                      ? 'bg-indigo-600 border-indigo-600 text-white' 
-                      : 'bg-white border-slate-200'
-                  }`}>
-                    {selectedManagedSectors.includes(sector.id) && <Check className="w-4 h-4" />}
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    className="hidden" 
-                    checked={selectedManagedSectors.includes(sector.id)}
-                    onChange={() => handleToggleManagedSector(sector.id)}
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-slate-100 flex space-x-3">
-              <button 
-                onClick={() => setShowSectorsModal(null)}
-                className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition-all"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleSaveManagedSectors}
-                disabled={!!actionLoading}
-                className="flex-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-              >
-                {actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                <span>Guardar Cambios</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

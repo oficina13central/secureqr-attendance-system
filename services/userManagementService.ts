@@ -112,18 +112,6 @@ export const userManagementService = {
     },
 
     /**
-     * Updates the managed sectors for a manager.
-     */
-    async updateManagedSectors(userId: string, sectorIds: string[]): Promise<void> {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ managed_sectors: sectorIds })
-            .eq('id', userId);
-
-        if (error) throw error;
-    },
-
-    /**
      * Revokes app access for a user.
      */
     async revokeUserApproval(userId: string): Promise<void> {
