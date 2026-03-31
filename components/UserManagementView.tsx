@@ -144,6 +144,27 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     }
   };
 
+  const handleApprove = async (userId: string, userName: string) => {
+    setActionLoading(userId);
+    try {
+      await userManagementService.approveUser(userId);
+      await auditService.logAction({
+        manager_name: currentUser.full_name,
+        employee_name: userName,
+        action: 'Aprobación de Registro',
+        old_value: 'Pendiente',
+        new_value: 'Aprobado/Activo',
+        reason: 'Autorización manual de acceso'
+      });
+      showFeedback(`Usuario ${userName} aprobado`, 'success');
+      loadData();
+    } catch (err) {
+      showFeedback('Error al aprobar usuario', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleRestore = async (user: Profile) => {
     setActionLoading(user.id);
     try {
@@ -211,7 +232,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     const matchesStatus = filterStatus === 'all' || 
                          (filterStatus === 'active' && status === 'active') ||
                          (filterStatus === 'suspended' && (status === 'suspended' || status === 'suspended_temp')) ||
-                         (filterStatus === 'archived' && status === 'archived');
+                         (filterStatus === 'archived' && status === 'archived') ||
+                         (filterStatus === 'pending' && status === 'pending');
     
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -266,6 +288,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
           >
             <option value="all">Cualquier Estado</option>
             <option value="active">Activos</option>
+            <option value="pending">Pendientes de Aprobación</option>
             <option value="suspended">Suspendidos</option>
             <option value="archived">Archivados</option>
           </select>
@@ -373,6 +396,12 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                                     <span>Archivado</span>
                                 </span>
                             )}
+                            {status === 'pending' && (
+                                <span className="flex items-center space-x-2 text-amber-500 font-bold text-xs animate-pulse">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>Pendiente</span>
+                                </span>
+                            )}
                          </div>
                       </td>
                       <td className="px-8 py-6">
@@ -381,6 +410,16 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                              <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
                           ) : user.id !== currentUser.id && (
                             <>
+                              {status === 'pending' && (
+                                <button 
+                                  onClick={() => handleApprove(user.id, user.full_name)}
+                                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all flex items-center space-x-1"
+                                  title="Aprobar Usuario"
+                                >
+                                  <UserCheck className="w-3 h-3" />
+                                  <span>APROBAR</span>
+                                </button>
+                              )}
                               {status === 'active' ? (
                                 <button 
                                   onClick={() => setShowSuspendModal(user)}

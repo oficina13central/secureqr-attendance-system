@@ -10,6 +10,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [isRegistering, setIsRegistering] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [dni, setDni] = useState('');
     const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         try {
             if (isRegistering) {
-                await authService.signUp(email, password, fullName);
+                if (!dni || dni.length < 5) {
+                    throw new Error('Debe ingresar un DNI válido');
+                }
+                await authService.signUp(email, password, fullName, dni);
                 setSuccessMsg('Cuenta creada con éxito. Por favor verifique su correo o inicie sesión.');
                 setIsRegistering(false); // Switch back to login
             } else {
@@ -81,7 +85,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         value={fullName}
                                         onChange={e => setFullName(e.target.value)}
                                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                                        placeholder="Juan Perez"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        
+                        {isRegistering && (
+                            <div className="space-y-2 animate-in slide-in-from-bottom-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">DNI (Documento)</label>
+                                <div className="relative group">
+                                    <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input
+                                        type="text"
+                                        required
+                                        value={dni}
+                                        onChange={e => setDni(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                                        placeholder="Solo números"
                                     />
                                 </div>
                             </div>

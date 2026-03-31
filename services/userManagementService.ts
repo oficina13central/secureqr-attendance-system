@@ -100,6 +100,18 @@ export const userManagementService = {
     },
 
     /**
+     * Approves a pending user.
+     */
+    async approveUser(userId: string): Promise<void> {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ is_approved: true })
+            .eq('id', userId);
+
+        if (error) throw error;
+    },
+
+    /**
      * Sends a password reset email to the user.
      */
     async resetPassword(email: string): Promise<void> {
@@ -125,8 +137,9 @@ export const userManagementService = {
     /**
      * Returns display status for a user profile.
      */
-    getUserStatus(profile: Profile): 'active' | 'suspended' | 'archived' | 'suspended_temp' {
+    getUserStatus(profile: Profile): 'active' | 'suspended' | 'archived' | 'suspended_temp' | 'pending' {
         if (profile.deleted_at) return 'archived';
+        if (profile.is_approved === false) return 'pending';
         if (!profile.is_suspended) return 'active';
         if (profile.suspended_until) {
             if (new Date(profile.suspended_until) > new Date()) return 'suspended_temp';

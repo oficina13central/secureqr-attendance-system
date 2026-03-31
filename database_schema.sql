@@ -32,13 +32,14 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  dni TEXT,
+  dni TEXT UNIQUE,
   role TEXT REFERENCES roles(id),
   sector_id TEXT REFERENCES sectors(id),
   photo_url TEXT,
   qr_token TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   -- User management fields
+  is_approved BOOLEAN DEFAULT FALSE,
   is_suspended BOOLEAN DEFAULT FALSE,
   suspended_until TIMESTAMP WITH TIME ZONE DEFAULT NULL, -- NULL = permanent
   suspended_reason TEXT DEFAULT NULL,
@@ -102,13 +103,15 @@ INSERT INTO permissions (id, name, category) VALUES
 ('MANUAL_ATTENDANCE', 'Marcación manual', 'Asistencia'),
 ('SCAN_QR', 'Escaneo de QR', 'Terminal'),
 ('VIEW_DASHBOARD', 'Ver panel general', 'Auditoría'),
-('MANAGE_SETTINGS', 'Acceso a ajustes', 'Sistema');
+('MANAGE_SETTINGS', 'Acceso a ajustes', 'Sistema')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO roles (id, name, description) VALUES
 ('superusuario', 'Superusuario', 'Acceso total al sistema'),
 ('administrador', 'Administrador', 'Gestión administrativa global'),
 ('encargado', 'Encargado', 'Gestión operativa de sector'),
-('empleado', 'Empleado', 'Solo marcación y consulta básica');
+('empleado', 'Empleado', 'Solo marcación y consulta básica')
+ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS system_settings (
   key TEXT PRIMARY KEY,

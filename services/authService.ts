@@ -15,13 +15,13 @@ export const authService = {
         if (error) throw error;
     },
 
-    async signUp(email: string, password: string, fullName: string) {
+    async signUp(email: string, password: string, fullName: string, dni: string) {
         // 1. Crear usuario en Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                data: { full_name: fullName }
+                data: { full_name: fullName, dni: dni }
             }
         });
 
@@ -30,68 +30,74 @@ export const authService = {
 
         const newUserId = authData.user.id;
 
-        // 2. Verificar si ya existe un perfil de "Personal" (creado por admin) con este email
-        // que no esté vinculado (es decir, que tenga un ID diferente al de Auth, lo cual pasará siempre si fue creado manualmente)
-        const { data: existingProfile } = await supabase
+        // 2. Verificar si ya existe un perfil de "Personal" (creado por admin) 
+        // Primero buscamos por DNI (vinculación inequívoca)
+        let { data: existingProfile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('email', email)
-            .single();
+            .eq('dni', dni)
+            .maybeSingle();
+
+        // Si no se encontró por DNI, intentar por email (fallback heredado)
+        if (!existingProfile) {
+            const { data: emailProfile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+            existingProfile = emailProfile;
+        }
 
         if (existingProfile && existingProfile.id !== newUserId) {
-            console.log("Perfil preexistente encontrado. Iniciando migración de datos...");
+            console.log(`Perfil preexistente [${existingProfile.full_name}] encontrado por ${existingProfile.dni === dni ? 'DNI' : 'Email'}. Iniciando migración...`);
             const oldId = existingProfile.id;
 
-            // ESTRATEGIA DE MIGRACIÓN (Swap):
-            // Problema: No podemos insertar el nuevo perfil con el mismo email (Unique constraint).
-            // Problema: No podemos borrar el viejo perfil si tiene asistencia (FK constraint).
-            // Solución: 
-            // 1. Renombrar email del viejo perfil.
-            // 2. Crear nuevo perfil con el ID de Auth correcto.
-            // 3. Mover registros de asistencia al nuevo ID.
-            // 4. Borrar viejo perfil.
-
             try {
-                // Paso 1: Liberar el email
-                await supabase.from('profiles').update({ email: `${email}_archived_${Date.now()}` }).eq('id', oldId);
+                // Paso 1: Liberar el email y DNI del perfil viejo temporalmente
+                await supabase.from('profiles').update({ 
+                    email: `${existingProfile.email}_archived_${Date.now()}`,
+                    dni: `${existingProfile.dni}_archived_${Date.now()}`
+                }).eq('id', oldId);
 
                 // Paso 2: Crear nuevo perfil vinculado a Auth
+                // UNIFICACIÓN: Mantenemos el nombre oficial del admin, el sector y el rol.
+                // Automáticamente aprobado porque ya era un empleado cargado por admin.
                 const { error: createError } = await supabase.from('profiles').insert([{
                     id: newUserId,
-                    full_name: existingProfile.full_name || fullName,
-                    email: email, // Email real
+                    full_name: existingProfile.full_name, // Mantenemos nombre del admin
+                    email: email, 
+                    dni: dni,
                     role: existingProfile.role,
                     sector_id: existingProfile.sector_id,
-                    qr_token: existingProfile.qr_token, // Mantener el token QR
-                    photo_url: existingProfile.photo_url
+                    managed_sectors: existingProfile.managed_sectors,
+                    qr_token: existingProfile.qr_token || `SECURE_USER:${existingProfile.full_name.replace(/\s+/g, '_')}_${newUserId}`,
+                    photo_url: existingProfile.photo_url,
+                    is_approved: true // AUTO-APROBADO
                 }]);
 
                 if (createError) throw createError;
 
-                // Paso 3: Reasignar registros de asistencia
-                const { error: updateRecordsError } = await supabase
-                    .from('attendance_records')
-                    .update({ employee_id: newUserId })
-                    .eq('employee_id', oldId);
+                // Paso 3: Reasignar registros de asistencia y cronogramas
+                await supabase.from('attendance_records').update({ employee_id: newUserId }).eq('employee_id', oldId);
+                await supabase.from('schedules').update({ employee_id: newUserId }).eq('employee_id', oldId);
 
-                if (updateRecordsError) console.error("Error migrando asistencias:", updateRecordsError);
-
-                // Paso 4: Eliminar perfil viejo (ya vacío de relaciones críticas si el paso 3 funcionó)
+                // Paso 4: Eliminar perfil viejo
                 await supabase.from('profiles').delete().eq('id', oldId);
 
-                console.log("Migración completada con éxito.");
+                console.log("Migración y vinculación completada.");
 
             } catch (migrationError) {
-                console.error("Error crítico durante la migración de perfil:", migrationError);
-                // No lanzamos error fatal para no bloquear el login, pero los datos podrían quedar desincronizados.
+                console.error("Error crítico durante la migración:", migrationError);
             }
         } else if (!existingProfile) {
-            // Crear perfil nuevo si no existía ninguno
+            // Crear perfil nuevo DESCONOCIDO -> Requiere aprobación
             const { error: createError } = await supabase.from('profiles').insert([{
                 id: newUserId,
                 full_name: fullName,
                 email: email,
-                role: 'empleado', // Rol por defecto
+                dni: dni,
+                role: 'empleado', 
+                is_approved: false, // PENDIENTE DE APROBACIÓN
                 qr_token: `SECURE_USER:${fullName.replace(/\s+/g, '_')}_${newUserId}`
             }]);
             if (createError) console.error("Error creando perfil inicial:", createError);

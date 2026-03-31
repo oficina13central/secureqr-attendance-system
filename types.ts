@@ -26,6 +26,7 @@ export interface Profile {
   roles?: Role; // Joined data
   managed_sectors?: string[]; // IDs de sectores adicionales que este encargado controla
   // User management fields
+  is_approved?: boolean;
   is_suspended?: boolean;
   suspended_until?: string | null;  // ISO date string, null = permanent
   suspended_reason?: string;

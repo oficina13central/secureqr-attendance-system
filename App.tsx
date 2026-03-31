@@ -212,6 +212,40 @@ const App: React.FC = () => {
     );
   }
 
+  // Check for approval
+  if (currentUser?.is_approved === false && currentUser?.role !== 'superusuario' && currentUser?.role !== 'administrador') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-800">
+        <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl border border-slate-100 text-center space-y-8 animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto border border-amber-500/20">
+            <ShieldCheck className="w-10 h-10 text-amber-600" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black tracking-tight text-slate-800">Acceso Pendiente</h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Hola, <strong>{currentUser.full_name}</strong>. Tu registro ha sido recibido correctamente.
+            </p>
+            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
+              <p className="text-xs text-amber-700 font-bold leading-relaxed">
+                Para garantizar la seguridad del sistema, un administrador debe autorizar tu cuenta antes de que puedas ingresar.
+              </p>
+            </div>
+            <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">
+              Por favor, contacta a tu supervisor para agilizar el proceso.
+            </p>
+          </div>
+          <button 
+            onClick={() => authService.signOut()}
+            className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-sm transition-all flex items-center justify-center space-x-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>CERRAR SESIÓN</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
       {/* Sidebar Navigation */}

@@ -484,8 +484,9 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">DNI</label>
                                         <input
                                             type="text"
+                                            required
                                             value={formData.dni}
-                                            onChange={e => setFormData({ ...formData, dni: e.target.value })}
+                                            onChange={e => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })}
                                             className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
                                             placeholder="Ej. 12345678"
                                         />
