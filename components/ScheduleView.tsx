@@ -643,7 +643,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       {/* Edit Modal */}
       {isModalOpen && selectedTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-xl font-black text-slate-800">Asignar Turno</h3>
@@ -656,12 +656,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
             <div className="space-y-6">
               {/* Shift Type Selector */}
-              <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100 rounded-xl">
+              <div className="flex flex-wrap sm:flex-nowrap gap-1 p-1 bg-slate-100 rounded-xl overflow-hidden">
                 {(['continuous', 'split', 'off', 'vacation', 'medical'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 px-1 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 min-w-fit py-2.5 px-3 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap text-center ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                   >
                     {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'vacation' ? 'Vacaciones' : 'Médica'}
                   </button>
