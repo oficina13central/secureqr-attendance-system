@@ -405,40 +405,49 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   return (
     <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center">
-            Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
-          </h2>
-          <p className="text-slate-500 font-medium">
-            Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${currentUser.sector_id}` : 'Vista Global'}
-          </p>
+      <header className="flex flex-col gap-6 no-print">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center">
+              Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
+            </h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">
+              Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${currentUser.sector_id}` : 'Vista Global'}
+            </p>
+          </div>
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-indigo-600 transition-all shadow-lg sm:w-auto"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Imprimir / PDF</span>
+          </button>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4 no-print mt-4 lg:mt-0">
-            {/* Search Box */}
-            <div className="relative flex items-center bg-white rounded-xl border border-slate-200 shadow-sm min-w-[200px] overflow-hidden">
-              <div className="pl-3 pr-2 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-slate-400" />
-              </div>
-              <input 
-                type="text"
-                placeholder="Buscar empleado..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full py-2.5 bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400"
-              />
+        {/* Controls Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3">
+          {/* Search Box */}
+          <div className="relative flex items-center bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+            <div className="pl-4 pr-1 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-slate-400" />
             </div>
-            
-            {/* Sector Select */}
+            <input 
+              type="text"
+              placeholder="Buscar empleado..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full px-2 py-3.5 bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400"
+            />
+          </div>
+          
+          {/* Sector Select */}
           {(currentUser.role === 'administrador' || currentUser.role === 'superusuario' || currentUser.role === 'encargado') && (
-            <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
+            <div className="flex items-center space-x-3 bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Sector:</span>
               <select
                 value={selectedSector}
                 onChange={(e) => setSelectedSector(e.target.value)}
-                className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
+                className="bg-transparent border-none text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer w-full"
               >
                 <option value="all">Ver Todos</option>
                 {authorizedSectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
@@ -446,21 +455,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
           )}
 
-          <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
-            <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-            <span className="px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
+          {/* Week Navigation */}
+          <div className="flex items-center justify-between sm:justify-start space-x-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm lg:ml-auto">
+            <button onClick={handlePrevWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-colors text-slate-600 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
+            <span className="px-4 text-[10px] font-black uppercase tracking-tighter text-slate-500 min-w-[140px] text-center">
               {currentWeekStart.toLocaleDateString()} - {addDays(currentWeekStart, 6).toLocaleDateString()}
             </span>
-            <button onClick={handleNextWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
+            <button onClick={handleNextWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-colors text-slate-600 active:scale-90"><ChevronRight className="w-5 h-5" /></button>
           </div>
-
-          <button
-            onClick={handlePrint}
-            className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-600 transition-all shadow-lg no-print"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir / PDF</span>
-          </button>
         </div>
       </header>
 
@@ -611,10 +613,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             print-color-adjust: exact !important;
           }
         }
-      `}</style>
-
-      {/* Main Grid */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+      `}      {/* Desktop Table: Hidden on Mobile */}
+      <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden no-print">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -646,10 +646,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   </td>
                   {weekDays.map(d => {
                     const dateKey = formatDate(d);
-                    // Check if past
                     const now = new Date();
                     const shiftStart = new Date(`${dateKey}T23:59:00`);
-                    // This visual check is loose, real check is on save
                     const isPast = now > shiftStart;
                     const shiftKey = `${emp.id}_${dateKey}`;
 
@@ -661,7 +659,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                         className={`px-2 py-4 text-center cursor-pointer hover:bg-indigo-50 transition-colors border-l border-dashed border-slate-100 relative ${isPast ? 'opacity-70' : ''}`}
                       >
                         {renderCellContent(emp.id, d)}
-                        {/* Hover Add Icon */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 pointer-events-none">
                           {!isPast && currentUser.role !== 'empleado' && (
                             <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg">
@@ -678,6 +675,90 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Mobile Card List: Hidden on Desktop */}
+      <div className="md:hidden space-y-6 no-print">
+        {filteredEmployees.map(emp => (
+          <div key={emp.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+            <div className="p-5 bg-slate-50/50 border-b border-slate-100 flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white text-sm shadow-inner">
+                {emp.full_name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-slate-800 text-sm truncate uppercase tracking-tight">{emp.full_name}</p>
+                <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">
+                  {sectorMap[emp.sector_id || ''] || emp.sector_id || 'GENERAL'} • {emp.role}
+                </p>
+              </div>
+            </div>
+            <div className="p-2 grid grid-cols-1 divide-y divide-slate-50">
+              {weekDays.map(d => {
+                const dateKey = formatDate(d);
+                const now = new Date();
+                const shiftStart = new Date(`${dateKey}T23:59:00`);
+                const isPast = now > shiftStart;
+                const shiftKey = `${emp.id}_${dateKey}`;
+                const hasShift = !!shifts[shiftKey];
+
+                return (
+                  <button
+                    key={dateKey}
+                    onClick={() => handleCellClick(emp, d)}
+                    className={`flex items-center justify-between p-4 transition-all active:bg-slate-50 ${isPast ? 'opacity-60' : ''}`}
+                  >
+                    <div className="flex flex-col items-start space-y-0.5">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                        {d.toLocaleDateString('es-ES', { weekday: 'long' })}
+                      </span>
+                      <span className="text-lg font-black text-slate-700 leading-none py-1">
+                        {d.getDate()} <span className="text-xs text-slate-400 font-medium ml-1">de {d.toLocaleDateString('es-ES', { month: 'short' })}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {renderCellContent(emp.id, d)}
+                      <div className={`p-1.5 rounded-full ${hasShift ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-300'}`}>
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Print-Only Table (Same for Desktop/Mobile) */}
+      <div className="hidden-on-screen print-only">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr>
+              <th className="px-4 py-3 text-xs font-black uppercase tracking-widest border border-slate-300">Empleado</th>
+              {weekDays.map(d => (
+                <th key={d.toISOString()} className="px-2 py-3 text-center border border-slate-300">
+                  <span className="text-[10px] font-bold block">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                  <span className="text-sm font-black">{d.getDate()}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredEmployees.map(emp => (
+              <tr key={emp.id}>
+                <td className="px-4 py-2 border border-slate-300">
+                  <p className="font-bold text-sm leading-tight">{emp.full_name}</p>
+                </td>
+                {weekDays.map(d => (
+                  <td key={d.toISOString()} className="px-1 py-4 text-center border border-slate-300">
+                    {renderCellContent(emp.id, d)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
       {/* Edit Modal */}
       {isModalOpen && selectedTarget && (

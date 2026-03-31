@@ -147,6 +147,14 @@ const App: React.FC = () => {
     }
   };
 
+  React.useEffect(() => {
+    if (isSidebarOpen && window.innerWidth < 768) {
+      document.body.classList.add('sidebar-open');
+    } else {
+      document.body.classList.remove('sidebar-open');
+    }
+  }, [isSidebarOpen]);
+
   const renderAdminView = () => {
     // 1. Roles y permisos básicos
     const isAdmin = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
@@ -289,14 +297,17 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50 relative">
       {/* Mobile Header overlay for toggle */}
       {mainView === 'admin' && (
-        <div className={`absolute top-4 z-50 transition-all duration-300 ${isSidebarOpen ? 'left-4 md:left-[270px]' : 'left-4'}`}>
+        <div className={`fixed top-4 z-[60] transition-all duration-500 ease-in-out ${isSidebarOpen ? 'left-[216px]' : 'left-4'}`}>
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2.5 bg-white text-slate-700 hover:text-indigo-600 rounded-xl shadow-lg border border-slate-200 transition-all hover:bg-slate-50 focus:outline-none"
+            className="flex items-center justify-center w-10 h-10 bg-white/90 backdrop-blur-md text-slate-800 hover:text-indigo-600 rounded-full shadow-xl border border-slate-200/50 transition-all hover:scale-105 active:scale-95 focus:outline-none group"
             title="Alternar Menú"
           >
-            {isSidebarOpen ? <ChevronLeft className="w-5 h-5 hidden md:block" /> : <Menu className="w-5 h-5" />}
-            {isSidebarOpen && <Menu className="w-5 h-5 block md:hidden" />}
+            {isSidebarOpen ? (
+              <ChevronLeft className="w-5 h-5 transition-transform duration-300" />
+            ) : (
+              <Menu className="w-5 h-5 transition-transform duration-300" />
+            )}
           </button>
         </div>
       )}
@@ -311,92 +322,102 @@ const App: React.FC = () => {
 
       {/* Sidebar Navigation */}
       {mainView === 'admin' && (
-        <aside className={`bg-slate-900 text-white flex flex-col p-4 space-y-8 z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full ${
-          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0 md:p-0 md:opacity-0 overflow-hidden'
+        <aside className={`bg-slate-900 text-white flex flex-col z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full max-h-screen ${
+          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0'
         }`}>
-          <div className="flex items-center space-x-3 px-2 pt-2 md:pt-0">
-            <div className="bg-indigo-500 p-2 rounded-xl shadow-lg shadow-indigo-500/30">
-              <ShieldCheck className="w-6 h-6 text-white" />
+          {/* Sidebar Header */}
+          <div className="flex items-center space-x-3 px-6 py-8">
+            <div className="bg-indigo-500/20 p-2.5 rounded-2xl border border-indigo-500/30">
+              <ShieldCheck className="w-6 h-6 text-indigo-400" />
             </div>
-            <span className="text-xl font-black tracking-tight line-clamp-1">Control de Asistencias</span>
+            <div className="flex flex-col">
+              <span className="text-lg font-black tracking-tighter leading-none">SECURE QR</span>
+              <span className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">Control System</span>
+            </div>
           </div>
 
-          <nav className="flex-1 space-y-1">
-            {[
-              { id: 'dashboard', label: 'Panel General', icon: BarChart3, permission: 'VIEW_DASHBOARD' },
-              { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard, permission: 'SELF_VIEW' },
-              { id: 'schedule', label: 'Cronogramas', icon: Calendar, permission: 'MANAGE_SCHEDULES' },
-              { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
-              { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
-              { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users, permission: 'VIEW_PERSONNEL_AUDIT' },
-              { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
-              { id: 'users', label: 'Usuarios', icon: UserCog, permission: 'MANAGE_USERS' },
-              { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
-            ]
-              .filter(item => {
-                // Si es superusuario o administrador, ve casi todo
-                if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
-                
-                // Empleados, Encargados y otros roles específicos
-                if (currentUser?.role === 'empleado' || currentUser?.role === 'encargado') {
-                  return ['my_credential', 'schedule'].includes(item.id);
-                }
+          {/* Scrollable Navigation Area */}
+          <div className="flex-1 overflow-y-auto px-4 space-y-8 pb-8 custom-scrollbar">
+            <nav className="space-y-1.5">
+              <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Menú Principal</p>
+              {[
+                { id: 'dashboard', label: 'Panel General', icon: BarChart3, permission: 'VIEW_DASHBOARD' },
+                { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard, permission: 'SELF_VIEW' },
+                { id: 'schedule', label: 'Cronogramas', icon: Calendar, permission: 'MANAGE_SCHEDULES' },
+                { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
+                { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
+                { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users, permission: 'VIEW_PERSONNEL_AUDIT' },
+                { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
+                { id: 'users', label: 'Usuarios', icon: UserCog, permission: 'MANAGE_USERS' },
+                { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
+              ]
+                .filter(item => {
+                  if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
+                  if (currentUser?.role === 'empleado' || currentUser?.role === 'encargado') {
+                    return ['my_credential', 'schedule'].includes(item.id);
+                  }
+                  if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
+                    return currentUser.roles.permissions.includes(item.permission);
+                  }
+                  return false;
+                })
+                .map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setAdminSubView(item.id as AdminSubView);
+                      if (window.innerWidth < 768) setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                      adminSubView === item.id 
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    }`}
+                  >
+                    {React.createElement(item.icon, { className: `w-5 h-5 ${adminSubView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}` })}
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+            </nav>
 
-                // Permisos manuales
-                if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
-                  return currentUser.roles.permissions.includes(item.permission);
-                }
-                
-                return false;
-              })
-              .map((item) => (
+            {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.role === 'terminal') && (
+              <div className="space-y-4">
+                <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Utilidades</p>
                 <button
-                  key={item.id}
-                  onClick={() => {
-                    setAdminSubView(item.id as AdminSubView);
-                    if (window.innerWidth < 768) setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminSubView === item.id ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                  onClick={() => setMainView('terminal')}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white border border-emerald-500/20 rounded-2xl text-xs font-black transition-all"
                 >
-                  {React.createElement(item.icon, { className: "w-5 h-5" })}
-                  <span>{item.label}</span>
+                  <ScanLine className="w-4 h-4" />
+                  <span>MODO TERMINAL</span>
                 </button>
-              ))}
-          </nav>
+              </div>
+            )}
+          </div>
 
-          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.role === 'terminal') && (
-            <div className="pt-4 border-t border-slate-800">
+          {/* User Profile Footer */}
+          <div className="p-4 bg-slate-950/50 border-t border-slate-800/50 backdrop-blur-md">
+            <div className="flex items-center space-x-3 bg-slate-800/30 p-3 rounded-2xl relative group border border-slate-700/30">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white shadow-lg border border-white/10 shrink-0">
+                {currentUser?.full_name?.charAt(0) || session?.user?.email?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-xs font-bold truncate text-slate-100">{currentUser?.full_name || session?.user?.email?.split('@')[0]}</p>
+                <p className="text-[9px] text-indigo-400 uppercase tracking-widest font-black truncate">
+                  {currentUser?.roles?.name || currentUser?.role || 'Sin Asignar'}
+                </p>
+              </div>
               <button
-                onClick={() => setMainView('terminal')}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-black transition-all shadow-lg shadow-emerald-500/20"
+                onClick={() => {
+                  authService.signOut();
+                  setSession(null);
+                  setCurrentUser(null);
+                }}
+                className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all duration-300 md:opacity-0 md:group-hover:opacity-100"
+                title="Cerrar Sesión"
               >
-                <ScanLine className="w-5 h-5" />
-                <span>MODO TERMINAL</span>
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
-          )}
-
-          <div className="flex items-center space-x-3 bg-slate-800/50 p-3 rounded-2xl relative group">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center font-black text-white shadow-inner">
-              {currentUser?.full_name?.charAt(0) || session?.user?.email?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold truncate">{currentUser?.full_name || session?.user?.email?.split('@')[0]}</p>
-              <p className="text-[10px] text-indigo-400 uppercase tracking-widest font-black">
-                {currentUser?.roles?.name || currentUser?.role || 'Sin Asignar'}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                authService.signOut();
-                setSession(null);
-                setCurrentUser(null);
-              }}
-              className="absolute right-2 p-2 bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 text-white"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
           </div>
         </aside>
       )}
