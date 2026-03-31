@@ -105,31 +105,47 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   // Compute unique sectors
   const sectors = useMemo(() => {
+    // Collect all sectors actually present in the employee list for the selector
     const unique = new Set(employees.map(e => e.sector_id || 'General'));
     return Array.from(unique);
   }, [employees]);
+
+  // Compute sectors AUTHORIZED for this user
+  const authorizedSectors = useMemo(() => {
+    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return sectors;
+    
+    const s = new Set<string>();
+    if (currentUser.sector_id) s.add(currentUser.sector_id);
+    if ((currentUser as Profile).managed_sectors) {
+        (currentUser as Profile).managed_sectors?.forEach(id => s.add(id));
+    }
+    return Array.from(s);
+  }, [currentUser, sectors]);
 
   // Permissions & Filter
   const filteredEmployees = useMemo(() => {
     let list = employees;
 
-    // Filter by Sector (if selected)
-    if (selectedSector !== 'all') {
-      list = list.filter(e => (e.sector_id || 'General') === selectedSector);
-    }
-
     // Filter by Role/Permissions
     if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') {
-      // Admins see the filtered list without bounds
+      // Admins see all
     } else if (currentUser.role === 'encargado') {
-      // Encargado locked to their sector, but if they selected a filter inside their sector?
-      // Let's enforce their sector.
-      list = list.filter(e => e.sector_id === currentUser.sector_id);
+      // Encargado sees their sector AND managed sectors
+      const mySectors = new Set<string>();
+      if (currentUser.sector_id) mySectors.add(currentUser.sector_id);
+      if ((currentUser as Profile).managed_sectors) {
+          (currentUser as Profile).managed_sectors?.forEach(id => mySectors.add(id));
+      }
+      list = list.filter(e => mySectors.has(e.sector_id || 'General'));
     } else if (currentUser.role === 'empleado') {
-      // Employees only see their own schedule
       list = list.filter(e => e.id === currentUser.id);
     } else {
       list = [];
+    }
+
+    // Filter by Sector (if selected)
+    if (selectedSector !== 'all') {
+      list = list.filter(e => (e.sector_id || 'General') === selectedSector);
     }
     
     // Filter by Search Term
@@ -416,7 +432,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
             
             {/* Sector Select */}
-          {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+          {(currentUser.role === 'administrador' || currentUser.role === 'superusuario' || currentUser.role === 'encargado') && (
             <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
               <select
@@ -424,8 +440,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onChange={(e) => setSelectedSector(e.target.value)}
                 className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
               >
-                <option value="all">Todos</option>
-                {sectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
+                <option value="all">Ver Todos</option>
+                {authorizedSectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
               </select>
             </div>
           )}
