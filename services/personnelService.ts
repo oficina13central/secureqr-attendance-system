@@ -18,7 +18,7 @@ export const personnelService = {
     async create(profile: Omit<Profile, 'id'>): Promise<Profile | null> {
         const { data, error } = await supabase
             .from('profiles')
-            .insert([profile])
+            .insert([{ ...profile, is_approved: false }])
             .select()
             .single();
 
