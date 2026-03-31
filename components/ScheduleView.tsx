@@ -11,7 +11,8 @@ import {
   Lock,
   Unlock,
   Printer,
-  Download
+  Download,
+  Search
 } from 'lucide-react';
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
@@ -98,8 +99,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     endDate: ''
   });
 
-  // Sector Filter State
+  // Sector Filter & Search State
   const [selectedSector, setSelectedSector] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Compute unique sectors
   const sectors = useMemo(() => {
@@ -117,21 +119,27 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     // Filter by Role/Permissions
-    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return list;
-    if (currentUser.role === 'encargado') {
+    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') {
+      // Admins see the filtered list without bounds
+    } else if (currentUser.role === 'encargado') {
       // Encargado locked to their sector, but if they selected a filter inside their sector?
-      // Actually, Encargado only sees their sector. So filter might be redundant or single-option.
       // Let's enforce their sector.
-      return list.filter(e => e.sector_id === currentUser.sector_id);
-    }
-
-    if (currentUser.role === 'empleado') {
+      list = list.filter(e => e.sector_id === currentUser.sector_id);
+    } else if (currentUser.role === 'empleado') {
       // Employees only see their own schedule
-      return list.filter(e => e.id === currentUser.id);
+      list = list.filter(e => e.id === currentUser.id);
+    } else {
+      list = [];
+    }
+    
+    // Filter by Search Term
+    if (searchTerm.trim()) {
+      const lower = searchTerm.toLowerCase();
+      list = list.filter(e => e.full_name?.toLowerCase().includes(lower));
     }
 
-    return [];
-  }, [employees, currentUser, selectedSector]);
+    return list;
+  }, [employees, currentUser, selectedSector, searchTerm]);
 
   // Generate days for view
   const weekDays = useMemo(() => {
@@ -391,8 +399,23 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Sector Filter for Admins */}
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-4 no-print mt-4 lg:mt-0">
+            {/* Search Box */}
+            <div className="relative flex items-center bg-white rounded-xl border border-slate-200 shadow-sm min-w-[200px] overflow-hidden">
+              <div className="pl-3 pr-2 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-slate-400" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Buscar empleado..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full py-2.5 bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400"
+              />
+            </div>
+            
+            {/* Sector Select */}
           {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
             <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>

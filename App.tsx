@@ -9,7 +9,9 @@ import {
   ScanLine,
   Settings,
   History,
-  UserCog
+  UserCog,
+  Menu,
+  ChevronLeft
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -34,6 +36,7 @@ type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_pe
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
   const [adminSubView, setAdminSubView] = useState<AdminSubView>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -247,15 +250,31 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
+    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50 relative">
+      {/* Mobile Header overlay for toggle */}
+      {mainView === 'admin' && (
+        <div className={`absolute top-4 z-50 transition-all duration-300 ${isSidebarOpen ? 'left-4 md:left-[270px]' : 'left-4'}`}>
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2.5 bg-white text-slate-700 hover:text-indigo-600 rounded-xl shadow-lg border border-slate-200 transition-all hover:bg-slate-50 focus:outline-none"
+            title="Alternar Menú"
+          >
+            {isSidebarOpen ? <ChevronLeft className="w-5 h-5 hidden md:block" /> : <Menu className="w-5 h-5" />}
+            {isSidebarOpen && <Menu className="w-5 h-5 block md:hidden" />}
+          </button>
+        </div>
+      )}
+
       {/* Sidebar Navigation */}
       {mainView === 'admin' && (
-        <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col p-4 space-y-8 z-30 shadow-2xl">
-          <div className="flex items-center space-x-3 px-2">
+        <aside className={`bg-slate-900 text-white flex flex-col p-4 space-y-8 z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full ${
+          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0 md:p-0 md:opacity-0 overflow-hidden'
+        }`}>
+          <div className="flex items-center space-x-3 px-2 pt-2 md:pt-0">
             <div className="bg-indigo-500 p-2 rounded-xl shadow-lg shadow-indigo-500/30">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-black tracking-tight">Control de Asistencias</span>
+            <span className="text-xl font-black tracking-tight line-clamp-1">Control de Asistencias</span>
           </div>
 
           <nav className="flex-1 space-y-1">
