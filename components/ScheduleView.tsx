@@ -87,7 +87,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<{ empId: string; date: Date; empName: string } | null>(null);
-  const [editForm, setEditForm] = useState<{ type: ShiftType; s1Start: string; s1End: string; s2Start: string; s2End: string }>({
+  const [editForm, setEditForm] = useState<{ type: ShiftType; s1Start: string; s1End: string; s2Start: string; s2End: string; startDate?: string; endDate?: string }>({
     type: 'continuous',
     s1Start: '08:00',
     s1End: '17:00',
@@ -437,10 +437,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           }
           .bg-white {
             background: white !important;
-            border: none !important;
           }
           .rounded-\\[2\\.5rem\\], .rounded-3xl, .rounded-2xl {
             border-radius: 0 !important;
+          }
+          
+          /* Force borders on table cells */
+          table {
+            border: 1.5pt solid #334155 !important;
+            border-collapse: collapse !important;
+          }
+          th, td {
+            border: 1pt solid #334155 !important;
           }
           
           /* Professional Print Header */
