@@ -103,14 +103,16 @@ INSERT INTO permissions (id, name, category) VALUES
 ('MANUAL_ATTENDANCE', 'Marcación manual', 'Asistencia'),
 ('SCAN_QR', 'Escaneo de QR', 'Terminal'),
 ('VIEW_DASHBOARD', 'Ver panel general', 'Auditoría'),
-('MANAGE_SETTINGS', 'Acceso a ajustes', 'Sistema')
+('MANAGE_SETTINGS', 'Acceso a ajustes', 'Sistema'),
+('SELF_VIEW', 'Ver credencial propia (QR)', 'Personal')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO roles (id, name, description) VALUES
 ('superusuario', 'Superusuario', 'Acceso total al sistema'),
 ('administrador', 'Administrador', 'Gestión administrativa global'),
 ('encargado', 'Encargado', 'Gestión operativa de sector'),
-('empleado', 'Empleado', 'Solo marcación y consulta básica')
+('empleado', 'Empleado', 'Solo marcación y consulta básica'),
+('terminal', 'Terminal de Acceso', 'Dispositivo dedicado exclusivamente para fichada')
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -122,3 +124,9 @@ CREATE TABLE IF NOT EXISTS system_settings (
 INSERT INTO system_settings (key, value) 
 VALUES ('attendance_rules', '{"en_horario": 5, "llego_tarde": 30, "max_mensual": 15}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
+
+-- Role Permissions
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('terminal', 'SCAN_QR'),
+('encargado', 'SELF_VIEW')
+ON CONFLICT DO NOTHING;

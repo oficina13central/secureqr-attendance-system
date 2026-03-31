@@ -11,7 +11,9 @@ import {
   History,
   UserCog,
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  Database,
+  CreditCard
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -31,7 +33,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'schedule' | 'personnel' | 'audit' | 'audit_personnel' | 'settings' | 'fraud' | 'users' | 'my_credential';
+type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal';
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -97,6 +99,12 @@ const App: React.FC = () => {
   const [employees, setEmployees] = useState<Profile[]>([]);
 
   React.useEffect(() => {
+    if (currentUser?.role === 'terminal') {
+      setMainView('terminal');
+    }
+  }, [currentUser]);
+
+  React.useEffect(() => {
     if (!session) return;
     const fetchEmployees = async () => {
       const data = await personnelService.getAll();
@@ -154,6 +162,7 @@ const App: React.FC = () => {
       'fraud': ['VIEW_AUDIT_LOGS'],
       'users': ['MANAGE_USERS'],
       'my_credential': ['SELF_VIEW', 'VIEW_DASHBOARD'],
+      'terminal': ['MANAGE_TERMINAL']
     };
 
     // 3. Verificación de permiso para la vista actual
@@ -181,6 +190,11 @@ const App: React.FC = () => {
       case 'fraud': return <FraudAnalysis />;
       case 'users': return <UserManagementView currentUser={currentUser!} />;
       case 'my_credential': return <MyCredentialView user={currentUser!} />;
+      case 'terminal': return (
+        <div className="fixed inset-0 z-50 bg-slate-900 border-none">
+          <TerminalView onExit={() => isAdmin ? setMainView('admin') : authService.signOut()} />
+        </div>
+      );
       default: return <AdminDashboard currentUser={currentUser!} />;
     }
   };
@@ -310,7 +324,7 @@ const App: React.FC = () => {
           <nav className="flex-1 space-y-1">
             {[
               { id: 'dashboard', label: 'Panel General', icon: BarChart3, permission: 'VIEW_DASHBOARD' },
-              { id: 'my_credential', label: 'Mi Credencial', icon: ScanLine, permission: 'SELF_VIEW' },
+              { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard, permission: 'SELF_VIEW' },
               { id: 'schedule', label: 'Cronogramas', icon: Calendar, permission: 'MANAGE_SCHEDULES' },
               { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
               { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
@@ -323,8 +337,8 @@ const App: React.FC = () => {
                 // Si es superusuario o administrador, ve casi todo
                 if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
                 
-                // Empleados y otros roles específicos
-                if (currentUser?.role === 'empleado') {
+                // Empleados, Encargados y otros roles específicos
+                if (currentUser?.role === 'empleado' || currentUser?.role === 'encargado') {
                   return ['my_credential', 'schedule'].includes(item.id);
                 }
 
@@ -350,7 +364,7 @@ const App: React.FC = () => {
               ))}
           </nav>
 
-          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario') && (
+          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.role === 'terminal') && (
             <div className="pt-4 border-t border-slate-800">
               <button
                 onClick={() => setMainView('terminal')}
