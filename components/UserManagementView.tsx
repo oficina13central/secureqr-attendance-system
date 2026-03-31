@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Shield, ShieldAlert, UserX, UserCheck, 
   Search, Filter, MoreVertical, Key, Trash2, RotateCcw,
-  Clock, AlertCircle, CheckCircle2, Loader2, Ban
+  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine
 } from 'lucide-react';
 import { userManagementService } from '../services/userManagementService';
 import { roleService } from '../services/roleService';
@@ -323,7 +323,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                 <tr className="bg-slate-50/50 border-b border-slate-100">
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuario</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Rol del Sistema</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
+                  <th className="px-8 py-5 text-left text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Acceso App / Fichada</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                 </tr>
               </thead>
@@ -349,7 +349,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                             <p className="font-black text-slate-800 flex items-center">
                               {user.full_name}
                               {user.id === currentUser.id && <span className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-lg">Tú</span>}
-                              {status === 'pending' && <span className="ml-2 px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase rounded-lg animate-pulse">Pendiente</span>}
                             </p>
                             <p className="text-xs text-slate-400 font-bold">{user.email}</p>
                           </div>
@@ -370,48 +369,39 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                         </select>
                       </td>
                       <td className="px-8 py-6">
-                         <div className="flex flex-col">
+                         <div className="flex flex-col space-y-2">
+                            {/* App Access Status */}
                             {status === 'active' && (
-                                <span className="flex items-center space-x-2 text-emerald-600 font-bold text-xs">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>Activo</span>
-                                </span>
-                            )}
-                            {status === 'suspended' && (
-                                <div className="flex flex-col">
-                                    <span className="flex items-center space-x-2 text-red-600 font-bold text-xs">
-                                        <Ban className="w-3 h-3" />
-                                        <span>Suspendido</span>
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 font-medium max-w-[150px] truncate" title={user.suspended_reason || ''}>
-                                        {user.suspended_reason}
-                                    </span>
-                                </div>
-                            )}
-                            {status === 'suspended_temp' && (
-                                <div className="flex flex-col">
-                                    <span className="flex items-center space-x-2 text-amber-600 font-bold text-xs">
-                                        <Clock className="w-3 h-3" />
-                                        <span>Bloqueo Temporal</span>
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 font-medium">
-                                        Hasta: {new Date(user.suspended_until!).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            )}
-                            {status === 'archived' && (
-                                <span className="flex items-center space-x-2 text-slate-400 font-bold text-xs italic">
-                                    <UserX className="w-3 h-3" />
-                                    <span>Archivado</span>
+                                <span className="flex items-center space-x-2 text-emerald-600 font-bold text-[10px] uppercase">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    <span>App: Autorizado</span>
                                 </span>
                             )}
                             {status === 'pending' && (
-                                <span className="flex items-center space-x-2 text-amber-500 font-bold text-xs animate-pulse">
+                                <span className="flex items-center space-x-2 text-amber-500 font-bold text-[10px] uppercase animate-pulse">
                                     <AlertCircle className="w-3 h-3" />
-                                    <span>Pendiente</span>
+                                    <span>App: Pendiente</span>
                                 </span>
                             )}
-                         </div>
+                            {(status === 'suspended' || status === 'suspended_temp') && (
+                                <span className="flex items-center space-x-2 text-red-500 font-bold text-[10px] uppercase">
+                                    <Ban className="w-3 h-3" />
+                                    <span>App: Bloqueado</span>
+                                </span>
+                            )}
+                            {status === 'archived' && (
+                                <span className="flex items-center space-x-2 text-slate-400 font-bold text-[10px] uppercase">
+                                    <UserX className="w-3 h-3" />
+                                    <span>App: Archivado</span>
+                                </span>
+                            )}
+                            
+                            {/* QR/Attendance Status - Always active for personnel */}
+                            <span className="flex items-center space-x-2 text-slate-400 font-bold text-[9px] uppercase border-t border-slate-100 pt-1">
+                                <ScanLine className="w-2.5 h-2.5 text-indigo-400" />
+                                <span>Fichada QR: Habilitada</span>
+                            </span>
+                          </div>
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center justify-end space-x-2">
@@ -422,11 +412,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                               {status === 'pending' && (
                                 <button 
                                   onClick={() => handleApprove(user.id, user.full_name)}
-                                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all flex items-center space-x-1"
-                                  title="Aprobar Usuario"
+                                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all flex items-center space-x-1 shadow-lg shadow-indigo-500/20"
+                                  title="Autorizar Acceso a la App"
                                 >
                                   <UserCheck className="w-3 h-3" />
-                                  <span>APROBAR</span>
+                                  <span>AUTORIZAR APP</span>
                                 </button>
                               )}
                               {status === 'active' ? (
