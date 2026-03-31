@@ -412,13 +412,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         @media print {
           @page {
             size: A4 landscape;
-            margin: 10mm 15mm;
+            margin: 5mm 10mm;
           }
           .no-print, button, select, .fixed, footer, aside, nav {
             display: none !important;
           }
           .print-only {
             display: block !important;
+          }
+          .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 0 !important;
           }
           body {
             background: white !important;
@@ -443,8 +446,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           /* Professional Print Header */
           .print-header {
             text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
             border-bottom: 2px solid #1e293b;
           }
           .print-header h1 {
