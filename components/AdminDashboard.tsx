@@ -8,7 +8,6 @@ import {
   UserX,
   ShieldCheck,
   Activity,
-  CheckDouble,
   CalendarCheck,
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
@@ -18,7 +17,7 @@ import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +34,27 @@ const AdminDashboard: React.FC = () => {
           sectorService.getAll()
         ]);
 
-        if (recordsRes.status === 'fulfilled') setRecords(recordsRes.value as AttendanceRecord[]);
-        if (employeesRes.status === 'fulfilled') setEmployees(employeesRes.value as Profile[]);
-        if (sectorsRes.status === 'fulfilled') setSectors(sectorsRes.value as Sector[]);
+        const fetchedRecords = recordsRes.status === 'fulfilled' ? recordsRes.value as AttendanceRecord[] : [];
+        const fetchedEmployees = employeesRes.status === 'fulfilled' ? employeesRes.value as Profile[] : [];
+        const fetchedSectors = sectorsRes.status === 'fulfilled' ? sectorsRes.value as Sector[] : [];
+
+        // Apply security filter for managers
+        if (currentUser.role === 'encargado') {
+          const mySectorIds = new Set<string>();
+          if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
+          (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
+
+          setEmployees(fetchedEmployees.filter(e => mySectorIds.has(e.sector_id || 'General')));
+          setRecords(fetchedRecords.filter(r => {
+            const emp = fetchedEmployees.find(e => e.id === r.employee_id || e.full_name === r.employee_name);
+            return emp && mySectorIds.has(emp.sector_id || 'General');
+          }));
+        } else {
+          setRecords(fetchedRecords);
+          setEmployees(fetchedEmployees);
+        }
+        
+        setSectors(fetchedSectors);
 
         if (employeesRes.status === 'fulfilled' && employeesRes.value) {
            attendanceService.syncPastAbsences(employeesRes.value as Profile[]).then(() => {

@@ -143,14 +143,17 @@ const App: React.FC = () => {
     // Lógica de renderizado basada en la sub-vista seleccionada
     const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
     
-    // Si el usuario es un empleado y no estamos en una sub-vista específica válida para él,
-    // o si es su primer ingreso, por defecto mostramos su credencial.
-    if (currentUser?.role === 'empleado' && adminSubView === 'dashboard') {
-      return <MyCredentialView user={currentUser} />;
+    // Si el usuario no tiene acceso al dashboard y estamos en la vista dashboard (o por defecto),
+    // redirigir a su credencial o cronograma.
+    if (!hasDashboardAccess && adminSubView === 'dashboard') {
+      if (currentUser?.roles?.permissions?.includes('SELF_VIEW')) {
+        return <MyCredentialView user={currentUser} />;
+      }
+      return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
     }
 
     switch (adminSubView) {
-      case 'dashboard': return <AdminDashboard />;
+      case 'dashboard': return <AdminDashboard currentUser={currentUser!} />;
       case 'audit_personnel': return <PersonnelAudit employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'schedule': return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
@@ -328,7 +331,7 @@ const App: React.FC = () => {
               ))}
           </nav>
 
-          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.role === 'encargado') && (
+          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.roles?.permissions?.includes('SCAN_QR')) && (
             <div className="pt-4 border-t border-slate-800">
               <button
                 onClick={() => setMainView('terminal')}

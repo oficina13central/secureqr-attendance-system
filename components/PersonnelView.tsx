@@ -74,7 +74,17 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     }, [employees]);
 
     const filteredEmployees = React.useMemo(() => {
-        return employees.filter(emp => {
+        let list = employees;
+
+        // Apply security filter for managers
+        if (currentUser.role === 'encargado') {
+            const mySectorIds = new Set<string>();
+            if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
+            (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
+            list = list.filter(e => mySectorIds.has(e.sector_id || 'General'));
+        }
+
+        return list.filter(emp => {
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
             const matchesSearch = emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 sectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -85,7 +95,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             
             return matchesSearch && matchesClass;
         });
-    }, [employees, searchTerm, selectedClass, sectors, verazScores]);
+    }, [employees, searchTerm, selectedClass, sectors, verazScores, currentUser]);
 
     // Initial Data is now passed via props from App.tsx
 
@@ -505,9 +515,15 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                             className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
                                         >
                                             <option value="">Seleccionar...</option>
-                                            {sectors.map(s => (
-                                                <option key={s.id} value={s.id}>{s.name}</option>
-                                            ))}
+                                            {sectors
+                                                .filter(s => {
+                                                    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return true;
+                                                    const mySectorIds = getAccessibleSectorIds(currentUser);
+                                                    return mySectorIds.includes(s.id);
+                                                })
+                                                .map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                ))}
                                         </select>
                                     </div>
                                     <div className="space-y-1">
