@@ -569,6 +569,10 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
           </div>
         </div>
       </div>
+      <footer className="mt-8 px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+        <span>Sistema de Gestión de Personal v2.1-Security</span>
+        <span>Sincronizado: {new Date().toLocaleTimeString()}</span>
+      </footer>
     </div>
   );
 };
