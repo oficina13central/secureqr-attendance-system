@@ -140,18 +140,37 @@ const App: React.FC = () => {
   };
 
   const renderAdminView = () => {
-    // Lógica de renderizado basada en la sub-vista seleccionada
-    const hasDashboardAccess = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador' || currentUser?.roles?.permissions?.includes('VIEW_DASHBOARD');
+    // 1. Roles y permisos básicos
+    const isAdmin = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
     
-    // Si el usuario no tiene acceso al dashboard y estamos en la vista dashboard (o por defecto),
-    // redirigir a su credencial o cronograma.
-    if (!hasDashboardAccess && adminSubView === 'dashboard') {
+    // 2. Definición de permisos por vista
+    const viewPermissions: Record<AdminSubView, string[]> = {
+      'dashboard': ['VIEW_DASHBOARD'],
+      'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
+      'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
+      'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
+      'audit': ['VIEW_AUDIT_LOGS'],
+      'settings': ['MANAGE_SETTINGS'],
+      'fraud': ['VIEW_AUDIT_LOGS'],
+      'users': ['MANAGE_USERS'],
+      'my_credential': ['SELF_VIEW', 'VIEW_DASHBOARD'],
+    };
+
+    // 3. Verificación de permiso para la vista actual
+    const requiredPerms = viewPermissions[adminSubView];
+    const hasAccess = isAdmin || (currentUser?.roles?.permissions && requiredPerms.some(p => currentUser.roles?.permissions?.includes(p)));
+
+    // 4. Redirección forzada si no tiene acceso
+    if (!hasAccess && adminSubView !== 'my_credential') {
+      // Si no tiene acceso a la vista actual, intentamos mostrar su credencial si tiene permiso
       if (currentUser?.roles?.permissions?.includes('SELF_VIEW')) {
         return <MyCredentialView user={currentUser} />;
       }
+      // Si ni eso, mostramos su cronograma (segurización máxima)
       return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
     }
 
+    // 5. Renderizado seguro de componentes
     switch (adminSubView) {
       case 'dashboard': return <AdminDashboard currentUser={currentUser!} />;
       case 'audit_personnel': return <PersonnelAudit employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
@@ -162,7 +181,7 @@ const App: React.FC = () => {
       case 'fraud': return <FraudAnalysis />;
       case 'users': return <UserManagementView currentUser={currentUser!} />;
       case 'my_credential': return <MyCredentialView user={currentUser!} />;
-      default: return <AdminDashboard />;
+      default: return <AdminDashboard currentUser={currentUser!} />;
     }
   };
 
@@ -331,7 +350,7 @@ const App: React.FC = () => {
               ))}
           </nav>
 
-          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.roles?.permissions?.includes('SCAN_QR')) && (
+          {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario') && (
             <div className="pt-4 border-t border-slate-800">
               <button
                 onClick={() => setMainView('terminal')}

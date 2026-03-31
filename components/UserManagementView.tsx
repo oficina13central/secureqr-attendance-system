@@ -262,6 +262,28 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  const isAdmin = currentUser.role === 'superusuario' || currentUser.role === 'administrador';
+
+  if (!isAdmin && !currentUser.roles?.permissions?.includes('MANAGE_USERS')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-slate-800">
+        <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl text-center space-y-6">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-500">
+            <ShieldAlert className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800">Acceso No Autorizado</h2>
+          <p className="text-slate-500 font-medium">No tienes los privilegios necesarios para gestionar usuarios del sistema.</p>
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'my_credential' }))}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm transition-all hover:bg-slate-800"
+          >
+            VOLVER AL INICIO
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
