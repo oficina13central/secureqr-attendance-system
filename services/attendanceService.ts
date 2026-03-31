@@ -221,18 +221,18 @@ export const attendanceService = {
         }
     },
 
-    async resolveEmployeeId(id: string, name: string): Promise<string | null> {
+    async resolveEmployeeId(id: string, name: string): Promise<{id: string, is_approved: boolean} | null> {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(id)) {
-            const { data: exists } = await supabase.from('profiles').select('id').eq('id', id).maybeSingle();
-            if (exists) return id;
+            const { data: exists } = await supabase.from('profiles').select('id, is_approved').eq('id', id).maybeSingle();
+            if (exists) return { id, is_approved: exists.is_approved };
         }
         if (id && id !== 'PENDING') {
-            const { data: byDni } = await supabase.from('profiles').select('id').eq('dni', id).maybeSingle();
-            if (byDni) return byDni.id;
+            const { data: byDni } = await supabase.from('profiles').select('id, is_approved').eq('dni', id).maybeSingle();
+            if (byDni) return { id: byDni.id, is_approved: byDni.is_approved };
         }
-        const { data } = await supabase.from('profiles').select('id').ilike('full_name', name).maybeSingle();
-        return data?.id || null;
+        const { data } = await supabase.from('profiles').select('id, is_approved').ilike('full_name', name).maybeSingle();
+        return data ? { id: data.id, is_approved: data.is_approved } : null;
     },
 
     async syncOfflineRecords(): Promise<{ success: number, failed: number }> {
@@ -258,8 +258,11 @@ export const attendanceService = {
 
     async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out'): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
         try {
-            const resolvedId = await this.resolveEmployeeId(employeeId, employeeName);
-            if (!resolvedId) return { type: 'error', record: null, reason: 'user_not_found' };
+            const resolved = await this.resolveEmployeeId(employeeId, employeeName);
+            if (!resolved) return { type: 'error', record: null, reason: 'user_not_found' };
+            if (resolved.is_approved === false) return { type: 'error', record: null, reason: 'not_approved' };
+            
+            const resolvedId = resolved.id;
 
             const today = getLocalDateString();
             
