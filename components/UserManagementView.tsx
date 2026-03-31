@@ -151,15 +151,39 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
       await auditService.logAction({
         manager_name: currentUser.full_name,
         employee_name: userName,
-        action: 'Aprobación de Registro',
+        action: 'Aprobación de Cuenta',
         old_value: 'Pendiente',
-        new_value: 'Aprobado/Activo',
-        reason: 'Autorización manual de acceso'
+        new_value: 'Autorizado',
+        reason: 'Aprobación manual por administrador'
       });
-      showFeedback(`Usuario ${userName} aprobado`, 'success');
+      showFeedback(`Usuario ${userName} autorizado correctamente`, 'success');
       loadData();
     } catch (err) {
-      showFeedback('Error al aprobar usuario', 'error');
+      showFeedback('Error al autorizar usuario', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRevoke = async (userId: string, userName: string) => {
+    const confirm = window.confirm(`¿Está seguro de que desea REVOCAR el acceso a la app para ${userName}?`);
+    if (!confirm) return;
+
+    setActionLoading(userId);
+    try {
+      await userManagementService.revokeUserApproval(userId);
+      await auditService.logAction({
+        manager_name: currentUser.full_name,
+        employee_name: userName,
+        action: 'Revocación de Acceso',
+        old_value: 'Autorizado',
+        new_value: 'Pendiente',
+        reason: 'Revocación manual por administrador'
+      });
+      showFeedback(`Acceso revocado para ${userName}`, 'success');
+      loadData();
+    } catch (err) {
+      showFeedback('Error al revocar acceso', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -419,6 +443,16 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                                   <span>AUTORIZAR APP</span>
                                 </button>
                               )}
+                              {status === 'active' && (
+                                <button 
+                                  onClick={() => handleRevoke(user.id, user.full_name)}
+                                  className="p-2.5 bg-slate-50 text-slate-400 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition-all"
+                                  title="Revocar Autorización de App"
+                                >
+                                  <ShieldAlert className="w-4 h-4" />
+                                </button>
+                              )}
+
                               {status === 'active' ? (
                                 <button 
                                   onClick={() => setShowSuspendModal(user)}

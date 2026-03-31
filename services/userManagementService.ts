@@ -112,6 +112,18 @@ export const userManagementService = {
     },
 
     /**
+     * Revokes app access for a user.
+     */
+    async revokeUserApproval(userId: string): Promise<void> {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ is_approved: false })
+            .eq('id', userId);
+
+        if (error) throw error;
+    },
+
+    /**
      * Sends a password reset email to the user.
      */
     async resetPassword(email: string): Promise<void> {
