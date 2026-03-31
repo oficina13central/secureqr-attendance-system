@@ -182,9 +182,6 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
           setAttendanceMsg('Guardado Offline (Sin Internet)');
           setMsgColor('text-amber-400');
           setPendingCount(offlineService.count);
-        } else if (result.reason === 'not_approved') {
-          setStatus('error');
-          setAttendanceMsg('Pendiente de Aprobación');
         } else if (result.reason === 'daily_limit_reached') {
           setStatus('duplicate');
         } else {
@@ -257,10 +254,6 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
       } else if (result.reason === 'no_open_record') {
         setStatus('error');
         setAttendanceMsg('No Marcó Entrada');
-        setShowManualModal(false);
-      } else if (result.reason === 'not_approved') {
-        setStatus('error');
-        setAttendanceMsg('Usuario No Aprobado');
         setShowManualModal(false);
       } else {
         setStatus('error');
@@ -438,11 +431,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
                 <p className="text-4xl font-black text-white mb-2">DENEGADO</p>
                 <p className="text-red-300 font-bold">{attendanceMsg || 'Token no reconocido'}</p>
                 <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
-                  {attendanceMsg === 'Pendiente de Aprobación' || attendanceMsg === 'Usuario No Aprobado' 
-                    ? 'Su perfil debe ser autorizado por el administrador antes de poder registrar fichadas.' 
-                    : attendanceMsg === 'No tenés entrada registrada' || attendanceMsg === 'No Marcó Entrada'
-                    ? 'Debe registrar su ingreso antes de poder salir.'
-                    : 'Verifique su token de acceso con el administrador.'}
+                  {attendanceMsg === 'No tenés entrada registrada' || attendanceMsg === 'No Marcó Entrada'
+                    ? 'Debe registrar su ingreso antes de poder marcar la salida.'
+                    : 'El código QR no pertenece a un empleado activo o ha expirado.'}
                 </p>
               </div>
             </div>

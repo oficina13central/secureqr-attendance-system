@@ -72,7 +72,7 @@ export const authService = {
                     managed_sectors: existingProfile.managed_sectors,
                     qr_token: existingProfile.qr_token || `SECURE_USER:${existingProfile.full_name.replace(/\s+/g, '_')}_${newUserId}`,
                     photo_url: existingProfile.photo_url,
-                    is_approved: true // AUTO-APROBADO
+                    is_approved: false // REQUERIR APROBACIÓN MANUAL TRAS REGISTRO DE CUENTA
                 }]);
 
                 if (createError) throw createError;

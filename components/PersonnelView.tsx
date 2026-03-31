@@ -23,6 +23,7 @@ import { attendanceService } from '../services/attendanceService';
 import { Role } from '../types';
 
 interface PersonnelViewProps {
+    employees: Profile[];
     setEmployees: React.Dispatch<React.SetStateAction<Profile[]>>;
     currentUser: Profile;
 }

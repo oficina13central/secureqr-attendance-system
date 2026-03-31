@@ -215,8 +215,8 @@ const App: React.FC = () => {
     );
   }
 
-  // Check for approval
-  if (currentUser?.is_approved === false && currentUser?.role !== 'superusuario' && currentUser?.role !== 'administrador') {
+  // Check for approval - ONLY isaacgomez78@gmail.com can bypass if state is messy
+  if (currentUser?.is_approved === false && currentUser?.email !== 'isaacgomez78@gmail.com') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-800">
         <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl border border-slate-100 text-center space-y-8 animate-in zoom-in-95 duration-500">
