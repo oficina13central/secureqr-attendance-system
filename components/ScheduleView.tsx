@@ -373,10 +373,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         @media print {
           @page {
             size: A4 landscape;
-            margin: 8mm 10mm;
+            margin: 10mm 12mm;
           }
 
-          /* Ocultar todo excepto la tabla y el header de impresión */
+          /* Ocultar todo el DOM, mostrar solo header y tabla */
           body * { visibility: hidden; }
           .print-header,
           .print-header *,
@@ -385,41 +385,44 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             visibility: visible;
           }
 
-          /* Posicionar el contenido */
+          /* FLUJO NORMAL: sin position fixed/absolute
+             Así el navegador pagina automáticamente */
           .print-header {
             display: block !important;
-            position: fixed;
-            top: 0;
-            left: 0;
+            position: static !important;
             width: 100%;
+            margin-bottom: 8px;
           }
+
           .schedule-table-wrapper {
-            position: absolute;
-            top: 18mm;
-            left: 0;
+            position: static !important;
             width: 100%;
+            overflow: visible !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
           }
 
           /* Header de impresión */
           .print-header-top {
-            display: flex;
+            display: flex !important;
             justify-content: space-between;
             align-items: flex-end;
-            border-bottom: 1.5px solid #1e293b;
-            padding-bottom: 4px;
-            margin-bottom: 4px;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
           }
           .print-company {
             display: block;
-            font-size: 8pt;
+            font-size: 7pt;
             font-weight: 700;
-            color: #6366f1;
+            color: #475569;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
           }
           .print-doc {
             display: block;
-            font-size: 13pt;
+            font-size: 14pt;
             font-weight: 700;
             color: #0f172a;
             line-height: 1.1;
@@ -428,79 +431,76 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 1px;
-            font-size: 7pt;
-            color: #64748b;
+            gap: 2px;
+            font-size: 7.5pt;
+            color: #475569;
           }
-          .print-meta span {
-            display: block;
-          }
+          .print-meta span { display: block; }
 
-          /* Tabla */
-          table {
+          /* Tabla — flujo normal para paginación automática */
+          .schedule-table-wrapper table {
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
             font-size: 8pt !important;
           }
-          thead tr {
-            background: #ffffff !important;
+
+          /* thead se repite en cada página nueva */
+          .schedule-table-wrapper thead {
+            display: table-header-group !important;
           }
-          th {
-            border: 1px solid #475569 !important;
-            padding: 4px 3px !important;
-            font-size: 7.5pt !important;
+
+          .schedule-table-wrapper th {
+            border: 1.5px solid #334155 !important;
+            padding: 5px 4px !important;
+            font-size: 8pt !important;
             font-weight: 700 !important;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
             text-align: center;
-            color: #1e293b;
+            color: #0f172a;
             background: #ffffff !important;
           }
-          th:first-child {
+          .schedule-table-wrapper th:first-child {
             text-align: left;
-            width: 28%;
+            padding-left: 6px;
+            width: 26%;
           }
-          td {
-            border: 1px solid #475569 !important;
-            padding: 3px 4px !important;
+
+          .schedule-table-wrapper td {
+            border: 1.5px solid #334155 !important;
+            padding: 4px 3px !important;
             font-size: 7.5pt !important;
             text-align: center;
             vertical-align: middle;
             background: #ffffff !important;
           }
-          td:first-child {
+          .schedule-table-wrapper td:first-child {
             text-align: left;
-          }
-          tr:nth-child(even) td {
-            background: #ffffff !important;
+            padding-left: 6px;
           }
 
-          /* Ocultar badges complejos, reemplazar con texto */
-          span[class*="rounded"] {
-            border: none !important;
+          /* Evitar que una fila se corte entre páginas */
+          .schedule-table-wrapper tr {
+            page-break-inside: avoid;
+          }
+
+          /* Badges: solo texto, sin fondo ni borde */
+          .schedule-table-wrapper span {
             background: none !important;
+            border: none !important;
             padding: 0 !important;
             font-size: 7pt !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
+            color: #1e293b !important;
+            box-shadow: none !important;
           }
 
-          /* No mostrar elementos de pantalla */
-          .no-print, button, select, input,
-          .fixed, header, nav { display: none !important; }
-
-          /* Pie de página */
-          @page {
-            @bottom-right {
-              content: counter(page) " / " counter(pages);
-              font-size: 7pt;
-              color: #94a3b8;
-            }
-            @bottom-left {
-              content: "secureqr-attendance-system.vercel.app";
-              font-size: 7pt;
-              color: #94a3b8;
-            }
+          /* Ocultar avatares, botones y controles */
+          .no-print,
+          button, select, input,
+          .fixed, header, nav {
+            display: none !important;
           }
         }
       `}</style>
