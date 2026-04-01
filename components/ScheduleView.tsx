@@ -11,32 +11,26 @@ import {
   Lock,
   Unlock,
   Printer,
-  Download,
-  Search
+  Download
 } from 'lucide-react';
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
-import { attendanceService } from '../services/attendanceService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
   employees?: Profile[];
-  currentUser?: { id?: string; full_name: string; role: string; sector_id?: string };
+  currentUser?: { full_name: string; role: string; sector_id?: string };
 }
 
-// Ensure we have defaults if props are missing
 const defaultEmployees: Profile[] = [];
-const defaultUser: { id?: string; full_name: string; role: string; sector_id?: string } = { id: '', full_name: 'Guest', role: 'invitado', sector_id: '' };
+const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' };
 
-// Types are now imported from scheduleService
-
-// --- Date Helpers ---
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day; // Subtract current day of week to jump to Sunday (0)
+  const diff = d.getDate() - day;
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -86,7 +80,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     fetchShifts();
   }, [currentWeekStart]);
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<{ empId: string; date: Date; empName: string } | null>(null);
   const [editForm, setEditForm] = useState<{ type: ShiftType; s1Start: string; s1End: string; s2Start: string; s2End: string; startDate?: string; endDate?: string }>({
@@ -99,65 +92,25 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     endDate: ''
   });
 
-  // Sector Filter & Search State
   const [selectedSector, setSelectedSector] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // Compute unique sectors
   const sectors = useMemo(() => {
-    // Collect all sectors actually present in the employee list for the selector
     const unique = new Set(employees.map(e => e.sector_id || 'General'));
     return Array.from(unique);
   }, [employees]);
 
-  // Compute sectors AUTHORIZED for this user
-  const authorizedSectors = useMemo(() => {
-    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return sectors;
-    
-    const s = new Set<string>();
-    if (currentUser.sector_id) s.add(currentUser.sector_id);
-    if ((currentUser as Profile).managed_sectors) {
-        (currentUser as Profile).managed_sectors?.forEach(id => s.add(id));
-    }
-    return Array.from(s);
-  }, [currentUser, sectors]);
-
-  // Permissions & Filter
   const filteredEmployees = useMemo(() => {
     let list = employees;
-
-    // Filter by Role/Permissions
-    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') {
-      // Admins see all
-    } else if (currentUser.role === 'encargado') {
-      // Encargado sees their sector AND managed sectors
-      const mySectors = new Set<string>();
-      if (currentUser.sector_id) mySectors.add(currentUser.sector_id);
-      if ((currentUser as Profile).managed_sectors) {
-          (currentUser as Profile).managed_sectors?.forEach(id => mySectors.add(id));
-      }
-      list = list.filter(e => mySectors.has(e.sector_id || 'General'));
-    } else if (currentUser.role === 'empleado') {
-      list = list.filter(e => e.id === currentUser.id);
-    } else {
-      list = [];
-    }
-
-    // Filter by Sector (if selected)
     if (selectedSector !== 'all') {
       list = list.filter(e => (e.sector_id || 'General') === selectedSector);
     }
-    
-    // Filter by Search Term
-    if (searchTerm.trim()) {
-      const lower = searchTerm.toLowerCase();
-      list = list.filter(e => e.full_name?.toLowerCase().includes(lower));
+    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return list;
+    if (currentUser.role === 'encargado') {
+      return list.filter(e => e.sector_id === currentUser.sector_id);
     }
+    return [];
+  }, [employees, currentUser, selectedSector]);
 
-    return list;
-  }, [employees, currentUser, selectedSector, searchTerm]);
-
-  // Generate days for view
   const weekDays = useMemo(() => {
     const days = [];
     for (let i = 0; i < 7; i++) {
@@ -166,28 +119,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return days;
   }, [currentWeekStart]);
 
-  // Navigation
   const handlePrevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
   const handleNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
 
-  // Cell Click -> Open Modal
   const handleCellClick = (emp: Profile, date: Date) => {
-    // Permission Change: Managers can modify.
     const isAuthorized = currentUser.role === 'administrador' || currentUser.role === 'encargado' || currentUser.role === 'superusuario';
-    if (!isAuthorized || currentUser.role === 'empleado') return;
+    if (!isAuthorized) return;
 
     const dateKey = formatDate(date);
     const shiftKey = `${emp.id}_${dateKey}`;
     const existingShift = shifts[shiftKey];
 
-    // Lock Check: Can modify BEFORE start time?
-    // User Rule: "Puede modificarlo siempre antes del horario de entrada"
-    // We check if Date is today or future. If Today, check time? 
-    // Creating strict rule: Can modify if start time has not passed.
-    // Simplifying: Can modify if Date >= Today.
-    // If purely strict: compare now vs shift start.
-
-    // Let's load data
     setSelectedTarget({ empId: emp.id, date: date, empName: emp.full_name });
 
     if (existingShift) {
@@ -199,7 +141,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         s2End: existingShift.segments[1]?.end || ''
       });
     } else {
-      // Defaults
       setEditForm({
         type: 'continuous',
         s1Start: '08:00',
@@ -220,75 +161,61 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleSave = async () => {
     if (!selectedTarget) return;
 
-    // Validate Rule: Cannot edit if shift already started?
-    // User: "antes del horario de entrada"
     const now = new Date();
-    const targetDateStr = formatDate(selectedTarget.date); // YYYY-MM-DD
+    const targetDateStr = formatDate(selectedTarget.date);
 
-    // Construct start time for validation
     let startTimeStr = editForm.s1Start;
-    if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59"; // if empty/off/vacation
+    if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59";
 
     const targetDateTime = new Date(`${targetDateStr}T${startTimeStr}`);
 
-    // Logic: If trying to EDIT/CREATE for a time in the past:
-    // If targetDate is Yesterday -> Block.
-    // If targetDate is Today -> Check Time.
-
-    // Simple block: if targetDate < today (start of day), block?
-    // User said: "before the entry time".
-    if (now > targetDateTime && editForm.type !== 'medical') {
-      // Technically this blocks editing past shifts. Which is what they requested ("no despues para evitar amiguismos").
-      // But what if they made a mistake?
-      // User instruction: "Solo ... antes del horario de entrada no despues". Rigid rule.
-      // Exception: Medical leaves are usually reported post-facto.
+    if (now > targetDateTime) {
       if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
-        alert("No se puede modificar un horario que ya ha comenzado (Regla: Evitar amiguismos). Las únicas excepciones son las Licencias Médicas.");
+        alert("No se puede modificar un horario que ya ha comenzado (Regla: Evitar amiguismos).");
         return;
       }
     }
 
     const shiftsToSave: ShiftData[] = [];
-    
-    if (editForm.type === 'vacation' || editForm.type === 'medical') {
-        // Use either provided range or fallback to target date
-        const startStr = editForm.startDate || targetDateStr;
-        const endStr = editForm.endDate || startStr;
-        
-        const start = new Date(startStr + 'T00:00:00');
-        const end = new Date(endStr + 'T00:00:00');
-        
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dKey = formatDate(d);
-            shiftsToSave.push({
-                id: `${selectedTarget.empId}_${dKey}`,
-                employee_id: selectedTarget.empId,
-                date: dKey,
-                type: editForm.type,
-                segments: [],
-                last_modified_by: currentUser.full_name || 'Admin',
-                last_modified_at: new Date().toISOString()
-            });
-        }
-    } else {
-        const segments: ShiftSegment[] = [];
-        if (editForm.type === 'continuous') {
-          segments.push({ start: editForm.s1Start, end: editForm.s1End });
-        } else if (editForm.type === 'split') {
-          segments.push({ start: editForm.s1Start, end: editForm.s1End });
-          segments.push({ start: editForm.s2Start, end: editForm.s2End });
-        }
 
-        const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
+    if (editForm.type === 'vacation') {
+      const startStr = editForm.startDate || targetDateStr;
+      const endStr = editForm.endDate || startStr;
+
+      const start = new Date(startStr + 'T00:00:00');
+      const end = new Date(endStr + 'T00:00:00');
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dKey = formatDate(d);
         shiftsToSave.push({
-            id: shiftKey,
-            employee_id: selectedTarget.empId,
-            date: targetDateStr,
-            type: editForm.type,
-            segments,
-            last_modified_by: currentUser.full_name || 'Admin',
-            last_modified_at: new Date().toISOString()
+          id: `${selectedTarget.empId}_${dKey}`,
+          employee_id: selectedTarget.empId,
+          date: dKey,
+          type: 'vacation',
+          segments: [],
+          last_modified_by: currentUser.full_name || 'Admin',
+          last_modified_at: new Date().toISOString()
         });
+      }
+    } else {
+      const segments: ShiftSegment[] = [];
+      if (editForm.type === 'continuous') {
+        segments.push({ start: editForm.s1Start, end: editForm.s1End });
+      } else if (editForm.type === 'split') {
+        segments.push({ start: editForm.s1Start, end: editForm.s1End });
+        segments.push({ start: editForm.s2Start, end: editForm.s2End });
+      }
+
+      const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
+      shiftsToSave.push({
+        id: shiftKey,
+        employee_id: selectedTarget.empId,
+        date: targetDateStr,
+        type: editForm.type,
+        segments,
+        last_modified_by: currentUser.full_name || 'Admin',
+        last_modified_at: new Date().toISOString()
+      });
     }
 
     const saved = await scheduleService.save(shiftsToSave);
@@ -298,41 +225,21 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
       setShifts(newShiftsMap);
 
-      // Log to Audit
-      const actionName = editForm.type === 'vacation' ? 'Asignación de Vacaciones' : editForm.type === 'medical' ? 'Licencia Médica' : 'Cambio de Turno';
       await auditService.logAction({
         manager_name: currentUser.full_name || 'Admin',
         employee_name: selectedTarget.empName,
-        action: actionName,
+        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 'Cambio de Turno',
         old_value: 'N/A',
-        new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
-            ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}` 
-            : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
+        new_value: editForm.type === 'vacation'
+          ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}`
+          : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
         reason: 'Modificación manual de cronograma'
       });
-
-      // Recalcular asistencia retroactiva automáticamente si fuera necesario
-      if (editForm.type === 'medical' || editForm.type === 'vacation') {
-          await attendanceService.recalculateAttendance(
-              selectedTarget.empId,
-              editForm.startDate || targetDateStr,
-              editForm.endDate || targetDateStr,
-              currentUser.full_name || 'Admin'
-          );
-      } else {
-          await attendanceService.recalculateAttendance(
-              selectedTarget.empId,
-              targetDateStr,
-              targetDateStr,
-              currentUser.full_name || 'Admin'
-          );
-      }
     }
 
     setIsModalOpen(false);
   };
 
-  // Render Helper
   const renderCellContent = (empId: string, date: Date) => {
     const shift = shifts[`${empId}_${formatDate(date)}`];
     const isSunday = date.getDay() === 0;
@@ -353,7 +260,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'off') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
+          <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
             Descanso
           </span>
         </div>
@@ -363,18 +270,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'vacation') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-teal-100 text-teal-700 border border-teal-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
+          <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
             Vacaciones
-          </span>
-        </div>
-      );
-    }
-
-    if (shift.type === 'medical') {
-      return (
-        <div className="flex flex-col items-center">
-          <span className="bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest print-color">
-            Licencia
           </span>
         </div>
       );
@@ -383,7 +280,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'continuous') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold print-color print-time">
+          <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-md text-[10px] font-bold">
             {shift.segments[0]?.start} - {shift.segments[0]?.end}
           </span>
         </div>
@@ -392,10 +289,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (shift.type === 'split') {
       return (
         <div className="flex flex-col gap-1 items-center">
-          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold print-color print-time">
+          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
             {shift.segments[0]?.start} - {shift.segments[0]?.end}
           </span>
-          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold print-color print-time">
+          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
             {shift.segments[1]?.start} - {shift.segments[1]?.end}
           </span>
         </div>
@@ -403,220 +300,213 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
   };
 
+  // Sector name for print header
+  const sectorLabel = selectedSector === 'all'
+    ? 'Todos los sectores'
+    : (sectorMap[selectedSector] || selectedSector);
+
+  const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
   return (
     <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
-      <header className="flex flex-col gap-6 no-print">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center">
-              Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
-            </h2>
-            <p className="text-xs md:text-sm text-slate-500 font-medium">
-              Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${currentUser.sector_id}` : 'Vista Global'}
-            </p>
+      {/* ── PRINT-ONLY HEADER ── */}
+      <div className="print-header" style={{ display: 'none' }}>
+        <div className="print-header-top">
+          <div>
+            <span className="print-company">Control de Asistencias</span>
+            <span className="print-doc">Cronograma Semanal</span>
           </div>
+          <div className="print-meta">
+            <span>{weekLabel}</span>
+            <span>Sector: {sectorLabel}</span>
+            <span>Impreso: {new Date().toLocaleDateString('es-ES')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── SCREEN HEADER ── */}
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center">
+            Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
+          </h2>
+          <p className="text-slate-500 font-medium">
+            Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${currentUser.sector_id}` : 'Vista Global'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+            <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
+              <select
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
+              >
+                <option value="all">Todos</option>
+                {sectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+            <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
+            <span className="px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
+              {currentWeekStart.toLocaleDateString()} - {addDays(currentWeekStart, 6).toLocaleDateString()}
+            </span>
+            <button onClick={handleNextWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
+          </div>
+
           <button
             onClick={handlePrint}
-            className="flex items-center justify-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-indigo-600 transition-all shadow-lg sm:w-auto"
+            className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-600 transition-all shadow-lg no-print"
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir / PDF</span>
           </button>
         </div>
-
-        {/* Controls Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3">
-          {/* Search Box */}
-          <div className="relative flex items-center bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-            <div className="pl-4 pr-1 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-slate-400" />
-            </div>
-            <input 
-              type="text"
-              placeholder="Buscar empleado..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full px-2 py-3.5 bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400"
-            />
-          </div>
-          
-          {/* Sector Select */}
-          {(currentUser.role === 'administrador' || currentUser.role === 'superusuario' || currentUser.role === 'encargado') && (
-            <div className="flex items-center space-x-3 bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Sector:</span>
-              <select
-                value={selectedSector}
-                onChange={(e) => setSelectedSector(e.target.value)}
-                className="bg-transparent border-none text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer w-full"
-              >
-                <option value="all">Ver Todos</option>
-                {authorizedSectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* Week Navigation */}
-          <div className="flex items-center justify-between sm:justify-start space-x-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm lg:ml-auto">
-            <button onClick={handlePrevWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-colors text-slate-600 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
-            <span className="px-4 text-[10px] font-black uppercase tracking-tighter text-slate-500 min-w-[140px] text-center">
-              {currentWeekStart.toLocaleDateString()} - {addDays(currentWeekStart, 6).toLocaleDateString()}
-            </span>
-            <button onClick={handleNextWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-colors text-slate-600 active:scale-90"><ChevronRight className="w-5 h-5" /></button>
-          </div>
-        </div>
       </header>
 
-      {/* Print-Only Header */}
-      <div className="hidden-on-screen print-only print-header">
-        <h1>ASIGNACIÓN SEMANAL DE TURNOS</h1>
-        <div className="print-header-details">
-          <p>Período: {currentWeekStart.toLocaleDateString()} al {addDays(currentWeekStart, 6).toLocaleDateString()}</p>
-          <p>Sector: {selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector)}</p>
-        </div>
-      </div>
-
+      {/* ── PRINT STYLES ── */}
       <style>{`
-        .hidden-on-screen {
-          display: none;
-        }
         @media print {
           @page {
             size: A4 landscape;
-            margin: 5mm 10mm;
-          }
-          .no-print, button, select, .fixed, footer, aside, nav {
-            display: none !important;
-          }
-          .print-only {
-            display: block !important;
-          }
-          .space-y-8 > :not([hidden]) ~ :not([hidden]) {
-            margin-top: 0 !important;
-          }
-          body {
-            background: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            color: black !important;
-          }
-          .p-4, .md\\:p-8 {
-            padding: 0 !important;
-          }
-          .shadow-sm, .shadow-lg, .shadow-2xl {
-            box-shadow: none !important;
-          }
-          .bg-white {
-            background: white !important;
-          }
-          .rounded-\\[2\\.5rem\\], .rounded-3xl, .rounded-2xl {
-            border-radius: 0 !important;
-          }
-          
-          /* Force borders on table cells */
-          table {
-            border: 1.5pt solid #334155 !important;
-            border-collapse: collapse !important;
-          }
-          th, td {
-            border: 1pt solid #334155 !important;
-          }
-          
-          /* Professional Print Header */
-          .print-header {
-            text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #1e293b;
-          }
-          .print-header h1 {
-            font-size: 24pt;
-            font-weight: 900;
-            color: #1e293b;
-            margin: 0;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .print-header-details {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 5px;
-          }
-          .print-header-details p {
-            font-size: 11pt;
-            font-weight: 700;
-            color: #475569;
-            margin: 0;
+            margin: 8mm 10mm;
           }
 
-          /* Table Optimization */
+          /* Ocultar todo excepto la tabla y el header de impresión */
+          body * { visibility: hidden; }
+          .print-header,
+          .print-header *,
+          .schedule-table-wrapper,
+          .schedule-table-wrapper * {
+            visibility: visible;
+          }
+
+          /* Posicionar el contenido */
+          .print-header {
+            display: block !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+          .schedule-table-wrapper {
+            position: absolute;
+            top: 18mm;
+            left: 0;
+            width: 100%;
+          }
+
+          /* Header de impresión */
+          .print-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1.5px solid #1e293b;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+          }
+          .print-company {
+            display: block;
+            font-size: 8pt;
+            font-weight: 700;
+            color: #6366f1;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+          .print-doc {
+            display: block;
+            font-size: 13pt;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.1;
+          }
+          .print-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 1px;
+            font-size: 7pt;
+            color: #64748b;
+          }
+          .print-meta span {
+            display: block;
+          }
+
+          /* Tabla */
           table {
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
-            font-size: 10pt !important;
+            font-size: 8pt !important;
           }
-          th, td {
-            border: 1px solid #94a3b8 !important;
-            padding: 6px 2px !important;
-            overflow: hidden;
-            word-wrap: break-word;
+          thead tr {
+            background: #ffffff !important;
           }
           th {
-            background-color: #f8fafc !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            border: 1px solid #475569 !important;
+            padding: 4px 3px !important;
+            font-size: 7.5pt !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: center;
+            color: #1e293b;
+            background: #ffffff !important;
           }
-          .bg-slate-50\\/50 {
-            background-color: #f8fafc !important;
+          th:first-child {
+            text-align: left;
+            width: 28%;
           }
-          
-          /* Adjust columns */
-          th:first-child, td:first-child {
-            width: 180px !important; /* Keep names legible */
-            text-align: left !important;
-            padding-left: 10px !important;
+          td {
+            border: 1px solid #475569 !important;
+            padding: 3px 4px !important;
+            font-size: 7.5pt !important;
+            text-align: center;
+            vertical-align: middle;
+            background: #ffffff !important;
+          }
+          td:first-child {
+            text-align: left;
+          }
+          tr:nth-child(even) td {
+            background: #ffffff !important;
           }
 
-          .sticky {
-            position: static !important;
+          /* Ocultar badges complejos, reemplazar con texto */
+          span[class*="rounded"] {
+            border: none !important;
+            background: none !important;
+            padding: 0 !important;
+            font-size: 7pt !important;
+            font-weight: 600 !important;
           }
-          header {
-            display: none !important;
-          }
-          .w-full.overflow-x-auto {
-            overflow: visible !important;
-          }
-          
-          /* Visual cell markers print adjustments */
-          .print-color {
-             -webkit-print-color-adjust: exact !important;
-             print-color-adjust: exact !important;
-          }
-          .bg-slate-100 { background-color: #f1f5f9 !important; }
-          .bg-teal-100 { background-color: #ccfbf1 !important; color: #0f766e !important; }
-          .bg-rose-100 { background-color: #ffe4e6 !important; color: #be123c !important; }
-          .bg-emerald-50 { background-color: #ecfdf5 !important; color: #047857 !important; }
-          .bg-indigo-50 { background-color: #eef2ff !important; color: #4338ca !important; }
-          
-          .text-slate-500 { color: #64748b !important; }
-          .text-slate-400 { color: #94a3b8 !important; border-color: #e2e8f0 !important; }
-          
-          /* Special class for time blocks to make them pop out on print */
-          .print-time {
-              border-width: 1.5px !important;
-          }
-          
-          /* Force color adjust */
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+
+          /* No mostrar elementos de pantalla */
+          .no-print, button, select, input,
+          .fixed, header, nav { display: none !important; }
+
+          /* Pie de página */
+          @page {
+            @bottom-right {
+              content: counter(page) " / " counter(pages);
+              font-size: 7pt;
+              color: #94a3b8;
+            }
+            @bottom-left {
+              content: "secureqr-attendance-system.vercel.app";
+              font-size: 7pt;
+              color: #94a3b8;
+            }
           }
         }
       `}</style>
 
-      {/* Desktop Table: Hidden on Mobile */}
-      <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden no-print">
+      {/* ── TABLE ── */}
+      <div className="schedule-table-wrapper bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -637,7 +527,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50/50 transition-colors border-r border-slate-50">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print">
                         {emp.full_name.charAt(0)}
                       </div>
                       <div>
@@ -661,12 +551,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                         className={`px-2 py-4 text-center cursor-pointer hover:bg-indigo-50 transition-colors border-l border-dashed border-slate-100 relative ${isPast ? 'opacity-70' : ''}`}
                       >
                         {renderCellContent(emp.id, d)}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 pointer-events-none">
-                          {!isPast && currentUser.role !== 'empleado' && (
-                            <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg">
-                              <Clock className="w-3 h-3" />
-                            </div>
-                          )}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 pointer-events-none no-print">
+                          {!isPast && <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg"><Clock className="w-3 h-3" /></div>}
                         </div>
                       </td>
                     );
@@ -678,91 +564,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         </div>
       </div>
 
-      {/* Mobile Card List: Hidden on Desktop */}
-      <div className="md:hidden space-y-6 no-print">
-        {filteredEmployees.map(emp => (
-          <div key={emp.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-5 bg-slate-50/50 border-b border-slate-100 flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white text-sm shadow-inner">
-                {emp.full_name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-slate-800 text-sm truncate uppercase tracking-tight">{emp.full_name}</p>
-                <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">
-                  {sectorMap[emp.sector_id || ''] || emp.sector_id || 'GENERAL'} • {emp.role}
-                </p>
-              </div>
-            </div>
-            <div className="p-2 grid grid-cols-1 divide-y divide-slate-50">
-              {weekDays.map(d => {
-                const dateKey = formatDate(d);
-                const now = new Date();
-                const shiftStart = new Date(`${dateKey}T23:59:00`);
-                const isPast = now > shiftStart;
-                const shiftKey = `${emp.id}_${dateKey}`;
-                const hasShift = !!shifts[shiftKey];
-
-                return (
-                  <button
-                    key={dateKey}
-                    onClick={() => handleCellClick(emp, d)}
-                    className={`flex items-center justify-between p-4 transition-all active:bg-slate-50 ${isPast ? 'opacity-60' : ''}`}
-                  >
-                    <div className="flex flex-col items-start space-y-0.5">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                        {d.toLocaleDateString('es-ES', { weekday: 'long' })}
-                      </span>
-                      <span className="text-lg font-black text-slate-700 leading-none py-1">
-                        {d.getDate()} <span className="text-xs text-slate-400 font-medium ml-1">de {d.toLocaleDateString('es-ES', { month: 'short' })}</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {renderCellContent(emp.id, d)}
-                      <div className={`p-1.5 rounded-full ${hasShift ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-300'}`}>
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Print-Only Table (Same for Desktop/Mobile) */}
-      <div className="hidden-on-screen print-only">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr>
-              <th className="px-4 py-3 text-xs font-black uppercase tracking-widest border border-slate-300">Empleado</th>
-              {weekDays.map(d => (
-                <th key={d.toISOString()} className="px-2 py-3 text-center border border-slate-300">
-                  <span className="text-[10px] font-bold block">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                  <span className="text-sm font-black">{d.getDate()}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEmployees.map(emp => (
-              <tr key={emp.id}>
-                <td className="px-4 py-2 border border-slate-300">
-                  <p className="font-bold text-sm leading-tight">{emp.full_name}</p>
-                </td>
-                {weekDays.map(d => (
-                  <td key={d.toISOString()} className="px-1 py-4 text-center border border-slate-300">
-                    {renderCellContent(emp.id, d)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* ── MODAL ── */}
       {isModalOpen && selectedTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-xl font-black text-slate-800">Asignar Turno</h3>
@@ -774,20 +579,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
 
             <div className="space-y-6">
-              {/* Shift Type Selector */}
-              <div className="flex flex-wrap sm:flex-nowrap gap-1 p-1 bg-slate-100 rounded-xl overflow-hidden">
-                {(['continuous', 'split', 'off', 'vacation', 'medical'] as const).map((t) => (
+              <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
+                {(['continuous', 'split', 'off', 'vacation'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`flex-1 min-w-fit py-2.5 px-3 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap text-center ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'vacation' ? 'Vacaciones' : 'Médica'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : 'Vacaciones'}
                   </button>
                 ))}
               </div>
 
-              {/* Inputs */}
               {editForm.type === 'continuous' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -819,30 +622,31 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   </div>
                 </div>
               )}
-              {(editForm.type === 'vacation' || editForm.type === 'medical') && (
+
+              {editForm.type === 'vacation' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Desde (Inicio)</label>
-                        <input 
-                            type="date" 
-                            value={editForm.startDate} 
-                            onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
-                        />
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Desde (Inicio)</label>
+                      <input
+                        type="date"
+                        value={editForm.startDate}
+                        onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                      />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hasta (Fin)</label>
-                        <input 
-                            type="date" 
-                            value={editForm.endDate} 
-                            onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
-                        />
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hasta (Fin)</label>
+                      <input
+                        type="date"
+                        value={editForm.endDate}
+                        onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                      />
                     </div>
                   </div>
-                  <p className={`text-[10px] italic mt-1 p-3 rounded-lg border ${editForm.type === 'medical' ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-emerald-50 text-slate-400 border-emerald-100'}`}>
-                    Se marcarán todos los días en el rango seleccionado como {editForm.type === 'medical' ? 'licencia médica' : 'vacaciones'}. {editForm.type === 'medical' && "Recuerda que esta acción actualizará el estado de asistencias previas vinculadas a estas fechas de forma retroactiva, justificando ausencias."} Asegúrese de que las fechas sean correctas antes de guardar.
+                  <p className="text-[10px] text-slate-400 italic mt-1 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                    Se marcarán todos los días en el rango seleccionado como vacaciones.
                   </p>
                 </div>
               )}
