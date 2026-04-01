@@ -613,7 +613,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             print-color-adjust: exact !important;
           }
         }
-      `}      {/* Desktop Table: Hidden on Mobile */}
+      `}</style>
+
+      {/* Desktop Table: Hidden on Mobile */}
       <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden no-print">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -758,9 +760,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           </tbody>
         </table>
       </div>
-    </div>
-
-      {/* Edit Modal */}
       {isModalOpen && selectedTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
