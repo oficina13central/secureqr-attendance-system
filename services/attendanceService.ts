@@ -81,7 +81,19 @@ export const attendanceService = {
             .eq('date', date)
             .single();
 
-        const scheduleType = scheduleData?.type || 'continuous';
+        let activeSchedule = scheduleData;
+        
+        if (!activeSchedule) {
+            const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
+            if (profile?.default_schedule) {
+                const base = profile.default_schedule[now.getDay().toString()];
+                if (base) {
+                    activeSchedule = { type: base.type, segments: base.segments };
+                }
+            }
+        }
+
+        const scheduleType = activeSchedule?.type || 'continuous';
 
         const { data: existingToday, error: fetchError } = await supabase
             .from('attendance_records')
@@ -105,9 +117,9 @@ export const attendanceService = {
         let minutesLate = 0;
         const rules = await settingsService.getRules();
 
-        if (scheduleData && scheduleData.segments && scheduleData.segments.length > 0) {
+        if (activeSchedule && activeSchedule.segments && activeSchedule.segments.length > 0) {
             const segmentIndex = validEntriesCount;
-            const targetSegment = scheduleData.segments[segmentIndex] || scheduleData.segments[0];
+            const targetSegment = activeSchedule.segments[segmentIndex] || activeSchedule.segments[0];
             const scheduledStart = targetSegment.start;
             const [schedHours, schedMins] = scheduledStart.split(':').map(Number);
             const scheduledTime = new Date(now);
@@ -210,10 +222,16 @@ export const attendanceService = {
                         .eq('date', dateStr)
                         .single();
 
+                    let activeSchedule = schedule;
+                    if (!activeSchedule && emp.default_schedule) {
+                        const base = emp.default_schedule[checkDate.getDay().toString()];
+                        if (base) activeSchedule = { type: base.type } as any;
+                    }
+
                     let status: 'ausente' | 'descanso' | 'vacaciones' | null = null;
-                    if (schedule) {
-                        status = schedule.type === 'off' ? 'descanso' : 
-                                 schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
+                    if (activeSchedule) {
+                        status = activeSchedule.type === 'off' ? 'descanso' : 
+                                 activeSchedule.type === 'vacation' ? 'vacaciones' : 'ausente';
                     }
                     if (status) await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
                 }
@@ -338,10 +356,24 @@ export const attendanceService = {
                 .lte('date', endDate);
 
             if (schedError) throw schedError;
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('default_schedule')
+                .eq('id', employeeId)
+                .maybeSingle();
+            const defaultSchedule = profile?.default_schedule;
+
             const rules = await settingsService.getRules();
 
             for (const record of records) {
-                const schedule = schedules?.find(s => s.date === record.date);
+                const dateObj = new Date(`${record.date}T12:00:00`);
+                let schedule = schedules?.find(s => s.date === record.date);
+                if (!schedule && defaultSchedule) {
+                    const base = defaultSchedule[dateObj.getDay().toString()];
+                    if (base) schedule = { date: record.date, type: base.type, segments: base.segments } as any;
+                }
+                
                 if (!schedule) continue;
                 let newStatus = record.status;
                 let newMinutesLate = record.minutes_late;

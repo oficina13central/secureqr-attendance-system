@@ -11,7 +11,9 @@ import {
     Check,
     UserPlus,
     Pencil,
-    Download
+    Download,
+    CalendarDays,
+    Save
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Profile } from '../types';
@@ -39,6 +41,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [verazScores, setVerazScores] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState<string>('all');
+    const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
+    const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
 
     // Helper: get all sector IDs this user can manage (own sector + managed_sectors)
     const getAccessibleSectorIds = (user: Profile): string[] => {
@@ -140,6 +144,43 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         setError(null);
         setSuccess(false);
         setShowModal(true);
+    };
+
+    const openScheduleModal = (employee: Profile) => {
+        const defaultSched = employee.default_schedule || {
+            '1': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+            '2': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+            '3': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+            '4': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+            '5': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+            '6': { type: 'off', segments: [] },
+            '0': { type: 'off', segments: [] }
+        };
+        setScheduleForm(defaultSched);
+        setShowScheduleModal(employee);
+    };
+
+    const handleSaveSchedule = async () => {
+        if (!showScheduleModal) return;
+        try {
+            const result = await personnelService.update(showScheduleModal.id, { default_schedule: scheduleForm });
+            if (result) {
+                setEmployees(employees.map(emp => emp.id === showScheduleModal.id ? result : emp));
+                setShowScheduleModal(null);
+                await auditService.logAction({
+                    manager_name: currentUser.full_name,
+                    employee_name: showScheduleModal.full_name,
+                    action: 'Actualización Horario Base',
+                    old_value: 'N/A',
+                    new_value: 'Plantilla Modificada',
+                    reason: 'Actualización de plantilla semanal'
+                });
+            } else {
+                alert('Error al guardar horario base');
+            }
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const handleSaveEmployee = async (e: React.FormEvent) => {
@@ -429,6 +470,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                 <X className="w-4 h-4" />
                                             </button>
                                             <button
+                                                onClick={() => openScheduleModal(emp)}
+                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                title="Horario Habitual (Plantilla)"
+                                            >
+                                                <CalendarDays className="w-4 h-4" />
+                                            </button>
+                                            <button
                                                 onClick={() => setShowCardModal(emp)}
                                                 className="text-indigo-600 hover:text-indigo-800 font-bold text-xs uppercase tracking-wider flex items-center space-x-1"
                                             >
@@ -674,6 +722,127 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             >
                                 <Download className="w-5 h-5" />
                                 <span>Descargar PNG</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Default Schedule Modal */}
+            {showScheduleModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
+                    <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in flex flex-col" style={{ maxHeight: '90vh' }}>
+                        <div className="flex justify-between items-center px-8 pt-7 pb-4 border-b border-slate-100 flex-shrink-0">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800">Horario Habitual</h3>
+                                <p className="text-sm font-medium text-slate-500">{showScheduleModal.full_name} • Plantilla Base</p>
+                            </div>
+                            <button onClick={() => setShowScheduleModal(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                                <X className="w-6 h-6 text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 px-8 py-5 space-y-4">
+                            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-start gap-3">
+                                <CalendarDays className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+                                <p className="text-sm text-indigo-800">
+                                    Este es el horario estándar que se asignará automáticamente todos los días. 
+                                    Si una semana tiene un turno diferente, modifica directamente el Cronograma Semanal y la excepción sobreescribirá esta plantilla.
+                                </p>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {[
+                                    { k: '1', l: 'Lunes' }, { k: '2', l: 'Martes' }, { k: '3', l: 'Miércoles' },
+                                    { k: '4', l: 'Jueves' }, { k: '5', l: 'Viernes' }, { k: '6', l: 'Sábado' }, { k: '0', l: 'Domingo' }
+                                ].map(day => {
+                                    const dState = scheduleForm[day.k] || { type: 'off', segments: [] };
+                                    
+                                    return (
+                                        <div key={day.k} className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                            <div className="w-24 font-bold text-slate-700 text-sm pl-2">{day.l}</div>
+                                            <select
+                                                value={dState.type}
+                                                onChange={e => {
+                                                    const newType = e.target.value;
+                                                    let newSegs = dState.segments;
+                                                    if (newType === 'continuous' && (!newSegs || newSegs.length === 0)) newSegs = [{ start: '08:00', end: '16:00' }];
+                                                    if (newType === 'split' && (!newSegs || newSegs.length < 2)) newSegs = [{ start: '08:00', end: '12:00' }, { start: '16:00', end: '20:00' }];
+                                                    if (newType === 'off') newSegs = [];
+                                                    setScheduleForm({ ...scheduleForm, [day.k]: { type: newType, segments: newSegs } });
+                                                }}
+                                                className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 outline-none w-36 focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="continuous">Corrido</option>
+                                                <option value="split">Cortado</option>
+                                                <option value="off">Descanso / Libre</option>
+                                            </select>
+                                            
+                                            <div className="flex-1 flex gap-2">
+                                                {dState.type === 'continuous' && (
+                                                    <div className="flex gap-2 items-center">
+                                                        <input 
+                                                            type="time" 
+                                                            value={dState.segments[0]?.start || '08:00'} 
+                                                            onChange={e => {
+                                                                const s = [...(dState.segments || [{start:'08:00',end:'16:00'}])];
+                                                                if (!s[0]) s[0] = {start:'08:00', end:'16:00'};
+                                                                s[0].start = e.target.value;
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: s } });
+                                                            }}
+                                                            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
+                                                        />
+                                                        <span className="text-slate-400 font-bold">-</span>
+                                                        <input 
+                                                            type="time" 
+                                                            value={dState.segments[0]?.end || '16:00'} 
+                                                            onChange={e => {
+                                                                const s = [...(dState.segments || [{start:'08:00',end:'16:00'}])];
+                                                                if (!s[0]) s[0] = {start:'08:00', end:'16:00'};
+                                                                s[0].end = e.target.value;
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: s } });
+                                                            }}
+                                                            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
+                                                        />
+                                                    </div>
+                                                )}
+                                                {dState.type === 'split' && (
+                                                    <div className="flex gap-4 items-center">
+                                                        <div className="flex gap-1 items-center bg-white p-1 rounded-lg border border-slate-200">
+                                                            <input type="time" value={dState.segments[0]?.start || '08:00'} onChange={e => {
+                                                                const s=[...(dState.segments||[])]; if(!s[0]) s[0]={start:'08:00',end:'12:00'}; s[0].start=e.target.value;
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                            }} className="w-20 text-xs font-bold px-1" />
+                                                            <span className="text-slate-400">-</span>
+                                                            <input type="time" value={dState.segments[0]?.end || '12:00'} onChange={e => {
+                                                                const s=[...(dState.segments||[])]; if(!s[0]) s[0]={start:'08:00',end:'12:00'}; s[0].end=e.target.value;
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                            }} className="w-20 text-xs font-bold px-1" />
+                                                        </div>
+                                                        <div className="flex gap-1 items-center bg-white p-1 rounded-lg border border-slate-200">
+                                                            <input type="time" value={dState.segments[1]?.start || '16:00'} onChange={e => {
+                                                                const s=[...(dState.segments||[])]; if(!s[1]) s[1]={start:'16:00',end:'20:00'}; s[1].start=e.target.value;
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                            }} className="w-20 text-xs font-bold px-1" />
+                                                            <span className="text-slate-400">-</span>
+                                                            <input type="time" value={dState.segments[1]?.end || '20:00'} onChange={e => {
+                                                                const s=[...(dState.segments||[])]; if(!s[1]) s[1]={start:'16:00',end:'20:00'}; s[1].end=e.target.value;
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                            }} className="w-20 text-xs font-bold px-1" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="px-8 py-5 border-t border-slate-100 flex-shrink-0 bg-slate-50/80 rounded-b-[2rem]">
+                            <button
+                                onClick={handleSaveSchedule}
+                                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-base shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-5 h-5"/> Guardar Plantilla de Horario
                             </button>
                         </div>
                     </div>

@@ -242,9 +242,21 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const renderCellContent = (empId: string, date: Date) => {
     const shift = shifts[`${empId}_${formatDate(date)}`];
+    const employee = employees.find(e => e.id === empId);
     const isSunday = date.getDay() === 0;
 
-    if (!shift) {
+    let activeShift = shift;
+    let isBase = false;
+
+    if (!activeShift && employee?.default_schedule) {
+      const base = employee.default_schedule[date.getDay().toString()];
+      if (base) {
+        activeShift = { type: base.type, segments: base.segments } as any;
+        isBase = true;
+      }
+    }
+
+    if (!activeShift) {
       if (isSunday) {
         return (
           <div className="flex flex-col items-center">
@@ -257,43 +269,45 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return <span className="text-slate-300 text-[10px]">—</span>;
     }
 
-    if (shift.type === 'off') {
+    const baseClass = isBase ? "opacity-40 border-dashed hover:opacity-80 transition-opacity" : "";
+
+    if (activeShift.type === 'off') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
+          <span className={`bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${baseClass}`}>
             Descanso
           </span>
         </div>
       );
     }
 
-    if (shift.type === 'vacation' || shift.type === 'medical') {
+    if (activeShift.type === 'vacation' || activeShift.type === 'medical') {
       return (
         <div className="flex flex-col items-center">
-          <span className={shift.type === 'vacation' ? "bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm" : "bg-red-100 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm"}>
-            {shift.type === 'vacation' ? 'Vacaciones' : 'Licencia Médica'}
+          <span className={`${activeShift.type === 'vacation' ? "bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm" : "bg-red-100 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm"} ${baseClass}`}>
+            {activeShift.type === 'vacation' ? 'Vacaciones' : 'Licencia Médica'}
           </span>
         </div>
       );
     }
 
-    if (shift.type === 'continuous') {
+    if (activeShift.type === 'continuous') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-md text-[10px] font-bold">
-            {shift.segments[0]?.start} - {shift.segments[0]?.end}
+          <span className={`bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-md text-[10px] font-bold ${baseClass}`}>
+            {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
           </span>
         </div>
       );
     }
-    if (shift.type === 'split') {
+    if (activeShift.type === 'split') {
       return (
         <div className="flex flex-col gap-1 items-center">
-          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
-            {shift.segments[0]?.start} - {shift.segments[0]?.end}
+          <span className={`bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold ${baseClass}`}>
+            {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
           </span>
-          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold">
-            {shift.segments[1]?.start} - {shift.segments[1]?.end}
+          <span className={`bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold ${baseClass}`}>
+            {activeShift.segments[1]?.start} - {activeShift.segments[1]?.end}
           </span>
         </div>
       );
