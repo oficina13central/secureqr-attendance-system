@@ -175,9 +175,15 @@ const App: React.FC = () => {
 
     // 3. Verificación de permiso para la vista actual
     const requiredPerms = viewPermissions[adminSubView];
-    const hasAccess = isAdmin || 
-                      (currentUser?.role === 'encargado' && ['schedule', 'personnel', 'my_credential'].includes(adminSubView)) || 
-                      (currentUser?.roles?.permissions && requiredPerms.some(p => currentUser.roles?.permissions?.includes(p)));
+    
+    let hasAccess = false;
+    if (adminSubView === 'settings') {
+      hasAccess = currentUser?.role === 'superusuario';
+    } else {
+      hasAccess = isAdmin || 
+                  (currentUser?.role === 'encargado' && ['schedule', 'personnel', 'my_credential'].includes(adminSubView)) || 
+                  (currentUser?.roles?.permissions && requiredPerms.some(p => currentUser.roles?.permissions?.includes(p)));
+    }
 
     // 4. Redirección forzada si no tiene acceso
     if (!hasAccess && adminSubView !== 'my_credential') {
@@ -354,6 +360,9 @@ const App: React.FC = () => {
                 { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
               ]
                 .filter(item => {
+                  if (item.id === 'settings') {
+                    return currentUser?.role === 'superusuario';
+                  }
                   if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
                   if (currentUser?.role === 'empleado') {
                     return ['my_credential', 'schedule'].includes(item.id);
