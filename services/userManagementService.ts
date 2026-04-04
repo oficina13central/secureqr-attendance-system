@@ -100,6 +100,18 @@ export const userManagementService = {
     },
 
     /**
+     * Toggles whether the user is tracked as an employee or a system account.
+     */
+    async toggleUserAccountType(userId: string, isEmployee: boolean): Promise<void> {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ is_employee: isEmployee })
+            .eq('id', userId);
+
+        if (error) throw error;
+    },
+
+    /**
      * Approves a pending user.
      */
     async approveUser(userId: string): Promise<void> {

@@ -178,7 +178,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     const shiftsToSave: ShiftData[] = [];
 
-    if (editForm.type === 'vacation') {
+    if (editForm.type === 'vacation' || editForm.type === 'medical') {
       const startStr = editForm.startDate || targetDateStr;
       const endStr = editForm.endDate || startStr;
 
@@ -191,7 +191,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           id: `${selectedTarget.empId}_${dKey}`,
           employee_id: selectedTarget.empId,
           date: dKey,
-          type: 'vacation',
+          type: editForm.type,
           segments: [],
           last_modified_by: currentUser.full_name || 'Admin',
           last_modified_at: new Date().toISOString()
@@ -228,9 +228,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       await auditService.logAction({
         manager_name: currentUser.full_name || 'Admin',
         employee_name: selectedTarget.empName,
-        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 'Cambio de Turno',
+        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : editForm.type === 'medical' ? 'Licencia Médica' : 'Cambio de Turno',
         old_value: 'N/A',
-        new_value: editForm.type === 'vacation'
+        new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
           ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}`
           : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
         reason: 'Modificación manual de cronograma'
@@ -267,11 +267,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       );
     }
 
-    if (shift.type === 'vacation') {
+    if (shift.type === 'vacation' || shift.type === 'medical') {
       return (
         <div className="flex flex-col items-center">
-          <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
-            Vacaciones
+          <span className={shift.type === 'vacation' ? "bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm" : "bg-red-100 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm"}>
+            {shift.type === 'vacation' ? 'Vacaciones' : 'Licencia Médica'}
           </span>
         </div>
       );
@@ -579,14 +579,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off', 'vacation'] as const).map((t) => (
+              <div className="grid grid-cols-5 gap-2 p-1 bg-slate-100 rounded-xl">
+                {(['continuous', 'split', 'off', 'vacation', 'medical'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`py-2 px-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : 'Vacaciones'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
                   </button>
                 ))}
               </div>
@@ -623,7 +623,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 </div>
               )}
 
-              {editForm.type === 'vacation' && (
+              {(editForm.type === 'vacation' || editForm.type === 'medical') && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -645,8 +645,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 italic mt-1 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                    Se marcarán todos los días en el rango seleccionado como vacaciones.
+                  <p className={`text-[10px] italic mt-1 p-3 rounded-lg border ${editForm.type === 'vacation' ? 'bg-emerald-50 text-slate-500 border-emerald-100' : 'bg-red-50 text-slate-500 border-red-100'}`}>
+                    Se marcarán todos los días en el rango seleccionado como {editForm.type === 'vacation' ? 'vacaciones' : 'licencia médica'}.
                   </p>
                 </div>
               )}

@@ -6,10 +6,16 @@ export const personnelService = {
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
+            .or('is_employee.eq.true,is_employee.is.null') // Default true or null for personnel
             .order('full_name', { ascending: true });
 
         if (error) {
             console.error('Error fetching profiles:', error);
+            // Si la columna is_employee no existe en DB aún (fallback)
+            if (error.code === '42703') {
+                const retry = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+                return retry.data || [];
+            }
             return [];
         }
         return data || [];

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Shield, ShieldAlert, UserX, UserCheck, 
   Search, Filter, MoreVertical, Key, Trash2, RotateCcw,
-  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine
+  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine, Settings
 } from 'lucide-react';
 import { userManagementService } from '../services/userManagementService';
 import { roleService } from '../services/roleService';
@@ -233,6 +233,35 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     }
   };
 
+  const handleToggleAccountType = async (user: Profile) => {
+    const isCurrentlyEmployee = user.is_employee !== false;
+    const action = isCurrentlyEmployee ? 'Convertir a Cuenta de Sistema' : 'Convertir a Cuenta Personal';
+    const confirmMessage = isCurrentlyEmployee 
+      ? `¿Convertir a ${user.full_name} en Cuenta de Sistema?\n\nDejará de aparecer en las grillas de personal, asistencias y cronogramas.`
+      : `¿Convertir a ${user.full_name} en Cuenta Personal?\n\nAparecerá nuevamente en las grillas de personal y se le podrá asignar presentismo.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setActionLoading(user.id);
+    try {
+      await userManagementService.toggleUserAccountType(user.id, !isCurrentlyEmployee);
+      await auditService.logAction({
+        manager_name: currentUser.full_name,
+        employee_name: user.full_name,
+        action: 'Cambio de Tipo de Cuenta',
+        old_value: isCurrentlyEmployee ? 'Personal' : 'Sistema',
+        new_value: !isCurrentlyEmployee ? 'Personal' : 'Sistema',
+        reason: 'Configuración de acceso'
+      });
+      showFeedback('Tipo de cuenta actualizado', 'success');
+      loadData();
+    } catch (err) {
+      showFeedback('Error al actualizar tipo de cuenta', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleResetPassword = async (user: Profile) => {
     if (!window.confirm(`¿Enviar instrucciones para resetear contraseña a ${user.email}?`)) return;
     
@@ -447,6 +476,12 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                                 <ScanLine className="w-2.5 h-2.5 text-indigo-400" />
                                 <span>Fichada QR: Habilitada</span>
                             </span>
+
+                            {/* Account Type Status */}
+                            <span className={`flex items-center space-x-2 font-bold text-[9px] uppercase border-t border-slate-100 pt-1 ${user.is_employee === false ? 'text-indigo-600' : 'text-slate-500'}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${user.is_employee === false ? 'bg-indigo-500' : 'bg-slate-400'}`} />
+                                <span>Tipo: {user.is_employee === false ? 'Usuario Sistema' : 'Personal (Empleado)'}</span>
+                            </span>
                           </div>
                       </td>
                       <td className="px-8 py-6">
@@ -495,6 +530,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
 
                               {!user.deleted_at ? (
                                 <>
+                                  <button 
+                                    onClick={() => handleToggleAccountType(user)}
+                                    className={`p-2.5 rounded-xl transition-all ${user.is_employee === false ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-200'}`}
+                                    title={user.is_employee === false ? "Cambiar a Cuenta de Personal" : "Cambiar a Cuenta de Sistema"}
+                                  >
+                                    <Settings className="w-4 h-4" />
+                                  </button>
+
                                   <button 
                                     onClick={() => handleResetPassword(user)}
                                     className="p-2.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"

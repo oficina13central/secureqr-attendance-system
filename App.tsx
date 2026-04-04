@@ -427,7 +427,13 @@ const App: React.FC = () => {
         {mainView === 'admin' ? (
           renderAdminView()
         ) : (
-          <TerminalView onExit={() => setMainView('admin')} />
+          <TerminalView onExit={() => {
+            if (currentUser?.role === 'terminal') {
+              authService.signOut();
+            } else {
+              setMainView('admin');
+            }
+          }} />
         )}
       </main>
       {/* Password Reset Modal */}

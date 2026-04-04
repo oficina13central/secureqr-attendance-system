@@ -31,6 +31,7 @@ export interface Profile {
   suspended_until?: string | null;  // ISO date string, null = permanent
   suspended_reason?: string;
   deleted_at?: string | null;       // ISO date string, null = active
+  is_employee?: boolean;            // Differentiate system accounts from personnel
 }
 
 export interface AttendanceRecord {

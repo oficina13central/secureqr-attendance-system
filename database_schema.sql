@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   is_suspended BOOLEAN DEFAULT FALSE,
   suspended_until TIMESTAMP WITH TIME ZONE DEFAULT NULL, -- NULL = permanent
   suspended_reason TEXT DEFAULT NULL,
-  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL       -- NULL = active
+  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,      -- NULL = active
+  is_employee BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE IF NOT EXISTS attendance_records (
