@@ -157,7 +157,9 @@ const App: React.FC = () => {
 
   const renderAdminView = () => {
     // 1. Roles y permisos básicos
-    const isAdmin = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
+    const isSuperUser = currentUser?.role === 'superusuario';
+    // Mantenemos esta variable genérica para ciertas acciones UI
+    const isAdminUser = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
     
     // 2. Definición de permisos por vista
     const viewPermissions: Record<AdminSubView, string[]> = {
@@ -178,9 +180,9 @@ const App: React.FC = () => {
     
     let hasAccess = false;
     if (adminSubView === 'settings') {
-      hasAccess = currentUser?.role === 'superusuario';
+      hasAccess = isSuperUser;
     } else {
-      hasAccess = isAdmin || 
+      hasAccess = isSuperUser || 
                   (currentUser?.role === 'encargado' && ['schedule', 'personnel', 'my_credential'].includes(adminSubView)) || 
                   (currentUser?.roles?.permissions && requiredPerms.some(p => currentUser.roles?.permissions?.includes(p)));
     }
@@ -208,7 +210,7 @@ const App: React.FC = () => {
       case 'my_credential': return <MyCredentialView user={currentUser!} />;
       case 'terminal': return (
         <div className="fixed inset-0 z-50 bg-slate-900 border-none">
-          <TerminalView onExit={() => isAdmin ? setMainView('admin') : authService.signOut()} />
+          <TerminalView onExit={() => isAdminUser ? setMainView('admin') : authService.signOut()} />
         </div>
       );
       default: return <AdminDashboard currentUser={currentUser!} />;
@@ -363,15 +365,19 @@ const App: React.FC = () => {
                   if (item.id === 'settings') {
                     return currentUser?.role === 'superusuario';
                   }
-                  if (currentUser?.role === 'superusuario' || currentUser?.role === 'administrador') return true;
+                  if (currentUser?.role === 'superusuario') return true; // Superusuario siempre ve todo
+                  
+                  // Para los demás (incluido administrador), validamos su matriz dinámica o rol específico
+                  if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
+                    return currentUser.roles.permissions.includes(item.permission);
+                  }
+                  
+                  // Fallbacks legacy/seguridad
                   if (currentUser?.role === 'empleado') {
                     return ['my_credential', 'schedule'].includes(item.id);
                   }
                   if (currentUser?.role === 'encargado') {
                     return ['my_credential', 'schedule', 'personnel'].includes(item.id);
-                  }
-                  if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
-                    return currentUser.roles.permissions.includes(item.permission);
                   }
                   return false;
                 })
