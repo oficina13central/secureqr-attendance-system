@@ -204,10 +204,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 if (result) {
                     setEmployees(employees.map(emp => emp.id === formData.id ? result : emp));
                     setSuccess(true);
-                } else {
-                    setError('Error al actualizar el empleado. Verifique los permisos en Supabase (RLS).');
-                    return;
-                }
+                } 
             } else {
                 // Create new
                 const newProfile: Omit<Profile, 'id'> = {
@@ -239,9 +236,6 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         new_value: savedResult.role,
                         reason: 'Nuevo ingreso registrado'
                     });
-                } else {
-                    setError('Error al crear el empleado. Verifique la conexión con la base de datos.');
-                    return;
                 }
             }
 
@@ -249,9 +243,9 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 setShowModal(false);
                 setSuccess(false);
             }, 1000);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setError('Error de comunicación con el servidor.');
+            setError(`Error Supabase: ${err.message || 'Error de comunicación con el servidor'}`);
         }
     };
 

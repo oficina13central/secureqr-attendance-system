@@ -30,7 +30,7 @@ export const personnelService = {
 
         if (error) {
             console.error('Error creating profile:', error);
-            return null;
+            throw new Error(`[${error.code}] ${error.message}`);
         }
         return data;
     },
@@ -45,7 +45,7 @@ export const personnelService = {
 
         if (error) {
             console.error('Error updating profile:', error.message, '| Code:', error.code, '| Details:', error.details, '| Hint:', error.hint);
-            return null;
+            throw new Error(`[${error.code}] ${error.message} \n(Details: ${error.details || 'N/A'})`);
         }
         return data;
     },
