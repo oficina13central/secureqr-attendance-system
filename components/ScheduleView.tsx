@@ -350,12 +350,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
           </h2>
           <p className="text-slate-500 font-medium">
-            Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${sectorMap[currentUser.sector_id || ''] || currentUser.sector_id}` : 'Vista Global'}
+            Planificación y asignación de turnos. {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') ? 'Vista Global' : 'Tus sectores a cargo'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+          {((currentUser.role === 'administrador' || currentUser.role === 'superusuario') || (currentUser.role === 'encargado' && (currentUser.managed_sectors || []).length > 0)) && (
             <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
               <select
@@ -363,8 +363,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onChange={(e) => setSelectedSector(e.target.value)}
                 className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
               >
-                <option value="all">Todos</option>
-                {sectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
+                <option value="all">Todos mis sectores</option>
+                {sectors
+                  .filter(s => {
+                    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return true;
+                    // Solo listar sectores a cargo
+                    const mySectorIds = new Set<string>();
+                    if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
+                    (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
+                    return mySectorIds.has(s);
+                  })
+                  .map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
               </select>
             </div>
           )}

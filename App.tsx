@@ -369,7 +369,7 @@ const App: React.FC = () => {
                   
                   // Para los demás (incluido administrador), validamos su matriz dinámica o rol específico
                   if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
-                    return currentUser.roles.permissions.includes(item.permission);
+                    if (currentUser.roles.permissions.includes(item.permission)) return true;
                   }
                   
                   // Fallbacks legacy/seguridad
