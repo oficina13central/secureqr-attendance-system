@@ -365,6 +365,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               >
                 <option value="all">Todos mis sectores</option>
                 {sectors
+                  .filter(s => sectorMap[s] !== undefined || s === 'General')
                   .filter(s => {
                     if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return true;
                     // Solo listar sectores a cargo
