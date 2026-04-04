@@ -21,11 +21,11 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
   employees?: Profile[];
-  currentUser?: { full_name: string; role: string; sector_id?: string };
+  currentUser?: Profile;
 }
 
 const defaultEmployees: Profile[] = [];
-const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' };
+const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' } as unknown as Profile;
 
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
@@ -106,7 +106,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
     if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return list;
     if (currentUser.role === 'encargado') {
-      return list.filter(e => e.sector_id === currentUser.sector_id);
+      // Un encargado ve su sector principal y todos sus sectores adicionales
+      const mySectorIds = new Set<string>();
+      if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
+      (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
+      
+      return list.filter(e => mySectorIds.has(e.sector_id || 'General'));
     }
     return [];
   }, [employees, currentUser, selectedSector]);
@@ -345,7 +350,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
           </h2>
           <p className="text-slate-500 font-medium">
-            Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${currentUser.sector_id}` : 'Vista Global'}
+            Planificación y asignación de turnos. {currentUser.role === 'encargado' ? `Sector: ${sectorMap[currentUser.sector_id || ''] || currentUser.sector_id}` : 'Vista Global'}
           </p>
         </div>
 
