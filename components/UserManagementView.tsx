@@ -28,6 +28,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
   const [suspendReason, setSuspendReason] = useState('');
   const [suspendUntil, setSuspendUntil] = useState('');
   const [isPermanent, setIsPermanent] = useState(true);
+  
+  // System Account Creation States
+  const [showSystemAccountModal, setShowSystemAccountModal] = useState(false);
+  const [sysAcctForm, setSysAcctForm] = useState({ name: '', email: '', password: '', role: 'terminal' });
+  const [sysAcctLoading, setSysAcctLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -233,32 +238,36 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     }
   };
 
-  const handleToggleAccountType = async (user: Profile) => {
-    const isCurrentlyEmployee = user.is_employee !== false;
-    const action = isCurrentlyEmployee ? 'Convertir a Cuenta de Sistema' : 'Convertir a Cuenta Personal';
-    const confirmMessage = isCurrentlyEmployee 
-      ? `¿Convertir a ${user.full_name} en Cuenta de Sistema?\n\nDejará de aparecer en las grillas de personal, asistencias y cronogramas.`
-      : `¿Convertir a ${user.full_name} en Cuenta Personal?\n\nAparecerá nuevamente en las grillas de personal y se le podrá asignar presentismo.`;
-
-    if (!window.confirm(confirmMessage)) return;
-
-    setActionLoading(user.id);
+  const handleCreateSystemAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sysAcctForm.name || !sysAcctForm.email || !sysAcctForm.password) {
+        showFeedback('Todos los campos son obligatorios', 'error');
+        return;
+    }
+    if (sysAcctForm.password.length < 6) {
+        showFeedback('La contraseña debe tener al menos 6 caracteres', 'error');
+        return;
+    }
+    
+    setSysAcctLoading(true);
     try {
-      await userManagementService.toggleUserAccountType(user.id, !isCurrentlyEmployee);
-      await auditService.logAction({
-        manager_name: currentUser.full_name,
-        employee_name: user.full_name,
-        action: 'Cambio de Tipo de Cuenta',
-        old_value: isCurrentlyEmployee ? 'Personal' : 'Sistema',
-        new_value: !isCurrentlyEmployee ? 'Personal' : 'Sistema',
-        reason: 'Configuración de acceso'
-      });
-      showFeedback('Tipo de cuenta actualizado', 'success');
-      loadData();
-    } catch (err) {
-      showFeedback('Error al actualizar tipo de cuenta', 'error');
-    } finally {
-      setActionLoading(null);
+        // We use supabase.auth.signUp directly to bypass authService defaults, or use authService with an update
+        const { data, error } = await userManagementService.createSystemAccount(
+            sysAcctForm.email,
+            sysAcctForm.password,
+            sysAcctForm.name,
+            sysAcctForm.role
+        );
+        if (error) throw error;
+
+        // Note: the session changes automatically here, app will redirect.
+        window.alert(`Cuenta de sistema creada exitosamente: ${sysAcctForm.email}\n\nPor seguridad, tu sesión ha cambiado a la nueva cuenta. Para volver a administrar, cierra sesión y vuelve a ingresar.`);
+        
+        setShowSystemAccountModal(false);
+        setSysAcctForm({ name: '', email: '', password: '', role: 'terminal' });
+    } catch (err: any) {
+        showFeedback(err.message || 'Error al crear la cuenta del sistema', 'error');
+        setSysAcctLoading(false);
     }
   };
 
@@ -337,6 +346,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
             title="Recargar Lista"
           >
             <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button 
+            onClick={() => setShowSystemAccountModal(true)}
+            className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all active:scale-95"
+          >
+            <UserPlus className="w-5 h-5" />
+            <span className="hidden sm:inline">Nueva Cuenta de Sistema</span>
           </button>
         </div>
       </header>
@@ -531,14 +547,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                               {!user.deleted_at ? (
                                 <>
                                   <button 
-                                    onClick={() => handleToggleAccountType(user)}
-                                    className={`p-2.5 rounded-xl transition-all ${user.is_employee === false ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-200'}`}
-                                    title={user.is_employee === false ? "Cambiar a Cuenta de Personal" : "Cambiar a Cuenta de Sistema"}
-                                  >
-                                    <Settings className="w-4 h-4" />
-                                  </button>
-
-                                  <button 
                                     onClick={() => handleResetPassword(user)}
                                     className="p-2.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
                                     title="Resetear Contraseña"
@@ -639,6 +647,88 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                 CONFIRMAR BLOQUEO
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* System Account Modal */}
+      {showSystemAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300 text-left">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Nueva Cuenta de Sistema</h3>
+                <p className="text-xs font-bold text-slate-500">Terminales, Administradores, etc.</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-xs text-amber-800 font-medium">
+              Al guardar, el sistema iniciará sesión automáticamente con esta nueva cuenta y tu sesión actual se cerrará por motivos de seguridad.
+            </div>
+
+            <form onSubmit={handleCreateSystemAccount} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Descriptivo</label>
+                <input 
+                  type="text" required
+                  value={sysAcctForm.name}
+                  onChange={(e) => setSysAcctForm({ ...sysAcctForm, name: e.target.value })}
+                  placeholder="Ej: Terminal Puerta 1"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correo Electrónico (Login)</label>
+                <input 
+                  type="email" required
+                  value={sysAcctForm.email}
+                  onChange={(e) => setSysAcctForm({ ...sysAcctForm, email: e.target.value.toLowerCase() })}
+                  placeholder="ejemplo@oficina.com"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña Inicial</label>
+                <input 
+                  type="password" required minLength={6}
+                  value={sysAcctForm.password}
+                  onChange={(e) => setSysAcctForm({ ...sysAcctForm, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rol del Sistema</label>
+                <select 
+                  value={sysAcctForm.role}
+                  onChange={(e) => setSysAcctForm({ ...sysAcctForm, role: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex space-x-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button"
+                  onClick={() => setShowSystemAccountModal(false)}
+                  disabled={sysAcctLoading}
+                  className="flex-1 px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-sm transition-all disabled:opacity-50"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  type="submit"
+                  disabled={sysAcctLoading}
+                  className="flex-[2] flex items-center justify-center space-x-2 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                    {sysAcctLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>CREAR CUENTA</span>}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

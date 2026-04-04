@@ -19,6 +19,41 @@ export const userManagementService = {
         return data || [];
     },
 
+    async createSystemAccount(email: string, password: string, fullName: string, roleName: string): Promise<any> {
+        // Create user in Auth
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: fullName } }
+        });
+
+        if (error) return { data, error };
+
+        if (data.user) {
+            // Check if profile exists (maybe created by trigger or not)
+            const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+            if (profile) {
+                await supabase.from('profiles').update({ 
+                    role: roleName, 
+                    is_employee: false, 
+                    is_approved: true,
+                    full_name: fullName
+                }).eq('id', data.user.id);
+            } else {
+                await supabase.from('profiles').insert([{ 
+                    id: data.user.id,
+                    email: email,
+                    role: roleName, 
+                    is_employee: false, 
+                    is_approved: true,
+                    full_name: fullName,
+                    qr_token: `SECURE_SYSTEM:${fullName.replace(/\s+/g, '_')}_${data.user.id}`
+                }]);
+            }
+        }
+        return { data, error: null };
+    },
+
     /**
      * Suspends a user. If `until` is null, the suspension is permanent.
      * `until` should be an ISO 8601 date string for temporary suspensions.
