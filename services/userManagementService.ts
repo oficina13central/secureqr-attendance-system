@@ -31,16 +31,19 @@ export const userManagementService = {
 
         if (data.user) {
             // Check if profile exists (maybe created by trigger or not)
-            const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+            const { data: profile, error: selectError } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+            if (selectError) return { data, error: selectError };
+
             if (profile) {
-                await supabase.from('profiles').update({ 
+                const { error: updateError } = await supabase.from('profiles').update({ 
                     role: roleName, 
                     is_employee: false, 
                     is_approved: true,
                     full_name: fullName
                 }).eq('id', data.user.id);
+                if (updateError) return { data, error: updateError };
             } else {
-                await supabase.from('profiles').insert([{ 
+                const { error: insertError } = await supabase.from('profiles').insert([{ 
                     id: data.user.id,
                     email: email,
                     role: roleName, 
@@ -49,6 +52,7 @@ export const userManagementService = {
                     full_name: fullName,
                     qr_token: `SECURE_SYSTEM:${fullName.replace(/\s+/g, '_')}_${data.user.id}`
                 }]);
+                if (insertError) return { data, error: insertError };
             }
         }
         return { data, error: null };
