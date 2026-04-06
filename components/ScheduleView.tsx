@@ -176,7 +176,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     if (now > targetDateTime) {
       if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
-        alert("No se puede modificar un horario que ya ha comenzado (Regla: Evitar amiguismos).");
+        alert("No se puede modificar un horario una vez iniciada la jornada por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
         return;
       }
     }

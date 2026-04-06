@@ -24,6 +24,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [msgColor, setMsgColor] = useState<string>('text-emerald-300');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [manualDni, setManualDni] = useState('');
   const [processingManual, setProcessingManual] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -40,6 +41,15 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     setScanning(true);
     setStatus('idle');
     setCameraError(null);
+  };
+
+  const resetTerminal = () => {
+    setSessionActive(false);
+    setScanning(false);
+    setStatus('idle');
+    setShowManualModal(false);
+    setManualDni('');
+    if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
 
   const handleSaveName = () => {
@@ -201,9 +211,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     } else {
       setStatus('error');
       setTimeout(() => {
-        setStatus('idle');
-        setSessionActive(false);
-        setScanning(false);
+        resetTerminal();
       }, 5000);
     }
   };
@@ -267,9 +275,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     } finally {
       setProcessingManual(false);
       setTimeout(() => {
-        setStatus('idle');
-        setSessionActive(false);
-        setScanning(false);
+        resetTerminal();
       }, 6000);
     }
   };
@@ -278,29 +284,35 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white p-4 md:p-10 relative overflow-hidden safe-area-inset">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
-      {(role !== 'terminal') ? (
-        <button
-          onClick={onExit}
-          className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-slate-400 hover:text-white transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="font-bold text-xs uppercase tracking-widest">Salir</span>
-        </button>
-      ) : (
-        <button
-          onClick={async () => {
-            if (window.confirm('¿Está seguro de que desea cerrar la sesión en esta terminal?')) {
-              const { authService } = await import('../services/authService');
-              await authService.signOut();
-              onExit();
-            }
-          }}
-          className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/20"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-bold text-xs uppercase tracking-widest">Cerrar Sesión</span>
-        </button>
-      )}
+      <div className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-3 z-50">
+        {(role !== 'terminal') ? (
+          <button
+            onClick={onExit}
+            className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="flex items-center space-x-2 text-red-500/70 hover:text-red-400 transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/10"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="font-bold text-[10px] uppercase tracking-widest">Cerrar Sesión</span>
+          </button>
+        )}
+
+        {sessionActive && status === 'idle' && (
+          <button
+            onClick={resetTerminal}
+            className="flex items-center space-x-2 text-white transition-all bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-full shadow-lg shadow-indigo-500/20 border border-indigo-400/30 animate-in slide-in-from-left duration-300 ring-2 ring-indigo-500/20"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-bold text-xs uppercase tracking-widest">Volver al Menú</span>
+          </button>
+        )}
+      </div>
 
       <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col items-end space-y-2 z-50">
         <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
@@ -396,6 +408,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
               <div className="absolute inset-0 border-[0.5rem] md:border-[1.5rem] border-slate-900 pointer-events-none"></div>
               <div className="absolute inset-6 md:inset-12 border-2 border-dashed border-indigo-500/30 rounded-3xl pointer-events-none"></div>
               <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,1)] animate-scanning-line z-20"></div>
+              <div className="absolute top-6 left-6 z-30">
+                <button
+                  onClick={resetTerminal}
+                  className="bg-slate-900/80 backdrop-blur-md text-white p-3 rounded-full border border-white/20 hover:bg-slate-800 transition-all shadow-xl active:scale-90"
+                  title="Cancelar y Volver"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
+              </div>
+
               <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-indigo-600 px-6 py-3 rounded-full shadow-lg border border-indigo-400/30 flex items-center space-x-3 z-30">
                 <ScanLine className="w-5 h-5 text-white animate-pulse" />
                 <span className="text-xs font-black uppercase tracking-widest text-white">Escaneando QR</span>
@@ -408,10 +430,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
               <XCircle className="w-16 h-16 text-red-500" />
               <p className="text-red-400 font-semibold">{cameraError}</p>
               <button
-                onClick={() => window.location.reload()}
-                className="px-6 py-2 bg-slate-800 rounded-lg text-sm hover:bg-slate-700 transition-colors"
+                onClick={resetTerminal}
+                className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-indigo-500 transition-all shadow-lg"
               >
-                Reintentar
+                Volver al Menú
               </button>
             </div>
           )}
@@ -520,10 +542,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 {scanMode === 'in' ? 'Registrar Entrada' : 'Registrar Salida'}
               </h3>
               <button 
-                onClick={() => {
-                  setShowManualModal(false);
-                  setScanning(true);
-                }} 
+                onClick={resetTerminal} 
                 className="p-2 hover:bg-slate-800 rounded-full transition-colors"
               >
                 <X className="w-6 h-6 text-slate-500" />
@@ -589,6 +608,45 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           padding-right: env(safe-area-inset-right);
         }
       `}</style>
+      {/* ── LOGOUT CONFIRMATION MODAL ── */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 border border-slate-800 shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-300">
+            <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.15)]">
+              <ShieldAlert className="w-12 h-12 text-red-500 h-12" />
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-3xl font-black text-white tracking-tight uppercase">Cerrar Sesión</h3>
+              <p className="text-slate-400 font-medium leading-relaxed">
+                ¿Está seguro de que desea cerrar la sesión en esta terminal? 
+                <span className="block mt-2 text-xs text-red-400 font-bold italic">
+                  Necesitará las credenciales de administrador para volver a ingresar.
+                </span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button
+                onClick={async () => {
+                  const { authService } = await import('../services/authService');
+                  await authService.signOut();
+                  onExit();
+                }}
+                className="w-full py-5 bg-red-600 hover:bg-red-500 text-white rounded-3xl font-black text-sm transition-all shadow-xl shadow-red-600/20 active:scale-95 uppercase tracking-widest"
+              >
+                Confirmar Cierre de Sesión
+              </button>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full py-4 bg-slate-800 text-slate-400 hover:text-white rounded-3xl font-bold text-xs transition-all uppercase tracking-widest"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
