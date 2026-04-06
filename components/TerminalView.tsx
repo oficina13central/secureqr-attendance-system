@@ -285,22 +285,26 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
       <div className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-3 z-50">
-        {(role !== 'terminal') ? (
-          <button
-            onClick={onExit}
-            className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="flex items-center space-x-2 text-red-500/70 hover:text-red-400 transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/10"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="font-bold text-[10px] uppercase tracking-widest">Cerrar Sesión</span>
-          </button>
+        {!sessionActive && (
+          <>
+            {(role !== 'terminal') ? (
+              <button
+                onClick={onExit}
+                className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLogoutConfirm(true)}
+                className="flex items-center space-x-2 text-red-500/70 hover:text-red-400 transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/10"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="font-bold text-[10px] uppercase tracking-widest">Cerrar Sesión</span>
+              </button>
+            )}
+          </>
         )}
 
         {sessionActive && status === 'idle' && (
