@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X, Settings } from 'lucide-react';
+import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X, Settings, LogOut } from 'lucide-react';
 import jsQR from 'jsqr';
 import { attendanceService } from '../services/attendanceService';
 import { supabase } from '../services/supabaseClient';
@@ -7,9 +7,10 @@ import { offlineService } from '../services/offlineService';
 
 interface TerminalViewProps {
   onExit: () => void;
+  role?: string;
 }
 
-const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
+const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [sessionActive, setSessionActive] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
@@ -277,13 +278,29 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit }) => {
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white p-4 md:p-10 relative overflow-hidden safe-area-inset">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
-      <button
-        onClick={onExit}
-        className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-slate-400 hover:text-white transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="font-bold text-xs uppercase tracking-widest">Salir</span>
-      </button>
+      {(role !== 'terminal') ? (
+        <button
+          onClick={onExit}
+          className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-slate-400 hover:text-white transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-bold text-xs uppercase tracking-widest">Salir</span>
+        </button>
+      ) : (
+        <button
+          onClick={async () => {
+            if (window.confirm('¿Está seguro de que desea cerrar la sesión en esta terminal?')) {
+              const { authService } = await import('../services/authService');
+              await authService.signOut();
+              onExit();
+            }
+          }}
+          className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors z-50 bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/20"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-bold text-xs uppercase tracking-widest">Cerrar Sesión</span>
+        </button>
+      )}
 
       <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col items-end space-y-2 z-50">
         <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>

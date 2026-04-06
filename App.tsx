@@ -88,6 +88,11 @@ const App: React.FC = () => {
     try {
       const profile = await authService.getUserProfile(userId);
       setCurrentUser(profile);
+      
+      // Auto-redirección para el rol terminal
+      if (profile?.role === 'terminal') {
+        setMainView('terminal');
+      }
     } catch (err) {
       console.error("Failed to fetch profile:", err);
     } finally {
@@ -306,7 +311,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50 relative">
       {/* Mobile Header overlay for toggle */}
-      {mainView === 'admin' && (
+      {mainView === 'admin' && currentUser?.role !== 'terminal' && (
         <div className={`fixed top-4 z-[60] transition-all duration-500 ease-in-out ${isSidebarOpen ? 'left-[216px]' : 'left-4'}`}>
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -331,9 +336,9 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar Navigation */}
-      {mainView === 'admin' && (
+      {mainView === 'admin' && currentUser?.role !== 'terminal' && (
         <aside className={`bg-slate-900 text-white flex flex-col z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full max-h-screen ${
-          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0'
+          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0 md:p-0 md:opacity-0 overflow-hidden'
         }`}>
           {/* Sidebar Header */}
           <div className="flex items-center space-x-3 px-6 py-8">
@@ -453,7 +458,7 @@ const App: React.FC = () => {
             } else {
               setMainView('admin');
             }
-          }} />
+          }} role={currentUser?.role} />
         )}
       </main>
       {/* Password Reset Modal */}

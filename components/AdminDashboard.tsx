@@ -17,7 +17,11 @@ import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
-const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => {
+interface AdminDashboardProps {
+  currentUser: Profile;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +38,9 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
           sectorService.getAll()
         ]);
 
-        const fetchedRecords = recordsRes.status === 'fulfilled' ? recordsRes.value as AttendanceRecord[] : [];
-        const fetchedEmployees = employeesRes.status === 'fulfilled' ? employeesRes.value as Profile[] : [];
-        const fetchedSectors = sectorsRes.status === 'fulfilled' ? sectorsRes.value as Sector[] : [];
+        const fetchedRecords = recordsRes.status === 'fulfilled' ? (recordsRes.value as AttendanceRecord[]) : [];
+        const fetchedEmployees = employeesRes.status === 'fulfilled' ? (employeesRes.value as Profile[]) : [];
+        const fetchedSectors = sectorsRes.status === 'fulfilled' ? (sectorsRes.value as Sector[]) : [];
 
         // Apply security filter for managers
         if (currentUser.role === 'encargado') {
@@ -76,6 +80,33 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
     return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
   };
 
+  // Determine authorized sectors based on role and permissions
+  const authorizedSectors = useMemo(() => {
+    const perms = currentUser.roles?.permissions || [];
+    const hasGlobalView = perms.includes('VIEW_DASHBOARD');
+    
+    if (hasGlobalView) return null; // Null means global access
+    
+    // Restricted to assigned sectors
+    const userSectors = [currentUser.sector_id, ...(currentUser.managed_sectors || [])].filter(Boolean) as string[];
+    return userSectors;
+  }, [currentUser]);
+
+  // Filter employees first so other memos use the restricted list
+  const authorizedEmployees = useMemo(() => {
+    if (!authorizedSectors) return employees;
+    return employees.filter(emp => emp.sector_id && authorizedSectors.includes(emp.sector_id));
+  }, [employees, authorizedSectors]);
+
+  // Filter records based on authorized employees
+  const authorizedRecords = useMemo(() => {
+    if (!authorizedSectors) return records;
+    return records.filter(record => {
+      const emp = employees.find(e => e.full_name === record.employee_name);
+      return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
+    });
+  }, [records, employees, authorizedSectors]);
+
   const formatTime = (isoString: string | null) => {
     if (!isoString) return '--:--';
     const date = new Date(isoString);
@@ -84,24 +115,24 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
 
   const filteredRecords = useMemo(() => {
     const today = getLocalDateString();
-    return records
+    return authorizedRecords
       .filter(r => r.date === today)
       .filter(r => {
         const search = searchTerm.toLowerCase();
-        const sector = getSectorForEmployee(r.employee_name).toLowerCase();
-        return r.employee_name.toLowerCase().includes(search) || sector.includes(search);
+        const sectorName = getSectorForEmployee(r.employee_name).toLowerCase();
+        return r.employee_name.toLowerCase().includes(search) || sectorName.includes(search);
       });
-  }, [records, searchTerm, employees, sectors]);
+  }, [authorizedRecords, searchTerm, employees, sectors]);
 
   const stats = useMemo(() => {
     const today = getLocalDateString();
-    const todayRecs = records.filter(r => r.date === today);
+    const todayRecs = authorizedRecords.filter(r => r.date === today);
     return {
       presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual'].includes(r.status)).length,
       tardes: todayRecs.filter(r => r.status === 'tarde').length,
       ausentes: todayRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo').length
     };
-  }, [records]);
+  }, [authorizedRecords]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
@@ -112,14 +143,14 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const count = records.filter(r => r.date === dateStr && ['presente', 'tarde', 'en_horario', 'manual'].includes(r.status)).length;
+      const count = authorizedRecords.filter(r => r.date === dateStr && ['presente', 'tarde', 'en_horario', 'manual'].includes(r.status)).length;
       days.push({ date: dateStr, count, month: d.getMonth() });
     }
 
     const weeks: (typeof days[0] | null)[][] = [];
     let currentWeek: (typeof days[0] | null)[] = [];
     
-    // pad to start on correct week day (Sunday = 0 in JS but let's shift to Monday = week start if desired, or keep Sunday)
+    // pad to start on correct week day (Sunday = 0 in JS)
     const firstDayOffset = new Date(days[0].date).getDay();
     for(let i=0; i<firstDayOffset; i++) {
        currentWeek.push(null);
@@ -140,7 +171,7 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
       weeks.push(currentWeek);
     }
     return weeks;
-  }, [records]);
+  }, [authorizedRecords]);
 
   const getHeatmapColor = (count: number) => {
     if (count === 0) return 'bg-slate-100 dark:bg-slate-800';
@@ -156,10 +187,7 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
     
-    const recentRecords = records.filter(r => {
-      const d = new Date(r.date);
-      return d >= thirtyDaysAgo && d <= today;
-    });
+    const recentRecords = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
 
     const presentes = recentRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length;
     const tardanzas = recentRecords.filter(r => r.status === 'tarde').length;
@@ -169,7 +197,7 @@ const AdminDashboard: React.FC<{ currentUser: Profile }> = ({ currentUser }) => 
     const puntualidad = total > 0 ? Math.round(((presentes) / total) * 100) : 0;
 
     return { presentes, tardanzas, ausencias, puntualidad };
-  }, [records]);
+  }, [authorizedRecords]);
 
   const handleExportMonthly = () => {
     const headers = ["Empleado", "Sector", "Última Entrada", "Estatus"];
