@@ -345,12 +345,55 @@ const ManualView: React.FC = () => {
       {/* Print styles */}
       <style>{`
         @media print {
-          .print\\:hidden { display: none !important; }
-          body { background: white !important; }
-          h1, h2, h3, h4 { color: black !important; page-break-after: avoid; }
-          p { color: #333 !important; }
-          .break-inside-avoid { page-break-inside: avoid; }
-          section { margin-bottom: 2rem !important; }
+          /* Force visibility and clear floats/overflows on parent containers */
+          html, body { 
+            height: auto !important; 
+            overflow: visible !important; 
+            margin: 0 !important; 
+            padding: 0 !important;
+            background: white !important;
+          }
+          
+          /* Hide sidebar and toggle components that might exist in the DOM */
+          aside, nav, button, .print\\:hidden { 
+            display: none !important; 
+          }
+          
+          /* Reset the main container constraints */
+          main, .min-h-screen, .flex, .overflow-auto, .overflow-hidden {
+            display: block !important;
+            overflow: visible !important;
+            height: auto !important;
+            width: 100% !important;
+            position: static !important;
+            min-height: 0 !important;
+          }
+
+          /* Content specific styles */
+          h1, h2, h3, h4 { 
+            color: black !important; 
+            page-break-after: avoid; 
+          }
+          p, span, td, div { 
+            color: #333 !important; 
+          }
+          .break-inside-avoid { 
+            page-break-inside: avoid; 
+          }
+          section { 
+            margin-bottom: 2.5rem !important;
+            page-break-inside: avoid;
+          }
+          
+          /* Remove background colors and shadows for better print ink usage */
+          .bg-slate-900, .bg-indigo-600 {
+            background-color: #f8fafc !important; /* light slate */
+            color: black !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+          .shadow-sm, .shadow-md, .shadow-xl, .shadow-2xl {
+            box-shadow: none !important;
+          }
         }
       `}</style>
     </div>
