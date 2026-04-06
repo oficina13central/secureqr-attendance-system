@@ -38,7 +38,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [success, setSuccess] = useState<boolean>(false);
     const [sectors, setSectors] = useState<Sector[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
-    const [verazScores, setVerazScores] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
+    const [scoringData, setScoringData] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState<string>('all');
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
@@ -69,10 +69,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             if (employees.length === 0) return;
             const scoresMap: Record<string, any> = {};
             await Promise.all(employees.map(async (emp) => {
-                const s = await attendanceService.calculateVerazScore(emp.id);
+                const s = await attendanceService.calculateScoring(emp.id);
                 scoresMap[emp.id] = s;
             }));
-            setVerazScores(scoresMap);
+            setScoringData(scoresMap);
         };
         fetchScores();
     }, [employees]);
@@ -94,12 +94,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 sectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (emp.dni && emp.dni.includes(searchTerm));
             
-            const scoreCategory = verazScores[emp.id]?.category?.toString() || '1';
+            const scoreCategory = scoringData[emp.id]?.category?.toString() || '1';
             const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
             
             return matchesSearch && matchesClass;
         });
-    }, [employees, searchTerm, selectedClass, sectors, verazScores, currentUser]);
+    }, [employees, searchTerm, selectedClass, sectors, scoringData, currentUser]);
 
     // Initial Data is now passed via props from App.tsx
 
@@ -312,7 +312,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         const rows = sorted.map(emp => {
             const roleName = roles.find(r => r.id === emp.role)?.name || emp.role;
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
-            const scoreData = verazScores[emp.id];
+            const scoreData = scoringData[emp.id];
             
             return [
                 emp.full_name,
@@ -436,11 +436,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                         {sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General'}
                                     </td>
                                     <td className="px-8 py-4">
-                                        {verazScores[emp.id] ? (
-                                            <div className={`inline-flex items-center px-3 py-1.5 rounded-xl border ${verazScores[emp.id].color}`}>
+                                        {scoringData[emp.id] ? (
+                                            <div className={`inline-flex items-center px-3 py-1.5 rounded-xl border ${scoringData[emp.id].color}`}>
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">{verazScores[emp.id].label}</span>
-                                                    <span className="text-xs font-bold mt-1 opacity-90">{verazScores[emp.id].score} pts</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">{scoringData[emp.id].label}</span>
+                                                    <span className="text-xs font-bold mt-1 opacity-90">{scoringData[emp.id].score} pts</span>
                                                 </div>
                                             </div>
                                         ) : (

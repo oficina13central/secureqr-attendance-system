@@ -13,7 +13,8 @@ import {
   Menu,
   ChevronLeft,
   Database,
-  CreditCard
+  CreditCard,
+  BookOpen
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -23,9 +24,9 @@ import AuditView from './components/AuditView';
 import PersonnelAudit from './components/PersonnelAudit';
 import SettingsView from './components/SettingsView';
 import FraudAnalysis from './components/FraudAnalysis';
-import AttendanceCalendarView from './components/AttendanceCalendarView';
 import UserManagementView from './components/UserManagementView';
 import MyCredentialView from './components/MyCredentialView';
+import ManualView from './components/ManualView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
@@ -33,7 +34,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal';
+type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal' | 'manual';
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -177,7 +178,8 @@ const App: React.FC = () => {
       'fraud': ['VIEW_AUDIT_LOGS'],
       'users': ['MANAGE_USERS'],
       'my_credential': ['SELF_VIEW', 'VIEW_DASHBOARD'],
-      'terminal': ['MANAGE_TERMINAL']
+      'terminal': ['MANAGE_TERMINAL'],
+      'manual': ['VIEW_DASHBOARD']
     };
 
     // 3. Verificación de permiso para la vista actual
@@ -218,6 +220,7 @@ const App: React.FC = () => {
           <TerminalView onExit={() => isAdminUser ? setMainView('admin') : authService.signOut()} />
         </div>
       );
+      case 'manual': return <ManualView />;
       default: return <AdminDashboard currentUser={currentUser!} />;
     }
   };
@@ -414,6 +417,20 @@ const App: React.FC = () => {
                 >
                   <ScanLine className="w-4 h-4" />
                   <span>MODO TERMINAL</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setAdminSubView('manual');
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-center space-x-2 px-4 py-3.5 border rounded-2xl text-xs font-black transition-all ${
+                    adminSubView === 'manual'
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20'
+                      : 'bg-slate-800/30 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700/50'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>MANUAL DE USUARIO</span>
                 </button>
               </div>
             )}

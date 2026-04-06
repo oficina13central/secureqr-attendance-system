@@ -420,7 +420,7 @@ export const attendanceService = {
         }
     },
 
-    async calculateVerazScore(employeeId: string): Promise<{ score: number, category: number, label: string, color: string }> {
+    async calculateScoring(employeeId: string): Promise<{ score: number, category: number, label: string, color: string }> {
         const now = new Date();
         const pastDate = new Date();
         pastDate.setDate(now.getDate() - 90);

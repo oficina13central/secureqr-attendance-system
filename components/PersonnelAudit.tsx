@@ -38,7 +38,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [sectors, setSectors] = useState<Sector[]>([]);
-    const [verazScores, setVerazScores] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
+    const [scoringData, setScoringData] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
 
     // Filtros avanzados
     const [selectedSectorId, setSelectedSectorId] = useState<string>('all');
@@ -93,10 +93,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             if (employees.length === 0) return;
             const scoresMap: Record<string, any> = {};
             await Promise.all(employees.map(async (emp) => {
-                const s = await attendanceService.calculateVerazScore(emp.id);
+                const s = await attendanceService.calculateScoring(emp.id);
                 scoresMap[emp.id] = s;
             }));
-            setVerazScores(scoresMap);
+            setScoringData(scoresMap);
         };
         fetchScores();
     }, [employees]);
@@ -512,11 +512,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <div className="flex justify-center">
-                                            {verazScores[data.id] ? (
-                                                <div className={`inline-flex items-center px-4 py-2 rounded-xl border shadow-sm ${verazScores[data.id].color}`}>
+                                            {scoringData[data.id] ? (
+                                                <div className={`inline-flex items-center px-4 py-2 rounded-xl border shadow-sm ${scoringData[data.id].color}`}>
                                                     <div className="flex flex-col text-center w-full">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">{verazScores[data.id].label}</span>
-                                                        <span className="text-sm font-bold opacity-90">{verazScores[data.id].score} pts</span>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">{scoringData[data.id].label}</span>
+                                                        <span className="text-sm font-bold opacity-90">{scoringData[data.id].score} pts</span>
                                                     </div>
                                                 </div>
                                             ) : (
