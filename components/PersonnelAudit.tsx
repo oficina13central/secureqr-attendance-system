@@ -15,6 +15,7 @@ import {
     Calendar
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
+import { supabase } from '../services/supabaseClient';
 import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
@@ -38,6 +39,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [sectors, setSectors] = useState<Sector[]>([]);
+    const [schedules, setSchedules] = useState<any[]>([]);
     const [scoringData, setScoringData] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
 
     // Filtros avanzados
@@ -46,11 +48,9 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [showOnlyAbsences, setShowOnlyAbsences] = useState(false);
     const [showOnlyNoPresentismo, setShowOnlyNoPresentismo] = useState(false);
 
-    // Estado para el mes y año seleccionado (por defecto el mes anterior)
+    // Estado para el mes y año seleccionado (por defecto el mes actual)
     const [selectedDate, setSelectedDate] = useState(() => {
-        const d = new Date();
-        d.setMonth(d.getMonth() - 1);
-        return d;
+        return new Date();
     });
 
     const months = [
@@ -62,16 +62,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     const loadData = async () => {
         setLoading(true);
-        const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors] = await Promise.all([
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors, fetchedSchedules] = await Promise.all([
             attendanceService.getAll(),
             initialEmployees.length > 0 ? Promise.resolve(initialEmployees) : personnelService.getAll(),
             settingsService.getRules(),
-            sectorService.getAll()
+            sectorService.getAll(),
+            supabase.from('schedules').select('*').gte('date', thirtyDaysAgo)
         ]);
+
         setRecords(fetchedRecords);
         setEmployees(fetchedEmployees);
         setRules(fetchedRules);
         setSectors(fetchedSectors);
+        setSchedules(fetchedSchedules.data || []);
         setLoading(false);
     };
 
@@ -151,14 +157,52 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const auditData = useMemo(() => {
         const targetMonth = selectedDate.getMonth();
         const targetYear = selectedDate.getFullYear();
+        const isCurrentMonth = targetMonth === new Date().getMonth() && targetYear === new Date().getFullYear();
+        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const todayDayOfWeek = now.getDay().toString();
 
         return employees.map(emp => {
-            const monthRecords = records.filter(r => {
+            // DB records
+            const monthRecords = [...records.filter(r => {
                 const d = new Date(r.date);
                 return d.getMonth() === targetMonth &&
                     d.getFullYear() === targetYear &&
                     r.employee_id === emp.id;
-            });
+            })];
+
+            // Real-time Absence Inference (only for current month)
+            if (isCurrentMonth) {
+                const hasTodayRecord = monthRecords.some(r => r.date === todayStr);
+                if (!hasTodayRecord) {
+                    let shift = schedules.find(s => s.employee_id === emp.id && s.date === todayStr);
+                    if (!shift && emp.default_schedule) {
+                        shift = emp.default_schedule[todayDayOfWeek];
+                    }
+
+                    if (shift && shift.type !== 'off' && shift.segments?.[0]?.start) {
+                        const [h, m] = shift.segments[0].start.split(':').map(Number);
+                        const shiftStart = new Date();
+                        shiftStart.setHours(h, m, 0, 0);
+
+                        const gracePeriod = rules?.ausente_gracia || 120;
+                        const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+
+                        if (minutesSinceStart > gracePeriod) {
+                            monthRecords.push({
+                                id: `virtual_${emp.id}`,
+                                employee_id: emp.id,
+                                employee_name: emp.full_name,
+                                date: todayStr,
+                                check_in: null,
+                                check_out: null,
+                                status: 'ausente',
+                                minutes_late: 0
+                            });
+                        }
+                    }
+                }
+            }
 
             const totalLateMinutes = monthRecords.reduce((sum, r) => sum + (r.minutes_late || 0), 0);
             const absences = monthRecords.filter(r => r.status === 'ausente').length;
@@ -172,7 +216,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 ? ((onTime * 1.0) + (late * 0.7) + (severeLate * 0.4)) / totalRequiredDays * 100 
                 : 0;
 
-            // Resolve sector name robustly (ID, Name match, or legacy string)
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name ||
                 sectors.find(s => s.name === emp.sector_id)?.name ||
                 emp.sector_id || 'Sin Sector';
@@ -186,7 +229,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
-                detailedRecords: monthRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                detailedRecords: monthRecords.sort((a, b) => new Date(b.date).getTime() - new Date(b.date).getTime())
             };
         }).filter(data => {
             const matchesSearch = data.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,7 +238,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const employee = employees.find(e => e.id === data.id);
             const accessibleSectorIds = getAccessibleSectorIds();
 
-            // If role is admin/superusuario, show all; otherwise restrict to accessible sectors
             const isAdmin = currentUser?.role === 'administrador' || currentUser?.role === 'superusuario';
             const empSectorId = employee?.sector_id || '';
             const hasAccess = isAdmin || accessibleSectorIds.length === 0 ||
@@ -212,7 +254,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             return matchesSearch && hasAccess && matchesSector && matchesIssue;
         });
-    }, [employees, records, selectedDate, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors]);
+    }, [employees, records, schedules, rules, selectedDate, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors]);
 
     const selectedEmployeeData = useMemo(() =>
         auditData.find(d => d.id === selectedEmployeeId),
@@ -464,6 +506,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                         <thead>
                             <tr className="bg-slate-50/50">
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Empleado / Sector</th>
+                                <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Turno Hoy</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tardanza Total</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ausencias</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Perdió el Presentismo</th>
@@ -492,6 +535,26 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{data.sector}</span>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-tight">
+                                            {(() => {
+                                                const todayStr = new Date().toISOString().split('T')[0];
+                                                const shift = schedules.find(s => s.employee_id === data.id && s.date === todayStr);
+                                                if (shift && shift.type !== 'off' && shift.segments?.[0]) {
+                                                    return shift.segments.map((s: any) => `${s.start}-${s.end}`).join('/');
+                                                }
+                                                const emp = employees.find(e => e.id === data.id);
+                                                if (emp && emp.default_schedule) {
+                                                    const todayDow = new Date().getDay().toString();
+                                                    const defShift = emp.default_schedule[todayDow];
+                                                    if (defShift && defShift.type !== 'off' && defShift.segments?.[0]) {
+                                                        return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join('/');
+                                                    }
+                                                }
+                                                return 'Libre/Sin Turno';
+                                            })()}
+                                        </span>
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <div className="inline-flex flex-col">
@@ -560,6 +623,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                         </div>
 
                         <div className="max-h-[60vh] overflow-y-auto p-8">
+                            <div className="mb-6 grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Turno Asignado</span>
+                                    <span className="text-sm font-black text-slate-700">
+                                        {/* Shift for details is complex as it can vary. Showing first found or default. */}
+                                        {schedules.find(s => s.employee_id === selectedEmployeeId && s.type !== 'off')?.segments?.[0] 
+                                          ? `${schedules.find(s => s.employee_id === selectedEmployeeId && s.type !== 'off')?.segments[0].start}-${schedules.find(s => s.employee_id === selectedEmployeeId && s.type !== 'off')?.segments[0].end}`
+                                          : 'Ver cronograma'}
+                                    </span>
+                                </div>
+                                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100/50 text-right">
+                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Puntualidad</span>
+                                    <span className="text-sm font-black text-indigo-600">{Math.round(selectedEmployeeData.compliance)}%</span>
+                                </div>
+                            </div>
+
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-slate-100">
