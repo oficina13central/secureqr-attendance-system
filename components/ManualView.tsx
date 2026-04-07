@@ -275,6 +275,49 @@ const ManualView: React.FC = () => {
         </div>
       </section>
 
+      {/* SECTION 5: AUDITORÍA Y DASHBOARD */}
+      <section id="sec-5" className="space-y-6 scroll-mt-32 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-lg font-black">5</div>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Auditoría y Dashboard</h2>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div className="space-y-4">
+              <h3 className="text-xl font-black text-slate-800 flex items-center">
+                 <History className="w-5 h-5 mr-3 text-indigo-600" />
+                 Panel de Mando Interactivo (Dashboard)
+              </h3>
+              <p className="text-slate-600 leading-relaxed font-medium">
+                El Dashboard principal no es solo informativo, es interactivo. Las métricas resumen que observas (como "Presentes", "Ausentes" y "Llegadas Tarde") funcionan como filtros rápidos.
+              </p>
+              <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-600">
+                <span className="block font-black text-indigo-900 text-sm mb-1">💡 Tip Pro: Clic en las Estadísticas</span>
+                <p className="text-xs text-indigo-700 font-medium leading-relaxed">
+                  Al hacer clic en uno de los bloques de estadísticas en la parte superior (por ejemplo, <strong>"10 Tardanzas de hoy"</strong>), la tabla inferior se filtrará automáticamente para mostrarte en detalle y de inmediato quiénes son exactamente esas personas que desencadenaron la métrica.
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-xl font-black text-slate-800 flex items-center">
+                 <ShieldAlert className="w-5 h-5 mr-3 text-amber-500" />
+                 Módulo de Auditoría
+              </h3>
+              <p className="text-slate-600 leading-relaxed font-medium">
+                Aquí podrás visualizar reportes históricos profundos de ingresos, egresos, ausencias inferidas, tardanzas acumuladas y recalcular puntajes de períodos pasados de forma segura.
+              </p>
+              <ul className="space-y-2 mt-4 text-xs font-bold text-slate-500">
+                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Modificación manual de fichadas justificadas.</li>
+                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Exportación de horas trabajadas para liquidación.</li>
+                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Inferencia de faltas retrospectivas.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ SECTION */}
       <section id="sec-faq" className="space-y-8 scroll-mt-32 break-inside-avoid">
         <div className="text-center space-y-2">
