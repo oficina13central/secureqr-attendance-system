@@ -200,29 +200,7 @@ const ManualView: React.FC = () => {
           <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de Personal y Scoring</h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-            <h3 className="text-xl font-black text-slate-800">Cálculo Dinámico de Scoring Elite</h3>
-            <p className="text-slate-600 leading-relaxed font-medium">
-              El sistema evalúa el desempeño en una ventana de **90 días**, descontando puntos desde un ideal de 999.
-              Se es fuertemente penalizado por la suma base + los minutos acumulados: Ausencias injustificadas (-250 pts), Pérdida de Presentismo (-100 pts), y Tardanzas leves (-20 pts). Adicionalmente, cada infracción por horario descuenta **1 punto por cada minuto real** de tardanza.
-            </p>
-            
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-around flex-wrap gap-4">
-              {[
-                { label: '0-30 días', peso: '1.0', color: 'text-rose-600', w: 'w-24' },
-                { label: '30-60 días', peso: '0.6', color: 'text-amber-600', w: 'w-20' },
-                { label: '60-90 días', peso: '0.3', color: 'text-indigo-600', w: 'w-16' },
-              ].map((m, i) => (
-                <div key={i} className="flex flex-col items-center space-y-2">
-                  <div className={`${m.w} h-2 bg-slate-200 rounded-full overflow-hidden`}><div className={`h-full bg-indigo-500`} style={{ width: `${Number(m.peso)*100}%` }}></div></div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.label}</span>
-                  <span className={`text-xs font-black ${m.color}`}>Peso {m.peso}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-6">
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 flex flex-col justify-center">
             <h3 className="text-lg font-black text-indigo-400 uppercase tracking-widest">Escala de Clasificación</h3>
             <div className="space-y-3 font-bold text-xs uppercase tracking-tighter">
