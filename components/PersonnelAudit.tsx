@@ -154,7 +154,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         }
     };
 
-    const auditData = useMemo(() => {
+    const auditDataRaw = useMemo(() => {
         const targetMonth = selectedDate.getMonth();
         const targetYear = selectedDate.getFullYear();
         const isCurrentMonth = targetMonth === new Date().getMonth() && targetYear === new Date().getFullYear();
@@ -163,7 +163,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         const todayDayOfWeek = now.getDay().toString();
 
         return employees.map(emp => {
-            // DB records
             const monthRecords = [...records.filter(r => {
                 const d = new Date(r.date);
                 return d.getMonth() === targetMonth &&
@@ -171,7 +170,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     r.employee_id === emp.id;
             })];
 
-            // Real-time Absence Inference (only for current month)
             if (isCurrentMonth) {
                 const hasTodayRecord = monthRecords.some(r => r.date === todayStr);
                 if (!hasTodayRecord) {
@@ -229,9 +227,13 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
-                detailedRecords: monthRecords.sort((a, b) => new Date(b.date).getTime() - new Date(b.date).getTime())
+                detailedRecords: monthRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             };
-        }).filter(data => {
+        });
+    }, [employees, records, schedules, rules, selectedDate]);
+
+    const auditDataFiltered = useMemo(() => {
+        return auditDataRaw.filter(data => {
             const matchesSearch = data.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 data.sector.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -254,11 +256,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             return matchesSearch && hasAccess && matchesSector && matchesIssue;
         });
-    }, [employees, records, schedules, rules, selectedDate, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors]);
+    }, [auditDataRaw, employees, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors, currentUser]);
 
     const selectedEmployeeData = useMemo(() =>
-        auditData.find(d => d.id === selectedEmployeeId),
-        [auditData, selectedEmployeeId]
+        auditDataFiltered.find(d => d.id === selectedEmployeeId),
+        [auditDataFiltered, selectedEmployeeId]
     );
 
     const formatTime = (isoString: string | null) => {
@@ -269,7 +271,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     const handleExport = () => { // Renamed from handleExportReport
         const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdió el Presentismo", "Eficiencia (%)"];
-        const rows = auditData.map(d => [
+        const rows = auditDataFiltered.map(d => [
             d.name,
             d.sector,
             d.totalLateMinutes,
@@ -462,7 +464,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             {viewMode === 'calendar' ? (
                 <AttendanceCalendarView 
-                    employees={employees.filter(emp => auditData.some(d => d.id === emp.id))} 
+                    employees={employees.filter(emp => auditDataFiltered.some(d => d.id === emp.id))} 
                     currentUser={currentUser || { name: 'Invitado', role: 'invitado' } as any} 
                 />
             ) : (
@@ -476,7 +478,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     </div>
                     <div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Minutos Tarde</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.totalLateMinutes, 0)} min</p>
+                        <p className="text-2xl font-black text-slate-800">{auditDataFiltered.reduce((sum, d) => sum + d.totalLateMinutes, 0)} min</p>
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
@@ -485,7 +487,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     </div>
                     <div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Ausencias</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.absences, 0)}</p>
+                        <p className="text-2xl font-black text-slate-800">{auditDataFiltered.reduce((sum, d) => sum + d.absences, 0)}</p>
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center space-x-4 group hover:shadow-md transition-shadow">
@@ -494,7 +496,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     </div>
                     <div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Perdió el Presentismo</p>
-                        <p className="text-2xl font-black text-slate-800">{auditData.reduce((sum, d) => sum + d.lostPresentismo, 0)} casos</p>
+                        <p className="text-2xl font-black text-slate-800">{auditDataFiltered.reduce((sum, d) => sum + d.lostPresentismo, 0)} casos</p>
                     </div>
                 </div>
             </div>
@@ -519,11 +521,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <tr>
                                     <td colSpan={6} className="px-8 py-10 text-center text-slate-400 font-medium animate-pulse">Generando reporte mensual...</td>
                                 </tr>
-                            ) : auditData.length === 0 ? (
+                            ) : auditDataFiltered.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-8 py-10 text-center text-slate-400 font-medium">No hay datos para el período seleccionado.</td>
                                 </tr>
-                            ) : auditData.map((data) => (
+                            ) : auditDataFiltered.map((data) => (
                                 <tr key={data.id} className="hover:bg-indigo-50/30 transition-colors group">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center space-x-4">
