@@ -561,7 +561,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       </div>
                       <div>
                         <p className="font-bold text-slate-700 text-sm">{emp.full_name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{emp.role}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">
+                          {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
+                        </p>
                       </div>
                     </div>
                   </td>
