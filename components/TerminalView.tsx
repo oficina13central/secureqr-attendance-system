@@ -285,35 +285,23 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
       <div className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-3 z-50">
-        {!sessionActive && (
-          <>
-            {(role !== 'terminal') ? (
-              <button
-                onClick={onExit}
-                className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowLogoutConfirm(true)}
-                className="flex items-center space-x-2 text-red-500/70 hover:text-red-400 transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-red-500/10"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="font-bold text-[10px] uppercase tracking-widest">Cerrar Sesión</span>
-              </button>
-            )}
-          </>
+        {!sessionActive && role !== 'terminal' && (
+          <button
+            onClick={onExit}
+            className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
+          </button>
         )}
 
         {sessionActive && status === 'idle' && (
           <button
             onClick={resetTerminal}
-            className="flex items-center space-x-2 text-white transition-all bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-full shadow-lg shadow-indigo-500/20 border border-indigo-400/30 animate-in slide-in-from-left duration-300 ring-2 ring-indigo-500/20"
+            className="flex items-center space-x-2 text-white bg-slate-800 hover:bg-slate-700 transition-all px-5 py-2.5 rounded-full shadow-lg border border-slate-600 active:scale-95"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-bold text-xs uppercase tracking-widest">Volver al Menú</span>
+            <X className="w-5 h-5" />
+            <span className="font-bold text-xs uppercase tracking-widest">Cancelar</span>
           </button>
         )}
       </div>
@@ -336,7 +324,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
       <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 z-10 w-full pt-12 md:pt-0">
         <div className="text-center space-y-2 group relative">
-          <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400">LECTOR DE ACCESO</h1>
+          <h1 
+            className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400 select-none cursor-default"
+            onClick={(e) => {
+              if (role === 'terminal') {
+                if (e.detail === 5) {
+                  setShowLogoutConfirm(true);
+                }
+              }
+            }}
+          >LECTOR DE ACCESO</h1>
           {isEditingName ? (
             <div className="flex items-center justify-center space-x-2 animate-in fade-in zoom-in duration-200">
               <input 
