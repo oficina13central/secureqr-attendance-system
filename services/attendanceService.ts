@@ -86,9 +86,12 @@ export const attendanceService = {
         if (!activeSchedule) {
             const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
             if (profile?.default_schedule) {
-                const base = profile.default_schedule[now.getDay().toString()];
-                if (base) {
-                    activeSchedule = { type: base.type, segments: base.segments };
+                const metadata = profile.default_schedule.metadata;
+                if (!metadata?.valid_from || date >= metadata.valid_from) {
+                    const base = profile.default_schedule[now.getDay().toString()];
+                    if (base) {
+                        activeSchedule = { type: base.type, segments: base.segments };
+                    }
                 }
             }
         }
@@ -224,8 +227,11 @@ export const attendanceService = {
 
                     let activeSchedule = schedule;
                     if (!activeSchedule && emp.default_schedule) {
-                        const base = emp.default_schedule[checkDate.getDay().toString()];
-                        if (base) activeSchedule = { type: base.type } as any;
+                        const metadata = emp.default_schedule.metadata;
+                        if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                            const base = emp.default_schedule[checkDate.getDay().toString()];
+                            if (base) activeSchedule = { type: base.type } as any;
+                        }
                     }
 
                     let status: 'ausente' | 'descanso' | 'vacaciones' | null = null;
@@ -370,8 +376,11 @@ export const attendanceService = {
                 const dateObj = new Date(`${record.date}T12:00:00`);
                 let schedule = schedules?.find(s => s.date === record.date);
                 if (!schedule && defaultSchedule) {
-                    const base = defaultSchedule[dateObj.getDay().toString()];
-                    if (base) schedule = { date: record.date, type: base.type, segments: base.segments } as any;
+                    const metadata = defaultSchedule.metadata;
+                    if (!metadata?.valid_from || record.date >= metadata.valid_from) {
+                        const base = defaultSchedule[dateObj.getDay().toString()];
+                        if (base) schedule = { date: record.date, type: base.type, segments: base.segments } as any;
+                    }
                 }
                 
                 if (!schedule) continue;

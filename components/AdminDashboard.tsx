@@ -162,7 +162,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
       let shift = schedules.find(s => s.employee_id === emp.id && s.date === today);
       if (!shift && emp.default_schedule) {
-        shift = emp.default_schedule[todayDayOfWeek];
+        const metadata = emp.default_schedule.metadata;
+        if (!metadata?.valid_from || today >= metadata.valid_from) {
+          shift = emp.default_schedule[todayDayOfWeek];
+        }
       }
 
       if (shift && shift.type !== 'off' && shift.segments?.[0]?.start) {

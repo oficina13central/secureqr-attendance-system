@@ -163,7 +163,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const handleSaveSchedule = async () => {
         if (!showScheduleModal) return;
         try {
-            const result = await personnelService.update(showScheduleModal.id, { default_schedule: scheduleForm });
+            const today = new Date().toISOString().split('T')[0];
+            const updatedSchedule = { 
+                ...scheduleForm, 
+                metadata: { valid_from: today, updated_at: new Date().toISOString() } 
+            };
+            const result = await personnelService.update(showScheduleModal.id, { default_schedule: updatedSchedule });
             if (result) {
                 setEmployees(employees.map(emp => emp.id === showScheduleModal.id ? result : emp));
                 setShowScheduleModal(null);

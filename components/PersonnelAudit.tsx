@@ -175,7 +175,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 if (!hasTodayRecord) {
                     let shift = schedules.find(s => s.employee_id === emp.id && s.date === todayStr);
                     if (!shift && emp.default_schedule) {
-                        shift = emp.default_schedule[todayDayOfWeek];
+                        const metadata = emp.default_schedule.metadata;
+                        if (!metadata?.valid_from || todayStr >= metadata.valid_from) {
+                            shift = emp.default_schedule[todayDayOfWeek];
+                        }
                     }
 
                     if (shift && shift.type !== 'off' && shift.segments?.[0]?.start) {

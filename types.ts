@@ -32,7 +32,7 @@ export interface Profile {
   suspended_reason?: string;
   deleted_at?: string | null;       // ISO date string, null = active
   is_employee?: boolean;            // Differentiate system accounts from personnel
-  default_schedule?: Record<string, DailyShift>; // '0'-'6' for Sun-Sat
+  default_schedule?: Record<string, any>; // '0'-'6' for Sun-Sat, plus optional metadata
 }
 
 export interface DailyShift {
