@@ -178,6 +178,18 @@ const ManualView: React.FC = () => {
               </div>
             </div>
           </div>
+          
+          <div className="mt-8 bg-rose-50 border border-rose-100 p-6 rounded-2xl flex flex-col md:flex-row items-center md:space-x-6 space-y-4 md:space-y-0 text-rose-900 shadow-sm print:border-black print:border-2">
+             <div className="p-4 bg-white rounded-full shadow-sm shrink-0">
+               <ShieldAlert className="w-8 h-8 text-rose-500" />
+             </div>
+             <div>
+               <h4 className="text-lg font-black uppercase tracking-tight mb-1">Cierre de Sesión Seguro (Botón Oculto)</h4>
+               <p className="text-sm font-medium leading-relaxed">
+                 Para evitar que los empleados apaguen la terminal accidentalmente, el botón de "Cerrar Sesión" ha sido eliminado de la interfaz visual. Para poder cerrar la sesión, un administrador o encargado <strong>debe tocar/hacer clic 5 veces seguidas de forma muy rápida sobre el título principal que dice "LECTOR DE ACCESO"</strong> en la parte superior central de la pantalla. Esto desplegará la alerta confidencial para cerrar sesión.
+               </p>
+             </div>
+          </div>
         </div>
       </section>
 
