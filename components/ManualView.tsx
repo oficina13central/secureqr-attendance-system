@@ -190,9 +190,10 @@ const ManualView: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-            <h3 className="text-xl font-black text-slate-800">Cálculo Dinámico de Scoring</h3>
+            <h3 className="text-xl font-black text-slate-800">Cálculo Dinámico de Scoring Elite</h3>
             <p className="text-slate-600 leading-relaxed font-medium">
-              El sistema evalúa el desempeño en una ventana de **90 días**. Las ausencias y tardanzas tienen un peso decreciente: lo ocurrido ayer afecta más que lo ocurrido hace dos meses.
+              El sistema evalúa el desempeño en una ventana de **90 días**, descontando puntos desde un ideal de 999.
+              Se es fuertemente penalizado por la suma base + los minutos acumulados: Ausencias injustificadas (-250 pts), Pérdida de Presentismo (-100 pts), y Tardanzas leves (-20 pts). Adicionalmente, cada infracción por horario descuenta **1 punto por cada minuto real** de tardanza.
             </p>
             
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-around flex-wrap gap-4">
@@ -213,11 +214,11 @@ const ManualView: React.FC = () => {
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 flex flex-col justify-center">
             <h3 className="text-lg font-black text-indigo-400 uppercase tracking-widest">Escala de Clasificación</h3>
             <div className="space-y-3 font-bold text-xs uppercase tracking-tighter">
-              <div className="flex items-center space-x-3 text-emerald-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 1: Perfecta</span></div>
-              <div className="flex items-center space-x-3 text-amber-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 2: Mejorable</span></div>
-              <div className="flex items-center space-x-3 text-orange-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 3: Deficiente</span></div>
-              <div className="flex items-center space-x-3 text-rose-500"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 4: Crónica</span></div>
-              <div className="flex items-center space-x-3 text-slate-500"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 5: Irrecuperable</span></div>
+              <div className="flex items-center space-x-3 text-indigo-300"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 0: Elite (Puntaje Perfecto)</span></div>
+              <div className="flex items-center space-x-3 text-emerald-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 1: Excelente</span></div>
+              <div className="flex items-center space-x-3 text-amber-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 2: Estable</span></div>
+              <div className="flex items-center space-x-3 text-orange-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 3: Regular</span></div>
+              <div className="flex items-center space-x-3 text-rose-500"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 4: Alerta / Crónica</span></div>
             </div>
           </div>
         </div>
@@ -242,7 +243,7 @@ const ManualView: React.FC = () => {
             <div className="space-y-4 mt-6">
               <div className="p-5 bg-slate-50 rounded-2xl border-l-4 border-indigo-600">
                 <span className="block font-black text-slate-800 text-sm">1. Plantilla Base</span>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Define el horario habitual (ej: Lunes a Viernes de 08:00 a 16:00).</p>
+                <p className="text-xs text-slate-500 mt-1 font-medium">Define el horario habitual (ej: L-V de 08:00 a 16:00). <strong className="text-slate-700">Importante:</strong> Su cálculo NO es retroactivo; aplica unicamente desde el momento en que se le es configurado en adelante.</p>
               </div>
               <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-200">
                 <span className="block font-black text-indigo-800 text-sm">2. Excepción Semanal</span>
@@ -321,6 +322,7 @@ const ManualView: React.FC = () => {
                 { p: "Error 'Duplicate'", c: "Fichaje reciente", s: "Aguardar 10 min entre fichadas (evita duplicidad)." },
                 { p: "Acceso Bloqueado", c: "Suspensión administrativa", s: "Consultar log de suspensión en módulo Usuarios." },
                 { p: "QR no leído", c: "Baja luminosidad", s: "Subir el brillo del móvil o limpiar lente de cámara." },
+                { p: "Cierre de Sesión en Terminal", c: "Botón CERRAR SESION oculto por seguridad", s: "Presione rápidamente 5 veces el título principal 'LECTOR DE ACCESO' para poder salir." },
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors group">
                   <td className="py-6 pr-4 flex items-center"><ShieldAlert className="w-4 h-4 mr-3 text-rose-500 opacity-0 group-hover:opacity-100" />{row.p}</td>
