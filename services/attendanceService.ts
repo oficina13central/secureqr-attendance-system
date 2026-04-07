@@ -438,7 +438,7 @@ export const attendanceService = {
 
         const { data: records, error } = await supabase
             .from('attendance_records')
-            .select('date, status')
+            .select('date, status, minutes_late')
             .eq('employee_id', employeeId)
             .gte('date', startDate)
             .lte('date', endDate);
@@ -458,28 +458,33 @@ export const attendanceService = {
             if (weight === 0) continue;
 
             if (record.status === 'licencia_medica') {
-                medicalPenalty += (10 * weight); // Descuento base por licencia médica (equivale a una llegada tarde)
+                medicalPenalty += (20 * weight); // Descuento base por licencia médica
             } else {
-                let penalty = record.status === 'ausente' ? 50 : record.status === 'sin_presentismo' ? 20 : 10;
+                let penalty = record.status === 'ausente' ? 250 : record.status === 'sin_presentismo' ? 100 : 20;
+
+                // Penalización acumulativa por minutos
+                if ((record.status === 'tarde' || record.status === 'sin_presentismo') && record.minutes_late) {
+                    penalty += record.minutes_late; // 1 punto extra por cada minuto de retraso
+                }
+
                 totalPenalty += (penalty * weight);
             }
         }
 
-        // Aplicar la Regla de "Tope por Evento" (Opción A) para licencias médicas
-        // El máximo impacto negativo de una licencia será 50 puntos (el equivalente a 1 sola ausencia injustificada).
-        if (medicalPenalty > 50) {
-            medicalPenalty = 50;
+        if (medicalPenalty > 100) {
+            medicalPenalty = 100;
         }
 
         totalPenalty += medicalPenalty;
 
         finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
         let category = 1, label = '', color = '';
-        if (finalScore >= 850) { category = 1; label = 'Clase 1 (Asistencia Perfecta)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
-        else if (finalScore >= 700) { category = 2; label = 'Clase 2 (Asistencia Mejorable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
-        else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Asistencia Deficiente)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }
-        else if (finalScore >= 300) { category = 4; label = 'Clase 4 (Llegador tarde Crónico)'; color = 'bg-rose-100 text-rose-700 border-rose-300'; }
-        else { category = 5; label = 'Clase 5 (Irrecuperable)'; color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; }
+        if (finalScore === 999) { category = 0; label = 'Clase 0 (Elite)'; color = 'bg-indigo-100 text-indigo-700 border-indigo-200'; }
+        else if (finalScore >= 950) { category = 1; label = 'Clase 1 (Excelente)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
+        else if (finalScore >= 750) { category = 2; label = 'Clase 2 (Estable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
+        else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Regular)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }
+        else if (finalScore >= 250) { category = 4; label = 'Clase 4 (Alerta)'; color = 'bg-rose-100 text-rose-700 border-rose-300'; }
+        else { category = 5; label = 'Clase 5 (Crónica)'; color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; }
 
         return { score: finalScore, category, label, color };
     }

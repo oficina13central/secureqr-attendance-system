@@ -395,11 +395,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             style={{ minWidth: '220px' }}
                         >
                             <option value="all">Todos los Scorings</option>
-                            <option value="1">🟢 Clase 1 (Perfecta)</option>
-                            <option value="2">🟡 Clase 2 (Mejorable)</option>
-                            <option value="3">🟠 Clase 3 (Deficiente)</option>
-                            <option value="4">🔴 Clase 4 (Crónico)</option>
-                            <option value="5">🌑 Clase 5 (Irrecuperable)</option>
+                            <option value="0">🟣 Clase 0 (Elite)</option>
+                            <option value="1">🟢 Clase 1 (Excelente)</option>
+                            <option value="2">🟡 Clase 2 (Estable)</option>
+                            <option value="3">🟠 Clase 3 (Regular)</option>
+                            <option value="4">🔴 Clase 4 (Alerta)</option>
+                            <option value="5">🌑 Clase 5 (Crónica)</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
                             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
