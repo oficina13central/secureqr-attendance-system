@@ -41,7 +41,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          supabase.from('schedules').select('*').eq('date', today),
+          supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
           settingsService.getRules()
         ]);
 
@@ -126,6 +126,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // ── HELPER: GET SCHEDULED SHIFT ──
+  const getScheduledShiftForRecord = (record: AttendanceRecord | { employee_id: string, date: string }) => {
+    // 1. Check for a specific schedule
+    const shift = schedules.find(s => s.employee_id === record.employee_id && s.date === record.date);
+    if (shift && shift.type !== 'off' && shift.segments?.[0]) {
+      return shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+    }
+    
+    // 2. Fallback to default schedule
+    const emp = employees.find(e => e.id === record.employee_id);
+    if (emp && emp.default_schedule) {
+      const dayOfWeek = new Date(record.date + 'T00:00:00').getDay().toString();
+      const defShift = emp.default_schedule[dayOfWeek];
+      if (defShift && defShift.type !== 'off' && defShift.segments?.[0]) {
+        return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      }
+    }
+
+    return 'Sin Turno';
+  };
+
   // ── INFER REAL-TIME ABSENCES ──
   const realTimeAbsences = useMemo(() => {
     const today = getLocalDateString();
@@ -139,7 +160,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     authorizedEmployees.forEach(emp => {
       if (recordedEmpIds.has(emp.id)) return;
 
-      let shift = schedules.find(s => s.employee_id === emp.id);
+      let shift = schedules.find(s => s.employee_id === emp.id && s.date === today);
       if (!shift && emp.default_schedule) {
         shift = emp.default_schedule[todayDayOfWeek];
       }
@@ -285,11 +306,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   }, [authorizedRecords]);
 
   const handleExportMonthly = () => {
-    const headers = ["Empleado", "Sector", "Última Entrada", "Estatus"];
+    const headers = ["Fecha", "Empleado", "Sector", "Turno", "Entrada", "Salida", "Estatus"];
     const rows = filteredRecords.map(r => [
+      r.date,
       r.employee_name,
       getSectorForEmployee(r.employee_name),
+      getScheduledShiftForRecord(r),
       formatTime(r.check_in),
+      formatTime(r.check_out),
       r.status === 'sin_presentismo' ? 'Perdió el Presentismo' : r.status
     ]);
 
@@ -483,7 +507,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/30">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Empleado</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {activeFilter.startsWith('history') ? 'Fecha / Empleado' : 'Empleado'}
+                </th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Turno Asignado</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salida</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Estatus</th>
@@ -498,9 +525,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 <tr key={r.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-5">
                     <div>
+                      {activeFilter.startsWith('history') && (
+                        <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter mb-1 block">
+                          {new Date(r.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
                       <span className="block font-black text-slate-700">{r.employee_name}</span>
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{getSectorForEmployee(r.employee_name)}</span>
                     </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-tight">
+                      {getScheduledShiftForRecord(r)}
+                    </span>
                   </td>
                   <td className="px-8 py-5 font-bold text-slate-600 text-sm">{formatTime(r.check_in)}</td>
                   <td className="px-8 py-5 font-bold text-slate-600 text-sm">{formatTime(r.check_out)}</td>
