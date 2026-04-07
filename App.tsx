@@ -411,13 +411,15 @@ const App: React.FC = () => {
             {(currentUser?.role === 'administrador' || currentUser?.role === 'superusuario' || currentUser?.role === 'terminal') && (
               <div className="space-y-4">
                 <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Utilidades</p>
-                <button
-                  onClick={() => setMainView('terminal')}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white border border-emerald-500/20 rounded-2xl text-xs font-black transition-all"
-                >
-                  <ScanLine className="w-4 h-4" />
-                  <span>MODO TERMINAL</span>
-                </button>
+                {currentUser?.role !== 'administrador' && (
+                  <button
+                    onClick={() => setMainView('terminal')}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-3.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white border border-emerald-500/20 rounded-2xl text-xs font-black transition-all"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span>MODO TERMINAL</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setAdminSubView('manual');
