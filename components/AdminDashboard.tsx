@@ -15,6 +15,7 @@ import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
+import { supabase } from '../services/supabaseClient';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface AdminDashboardProps {
@@ -27,20 +28,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [schedules, setSchedules] = useState<any[]>([]); // Today's schedules
+  const [rules, setRules] = useState<AttendanceRules | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'present' | 'late' | 'absent' | 'history_all' | 'history_late' | 'history_absent'>('all');
 
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
+      const today = getLocalDateString();
       try {
-        const [recordsRes, employeesRes, sectorsRes] = await Promise.allSettled([
+        const [recordsRes, employeesRes, sectorsRes, schedulesRes, rulesRes] = await Promise.allSettled([
           attendanceService.getAll(),
           personnelService.getAll(),
-          sectorService.getAll()
+          sectorService.getAll(),
+          supabase.from('schedules').select('*').eq('date', today),
+          settingsService.getRules()
         ]);
 
         const fetchedRecords = recordsRes.status === 'fulfilled' ? (recordsRes.value as AttendanceRecord[]) : [];
         const fetchedEmployees = employeesRes.status === 'fulfilled' ? (employeesRes.value as Profile[]) : [];
         const fetchedSectors = sectorsRes.status === 'fulfilled' ? (sectorsRes.value as Sector[]) : [];
+        const fetchedSchedules = (schedulesRes.status === 'fulfilled' && (schedulesRes.value as any).data) 
+          ? (schedulesRes.value as any).data 
+          : [];
+        const fetchedRules = rulesRes.status === 'fulfilled' ? rulesRes.value : null;
 
         // Apply security filter for managers
         if (currentUser.role === 'encargado') {
@@ -59,6 +70,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         }
         
         setSectors(fetchedSectors);
+        setSchedules(fetchedSchedules);
+        setRules(fetchedRules);
 
         if (employeesRes.status === 'fulfilled' && employeesRes.value) {
            attendanceService.syncPastAbsences(employeesRes.value as Profile[]).then(() => {
@@ -113,16 +126,88 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // ── INFER REAL-TIME ABSENCES ──
+  const realTimeAbsences = useMemo(() => {
+    const today = getLocalDateString();
+    const now = new Date();
+    const todayDayOfWeek = now.getDay().toString();
+    const todayRecords = authorizedRecords.filter(r => r.date === today);
+    const recordedEmpIds = new Set(todayRecords.map(r => r.employee_id));
+
+    const absences: AttendanceRecord[] = [];
+
+    authorizedEmployees.forEach(emp => {
+      if (recordedEmpIds.has(emp.id)) return;
+
+      let shift = schedules.find(s => s.employee_id === emp.id);
+      if (!shift && emp.default_schedule) {
+        shift = emp.default_schedule[todayDayOfWeek];
+      }
+
+      if (shift && shift.type !== 'off' && shift.segments?.[0]?.start) {
+        const [h, m] = shift.segments[0].start.split(':').map(Number);
+        const shiftStart = new Date();
+        shiftStart.setHours(h, m, 0, 0);
+
+        const gracePeriod = rules?.ausente_gracia || 120;
+        const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+
+        // Only mark as absent if grace period has passed
+        if (minutesSinceStart > gracePeriod) {
+          absences.push({
+            id: `virtual_${emp.id}`,
+            employee_id: emp.id,
+            employee_name: emp.full_name,
+            date: today,
+            check_in: null,
+            check_out: null,
+            status: 'ausente',
+            minutes_late: 0
+          });
+        }
+      }
+    });
+
+    return absences;
+  }, [authorizedEmployees, authorizedRecords, schedules, rules]);
+
   const filteredRecords = useMemo(() => {
     const today = getLocalDateString();
-    return authorizedRecords
-      .filter(r => r.date === today)
-      .filter(r => {
-        const search = searchTerm.toLowerCase();
-        const sectorName = getSectorForEmployee(r.employee_name).toLowerCase();
-        return r.employee_name.toLowerCase().includes(search) || sectorName.includes(search);
-      });
-  }, [authorizedRecords, searchTerm, employees, sectors]);
+    let baseRecs: AttendanceRecord[] = [];
+
+    if (activeFilter.startsWith('history')) {
+      // 30 day history mode
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      baseRecs = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
+
+      if (activeFilter === 'history_absent') {
+        baseRecs = baseRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo');
+      } else if (activeFilter === 'history_late') {
+        baseRecs = baseRecs.filter(r => r.status === 'tarde');
+      } else if (activeFilter === 'history_all') {
+        baseRecs = baseRecs.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status));
+      }
+    } else {
+      // Today mode
+      const todayRecs = authorizedRecords.filter(r => r.date === today);
+      baseRecs = [...todayRecs, ...realTimeAbsences];
+
+      if (activeFilter === 'present') {
+        baseRecs = baseRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual'].includes(r.status));
+      } else if (activeFilter === 'late') {
+        baseRecs = baseRecs.filter(r => r.status === 'tarde');
+      } else if (activeFilter === 'absent') {
+        baseRecs = baseRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo');
+      }
+    }
+
+    return baseRecs.filter(r => {
+      const search = searchTerm.toLowerCase();
+      const sectorName = getSectorForEmployee(r.employee_name).toLowerCase();
+      return r.employee_name.toLowerCase().includes(search) || sectorName.includes(search);
+    });
+  }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors]);
 
   const stats = useMemo(() => {
     const today = getLocalDateString();
@@ -130,9 +215,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return {
       presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual'].includes(r.status)).length,
       tardes: todayRecs.filter(r => r.status === 'tarde').length,
-      ausentes: todayRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo').length
+      ausentes: todayRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo').length + realTimeAbsences.length
     };
-  }, [authorizedRecords]);
+  }, [authorizedRecords, realTimeAbsences]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
@@ -225,12 +310,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       {/* 1. Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Presentes (Hoy)', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Tardanzas (Hoy)', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { label: 'Ausencias (Hoy)', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50' },
-          { label: 'Integridad (Hoy)', value: '98%', icon: ShieldCheck, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+          { id: 'present', label: 'Presentes (Hoy)', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
+          { id: 'late', label: 'Tardanzas (Hoy)', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
+          { id: 'absent', label: 'Ausencias (Hoy)', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
+          { id: 'all', label: 'Total Activos', value: authorizedEmployees.length, icon: ShieldCheck, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
         ].map((stat, i) => (
-          <div key={i} className="bg-white px-5 py-4 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
+          <button 
+            key={i} 
+            onClick={() => setActiveFilter(activeFilter === stat.id ? 'all' : stat.id as any)}
+            className={`bg-white px-5 py-4 rounded-3xl border transition-all text-left flex items-center space-x-4 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-100 shadow-sm'}`}
+          >
             <div className={`p-3 rounded-2xl ${stat.bg}`}>
               <stat.icon className={`w-5 h-5 ${stat.color}`} strokeWidth={2.5} />
             </div>
@@ -238,7 +327,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
               <p className="text-2xl font-black text-slate-800 leading-none mt-1">{stat.value}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -305,7 +394,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Estadísticas de rendimiento global</p>
             
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <button 
+                onClick={() => setActiveFilter('history_all')}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_all' ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50' : 'hover:bg-white/5'}`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="p-1.5 rounded-full bg-emerald-500/10">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
@@ -313,9 +405,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   <span className="text-sm font-semibold text-slate-300">En Horario</span>
                 </div>
                 <span className="font-black text-lg">{thirtyDaysStats.presentes}</span>
-              </div>
+              </button>
 
-              <div className="flex items-center justify-between">
+              <button 
+                onClick={() => setActiveFilter('history_late')}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_late' ? 'bg-amber-500/20 ring-1 ring-amber-500/50' : 'hover:bg-white/5'}`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="p-1.5 rounded-full bg-amber-500/10">
                     <Clock className="w-4 h-4 text-amber-400" />
@@ -323,9 +418,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   <span className="text-sm font-semibold text-slate-300">Tardanzas</span>
                 </div>
                 <span className="font-black text-lg">{thirtyDaysStats.tardanzas}</span>
-              </div>
+              </button>
 
-              <div className="flex items-center justify-between">
+              <button 
+                onClick={() => setActiveFilter('history_absent')}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_absent' ? 'bg-rose-500/20 ring-1 ring-rose-500/50' : 'hover:bg-white/5'}`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="p-1.5 rounded-full bg-rose-500/10">
                     <UserX className="w-4 h-4 text-rose-400" />
@@ -333,7 +431,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   <span className="text-sm font-semibold text-slate-300">Ausencias</span>
                 </div>
                 <span className="font-black text-lg">{thirtyDaysStats.ausencias}</span>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -365,10 +463,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 font-bold transition-all placeholder:text-slate-400"
             />
           </div>
-          <button onClick={handleExportMonthly} className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md shadow-slate-900/10">
-            <Download className="w-4 h-4" />
-            <span>Exportar CSV</span>
-          </button>
+          <div className="flex items-center space-x-4">
+             {activeFilter !== 'all' && (
+               <button 
+                 onClick={() => setActiveFilter('all')}
+                 className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
+               >
+                 Limpiar Filtro
+               </button>
+             )}
+            <button onClick={handleExportMonthly} className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md shadow-slate-900/10">
+              <Download className="w-4 h-4" />
+              <span>Exportar CSV</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
