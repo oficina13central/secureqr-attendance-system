@@ -11,7 +11,15 @@ export const roleService = {
             console.error('Error fetching roles:', error);
             return [];
         }
-        return data || [];
+        
+        // Adaptamos los nombres para que sean inclusivos en la interfaz
+        const roles = data || [];
+        return roles.map((role: Role) => {
+            if (role.name.toLowerCase() === 'encargado') return { ...role, name: 'Encargado/a' };
+            if (role.name.toLowerCase() === 'empleado') return { ...role, name: 'Empleado/a' };
+            if (role.name.toLowerCase() === 'administrador') return { ...role, name: 'Administrador/a' };
+            return role;
+        });
     },
 
     async getAllPermissions(): Promise<Permission[]> {

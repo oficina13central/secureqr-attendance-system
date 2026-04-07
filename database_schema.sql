@@ -111,9 +111,9 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO roles (id, name, description) VALUES
 ('superusuario', 'Superusuario', 'Acceso total al sistema'),
-('administrador', 'Administrador', 'Gestión administrativa global'),
-('encargado', 'Encargado', 'Gestión operativa de sector'),
-('empleado', 'Empleado', 'Solo marcación y consulta básica'),
+('administrador', 'Administrador/a', 'Gestión administrativa global'),
+('encargado', 'Encargado/a', 'Gestión operativa de sector'),
+('empleado', 'Empleado/a', 'Solo marcación y consulta básica'),
 ('terminal', 'Terminal de Acceso', 'Dispositivo dedicado exclusivamente para fichada')
 ON CONFLICT (id) DO NOTHING;
 
