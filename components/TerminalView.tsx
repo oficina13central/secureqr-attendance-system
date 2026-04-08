@@ -186,6 +186,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         } else if (result.reason === 'no_open_record') {
           setStatus('error');
           setAttendanceMsg('No tenés entrada registrada');
+        } else if (result.reason === 'off_day') {
+          setStatus('error');
+          setAttendanceMsg('Tenés descanso asignado');
+        } else if (result.reason === 'vacation') {
+          setStatus('error');
+          setAttendanceMsg('Estás de vacaciones');
         } else if (result.reason === 'queued_offline') {
           setStatus('success');
           setLastUser(employeeName);
@@ -263,6 +269,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       } else if (result.reason === 'no_open_record') {
         setStatus('error');
         setAttendanceMsg('No Marcó Entrada');
+        setShowManualModal(false);
+      } else if (result.reason === 'off_day') {
+        setStatus('error');
+        setAttendanceMsg('Tenés descanso asignado');
+        setShowManualModal(false);
+      } else if (result.reason === 'vacation') {
+        setStatus('error');
+        setAttendanceMsg('Estás de vacaciones');
         setShowManualModal(false);
       } else {
         setStatus('error');
@@ -473,6 +487,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
                   {attendanceMsg === 'No tenés entrada registrada' || attendanceMsg === 'No Marcó Entrada'
                     ? 'Debe registrar su ingreso antes de poder marcar la salida.'
+                    : attendanceMsg === 'Tenés descanso asignado' || attendanceMsg === 'Estás de vacaciones'
+                    ? 'No podés registrar asistencia en tus días libres asignados.'
                     : 'El código QR no pertenece a un empleado activo o ha expirado.'}
                 </p>
               </div>

@@ -105,7 +105,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             setScoringData(scoresMap);
         };
         fetchScores();
-    }, [employees]);
+    }, [employees, records]);
 
     useEffect(() => {
         const handleToggleView = (e: any) => {

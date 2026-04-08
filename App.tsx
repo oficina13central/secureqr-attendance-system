@@ -396,14 +396,14 @@ const App: React.FC = () => {
                       setAdminSubView(item.id as AdminSubView);
                       if (window.innerWidth < 768) setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all text-left ${
                       adminSubView === item.id 
                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                     }`}
                   >
-                    {React.createElement(item.icon, { className: `w-5 h-5 ${adminSubView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}` })}
-                    <span>{item.label}</span>
+                    {React.createElement(item.icon, { className: `w-5 h-5 shrink-0 ${adminSubView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}` })}
+                    <span className="text-left">{item.label}</span>
                   </button>
                 ))}
             </nav>

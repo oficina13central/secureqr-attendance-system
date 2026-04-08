@@ -260,37 +260,83 @@ const ManualView: React.FC = () => {
           <h2 className="text-3xl font-black text-slate-800 tracking-tight">Auditoría y Dashboard</h2>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            <div className="space-y-4">
-              <h3 className="text-xl font-black text-slate-800 flex items-center">
-                 <History className="w-5 h-5 mr-3 text-indigo-600" />
-                 Panel de Mando Interactivo (Dashboard)
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium">
-                El Dashboard principal no es solo informativo, es interactivo. Las métricas resumen que observas (como "Presentes", "Ausentes" y "Llegadas Tarde") funcionan como filtros rápidos.
+        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-10">
+          {/* Dashboard Intro */}
+          <div className="space-y-4">
+            <h3 className="text-2xl font-black text-slate-800 flex items-center">
+               <History className="w-6 h-6 mr-3 text-indigo-600" />
+               Panel de Mando Interactivo (Dashboard)
+            </h3>
+            <p className="text-slate-600 leading-relaxed font-medium">
+              El Dashboard principal no es solo informativo, es interactivo. Las métricas resumen que observas (como "Presentes", "Ausentes" y "Llegadas Tarde") funcionan como filtros rápidos.
+            </p>
+            <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-600 max-w-3xl">
+              <span className="block font-black text-indigo-900 text-sm mb-1">💡 Tip Pro: Clic en las Estadísticas</span>
+              <p className="text-xs text-indigo-700 font-medium leading-relaxed">
+                Al hacer clic en uno de los bloques de estadísticas en la parte superior (por ejemplo, <strong>"Llegadas Tarde hoy"</strong>), la tabla inferior se filtrará automáticamente para mostrarte en detalle y de inmediato quiénes son exactamente esas personas que desencadenaron la métrica.
               </p>
-              <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-600">
-                <span className="block font-black text-indigo-900 text-sm mb-1">💡 Tip Pro: Clic en las Estadísticas</span>
-                <p className="text-xs text-indigo-700 font-medium leading-relaxed">
-                  Al hacer clic en uno de los bloques de estadísticas en la parte superior (por ejemplo, <strong>"10 Tardanzas de hoy"</strong>), la tabla inferior se filtrará automáticamente para mostrarte en detalle y de inmediato quiénes son exactamente esas personas que desencadenaron la métrica.
-                </p>
-              </div>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-slate-100 space-y-8">
+            <div className="space-y-4">
+              <h3 className="text-2xl font-black text-slate-800 flex items-center">
+                 <ShieldAlert className="w-6 h-6 mr-3 text-amber-500" />
+                 Módulo de Auditoría de Personal
+              </h3>
+              <p className="text-slate-600 leading-relaxed font-medium max-w-4xl">
+                Este módulo es el corazón analítico del control de presentismo. Contiene todas las herramientas necesarias para la supervisión diaria, ajuste de excepciones y la exportación y liquidación a fin de mes.
+              </p>
             </div>
             
-            <div className="space-y-4">
-              <h3 className="text-xl font-black text-slate-800 flex items-center">
-                 <ShieldAlert className="w-5 h-5 mr-3 text-amber-500" />
-                 Módulo de Auditoría
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium">
-                Aquí podrás visualizar reportes históricos profundos de ingresos, egresos, ausencias inferidas, tardanzas acumuladas y recalcular puntajes de períodos pasados de forma segura.
-              </p>
-              <ul className="space-y-2 mt-4 text-xs font-bold text-slate-500">
-                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Modificación manual de fichadas justificadas.</li>
-                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Exportación de horas trabajadas para liquidación.</li>
-                <li className="flex items-center"><ArrowRight className="w-3 h-3 mr-2 text-indigo-400" /> Inferencia de faltas retrospectivas.</li>
-              </ul>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               {/* 1. Vistas */}
+               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
+                  <h4 className="font-black text-indigo-900 uppercase tracking-widest text-xs flex items-center"><Calendar className="w-4 h-4 mr-2" /> Modos de Visualización</h4>
+                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
+                    <li className="flex items-start">
+                      <ArrowRight className="w-4 h-4 mr-2 mt-1 shrink-0 text-indigo-400" />
+                      <span><strong className="text-slate-800">Resumen Mensual:</strong> Tabla consolidada rápida útil para analizar quién llega tarde, ideal para exportación. Permite búsquedas por sector, alertas y scoring en tiempo real.</span>
+                    </li>
+                    <li className="flex items-start">
+                      <ArrowRight className="w-4 h-4 mr-2 mt-1 shrink-0 text-indigo-400" />
+                      <span><strong className="text-slate-800">Vista Calendario:</strong> Una grilla visual interactiva que expone el presentismo de todo el equipo, día por día en una hoja de ruta mensual, con colores semánticos intuitivos.</span>
+                    </li>
+                  </ul>
+               </div>
+
+               {/* 2. Recálculo */}
+               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
+                  <h4 className="font-black text-amber-700 uppercase tracking-widest text-xs flex items-center"><History className="w-4 h-4 mr-2" /> Recálculo Automático</h4>
+                  <p className="text-sm text-slate-600 font-medium">
+                    Si corriges el cronograma de un empleado o justificaste inasistencias pasadas, debes ubicar al usuario y presionar <strong>"Recalcular Periodo"</strong>. Esto obligará al sistema a:
+                  </p>
+                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-4 h-4 mr-2 mt-1 shrink-0 text-amber-500" />
+                      <span>Re-evaluar si llegó tarde o ausente en el pasado en base a tu nuevo mapa de horario.</span>
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-4 h-4 mr-2 mt-1 shrink-0 text-amber-500" />
+                      <span>Volver a actualizar en fracciones de segundo la suma final y su <strong>estado de Scoring</strong> dinámico en pantalla.</span>
+                    </li>
+                  </ul>
+               </div>
+
+               {/* 3. Gestión y Modificación */}
+               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
+                  <h4 className="font-black text-emerald-800 uppercase tracking-widest text-xs flex items-center"><ShieldCheck className="w-4 h-4 mr-2" /> Control y Edición Fina</h4>
+                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
+                    <li className="flex items-start">
+                      <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
+                      <span><strong className="text-slate-800">Inferencia de Faltas:</strong> El sistema cruza automáticamente los días sin marcar contra el cronograma asignado, generando un "ausente" sin interacción humana.</span>
+                    </li>
+                    <li className="flex items-start">
+                      <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
+                      <span><strong className="text-slate-800">Edición Detallada:</strong> Con el botón "Ver Detalle" puedes justificar fechas pasadas (licencias, vacaciones) además de poder extraer el CSV minucioso de ese único empleado.</span>
+                    </li>
+                  </ul>
+               </div>
             </div>
           </div>
         </div>

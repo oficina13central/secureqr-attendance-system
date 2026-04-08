@@ -98,6 +98,9 @@ export const attendanceService = {
 
         const scheduleType = activeSchedule?.type || 'continuous';
 
+        if (scheduleType === 'off') throw new Error('off_day');
+        if (scheduleType === 'vacation') throw new Error('vacation');
+
         const { data: existingToday, error: fetchError } = await supabase
             .from('attendance_records')
             .select('*')
@@ -331,6 +334,8 @@ export const attendanceService = {
             }
         } catch (err: any) {
             console.error("Network error during scan:", err);
+            if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
+            if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
             if (err.message?.includes('fetch') || !navigator.onLine || err.status === 0 || err.code === 'PGRST100') {
                 offlineService.queueScan(employeeId, employeeName);
                 return { type: 'queued', record: null, reason: 'queued_offline' };
