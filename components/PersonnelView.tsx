@@ -344,13 +344,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     const qrBase64 = await getQRBase64(emp.qr_token || '');
                     
                     // 2. Render badge
-                    container.innerHTML = getBadgeTemplate(emp, qrBase64);
+                    container.innerHTML = getBadgeTemplate(emp, qrBase64).trim();
                     
                     // Small delay to ensure DOM is updated
-                    await new Promise(r => setTimeout(r, 150));
+                    await new Promise(r => setTimeout(r, 100));
 
-                    const badgeElement = container.firstChild as HTMLElement;
-                    if (!badgeElement) throw new Error("No se pudo crear el elemento del carnet");
+                    const badgeElement = container.firstElementChild as HTMLElement;
+                    if (!badgeElement) throw new Error("No se pudo encontrar el carnet en el DOM");
 
                     // 3. Capture image
                     const dataUrl = await toPng(badgeElement, {
@@ -399,8 +399,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     };
 
     const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
-        return `
-            <div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        return `<div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 <div style="display: flex; flex-direction: column; align-items: center; padding-top: 2rem; padding-left: 2.5rem; padding-right: 2.5rem; text-align: center;">
                     <h2 style="font-size: 1.875rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.5rem; margin-top: 1rem; font-family: sans-serif;">
                         ${emp.full_name}
@@ -426,8 +425,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
                     </svg>
                 </div>
-            </div>
-        `;
+            </div>`;
     };
 
     const handleExportList = () => {
