@@ -16,6 +16,7 @@ import {
     Save
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import JSZip from 'jszip';
 import { Profile } from '../types';
 import { personnelService } from '../services/personnelService';
 import { auditService } from '../services/auditService';
@@ -41,6 +42,9 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [scoringData, setScoringData] = useState<Record<string, {score: number, category: number, label: string, color: string}>>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState<string>('all');
+    const [selectedSector, setSelectedSector] = useState<string>('all');
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
     const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
 
@@ -103,10 +107,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             
             const scoreCategory = scoringData[emp.id]?.category?.toString() || '1';
             const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
+            const matchesSector = selectedSector === 'all' || emp.sector_id === selectedSector;
             
-            return matchesSearch && matchesClass;
+            return matchesSearch && matchesClass && matchesSector;
         });
-    }, [employees, searchTerm, selectedClass, sectors, scoringData, currentUser]);
+    }, [employees, searchTerm, selectedClass, selectedSector, sectors, scoringData, currentUser]);
 
     // Initial Data is now passed via props from App.tsx
 
@@ -287,23 +292,98 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         window.print();
     };
 
-    const handleDownload = async () => {
-        const node = document.getElementById('printable-badge');
-        if (node) {
-            try {
-                const dataUrl = await toPng(node, {
-                    quality: 0.95,
-                    pixelRatio: 3, // Higher quality for download
+    const handleDownloadAll = async () => {
+        if (filteredEmployees.length === 0) return;
+        
+        const confirmMsg = filteredEmployees.length > 50 
+            ? `Vas a descargar ${filteredEmployees.length} carnets. Esto puede tardar un momento. ¿Continuar?`
+            : `Descargar ${filteredEmployees.length} carnets en un archivo ZIP?`;
+            
+        if (!window.confirm(confirmMsg)) return;
+
+        setIsDownloading(true);
+        setDownloadProgress({ current: 0, total: filteredEmployees.length });
+
+        try {
+            const zip = new JSZip();
+            const folder = zip.folder("credenciales_secureqr");
+            
+            // Re-use a single hidden element to render each badge and capture it
+            // This is more memory-efficient than rendering all at once
+            const container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            container.style.top = '-9999px';
+            document.body.appendChild(container);
+
+            for (let i = 0; i < filteredEmployees.length; i++) {
+                const emp = filteredEmployees[i];
+                setDownloadProgress({ current: i + 1, total: filteredEmployees.length });
+
+                // Render badge html to a string then to a node
+                // We use a helper template function
+                container.innerHTML = getBadgeTemplate(emp);
+                
+                // Wait a tiny bit for assets/QR to potentially load
+                await new Promise(r => setTimeout(r, 100));
+
+                const blob = await toPng(container.firstChild as HTMLElement, {
+                    quality: 0.9,
+                    pixelRatio: 2,
                     backgroundColor: '#ffffff'
                 });
-                const link = document.createElement('a');
-                link.download = `credencial-${showCardModal?.full_name.replace(/\s+/g, '-')}.png`;
-                link.href = dataUrl;
-                link.click();
-            } catch (error) {
-                console.error('Error generando la imagen:', error);
+                
+                const base64Data = blob.split(',')[1];
+                const fileName = `credencial-${emp.full_name.replace(/\s+/g, '-')}-${emp.dni || i}.png`;
+                folder?.file(fileName, base64Data, { base64: true });
             }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            const sectorSuffix = selectedSector === 'all' ? 'Todos' : (sectors.find(s => s.id === selectedSector)?.name || 'Sector');
+            link.download = `Carnets_${sectorSuffix}_${new Date().toISOString().split('T')[0]}.zip`;
+            link.click();
+            
+            document.body.removeChild(container);
+        } catch (error) {
+            console.error('Error en descarga masiva:', error);
+            alert('Hubo un error al generar el archivo ZIP. Intente con menos registros.');
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress({ current: 0, total: 0 });
         }
+    };
+
+    // Helper to generate the exact same badge HTML as the modal
+    const getBadgeTemplate = (emp: Profile) => {
+        return `
+            <div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif;">
+                <div style="display: flex; flex-direction: column; align-items: center; padding-top: 2rem; padding-left: 2.5rem; padding-right: 2.5rem; text-align: center;">
+                    <h2 style="font-size: 1.875rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.5rem; margin-top: 1rem;">
+                        ${emp.full_name}
+                    </h2>
+                    <p style="font-size: 0.875rem; font-weight: 700; color: #2D6A4F; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.7;">
+                        Credencial de Acceso
+                    </p>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-top: -2.5rem;">
+                    <div style="background: #52B788; padding: 0.75rem; border-radius: 0.5rem;">
+                        <div style="background: white; padding: 0.25rem;">
+                            <img 
+                                src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${emp.qr_token}&bgcolor=ffffff&color=2D6A4F"
+                                style="width: 112px; height: 112px;"
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 4rem; pointer-events: none;">
+                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
+                    </svg>
+                </div>
+            </div>
+        `;
     };
 
     const handleExportList = () => {
@@ -364,6 +444,27 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
                 <div className="flex items-center space-x-3">
                     <button
+                        onClick={handleDownloadAll}
+                        disabled={isDownloading || filteredEmployees.length === 0}
+                        className={`flex items-center space-x-2 px-6 py-3 rounded-2xl text-sm font-bold shadow-sm transition-all active:scale-95 ${
+                            isDownloading 
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                            : 'bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                        }`}
+                    >
+                        {isDownloading ? (
+                            <div className="flex items-center space-x-2">
+                                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                <span>{downloadProgress.current}/{downloadProgress.total}</span>
+                            </div>
+                        ) : (
+                            <>
+                                <CreditCard className="w-5 h-5" />
+                                <span>Descargar Carnets (ZIP)</span>
+                            </>
+                        )}
+                    </button>
+                    <button
                         onClick={handleExportList}
                         className="flex items-center space-x-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
                     >
@@ -396,10 +497,26 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     </div>
                     <div className="relative w-full sm:w-auto">
                         <select
+                            value={selectedSector}
+                            onChange={(e) => setSelectedSector(e.target.value)}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+                            style={{ minWidth: '180px' }}
+                        >
+                            <option value="all">Todos los Sectores</option>
+                            {sectors.map(s => (
+                                <option key={s.id} value={s.id}>{s.name || 'Sin Nombre'}</option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <select
                             value={selectedClass}
                             onChange={(e) => setSelectedClass(e.target.value)}
                             className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
-                            style={{ minWidth: '220px' }}
+                            style={{ minWidth: '180px' }}
                         >
                             <option value="all">Todos los Scorings</option>
                             <option value="0">🟣 Clase 0 (Elite)</option>
