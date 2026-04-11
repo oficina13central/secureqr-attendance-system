@@ -399,30 +399,34 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     };
 
     const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
-        // Dynamic font size for long names
-        const nameFontSize = emp.full_name.length > 20 ? '1.5rem' : '1.875rem';
+        // More aggressive dynamic font sizing
+        const nameFontSize = emp.full_name.length > 25 ? '1.25rem' : emp.full_name.length > 18 ? '1.4rem' : '1.875rem';
         
         return `<div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 1.5rem; padding-left: 2.5rem; padding-right: 2.5rem; text-align: center; min-height: 110px;">
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.25rem; font-family: sans-serif; line-height: 1.1;">
+                {/* Fixed height header area to prevent pushing QR down */}
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 130px; padding: 0 2.5rem; text-align: center; margin-top: 0.5rem;">
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.2rem; font-family: sans-serif; line-height: 1.1;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.75rem; font-weight: 700; color: #2D6A4F; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.7; font-family: sans-serif; margin: 0;">
+                    <p style="font-size: 0.7rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.6; font-family: sans-serif; margin: 0;">
                         Credencial de Acceso
                     </p>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding-bottom: 2rem;">
-                    <div style="background: #52B788; padding: 0.6rem; border-radius: 0.5rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+
+                {/* QR Area starts lower and has dedicated space */}
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; padding-top: 0.5rem;">
+                    <div style="background: #52B788; padding: 0.6rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                         <div style="background: white; padding: 0.2rem;">
                             ${qrBase64 ? `
                                 <img 
                                     src="${qrBase64}"
-                                    style="width: 110px; height: 110px; display: block;"
+                                    style="width: 105px; height: 105px; display: block;"
                                 />
-                            ` : `<div style="width: 110px; height: 110px; background: #f1f5f9;"></div>`}
+                            ` : `<div style="width: 105px; height: 105px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
+
                 <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 3.5rem; z-index: -1;">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
@@ -818,30 +822,24 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             id="printable-badge"
                             className="bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col print:shadow-none print:border print:border-slate-200"
                             style={{
-                                width: '500px',
-                                height: '315px',
-                                minWidth: '500px',
-                                minHeight: '315px'
-                            }}
-                        >
                             {/* Header Block - Centered Name */}
                             <div 
-                                className="flex flex-col items-center justify-center pt-6 px-10 text-center"
-                                style={{ minHeight: '110px' }}
+                                className="flex flex-col items-center justify-center pt-8 px-10 text-center"
+                                style={{ height: '130px' }}
                             >
                                 <h2 
                                     className="font-black text-slate-800 uppercase tracking-tight leading-[1.1] mb-1"
-                                    style={{ fontSize: showCardModal.full_name.length > 20 ? '1.5rem' : '1.875rem' }}
+                                    style={{ fontSize: showCardModal.full_name.length > 25 ? '1.25rem' : showCardModal.full_name.length > 18 ? '1.4rem' : '1.875rem' }}
                                 >
                                     {showCardModal.full_name}
                                 </h2>
-                                <p className="text-[10px] font-bold text-[#2D6A4F] tracking-[0.3em] uppercase opacity-70">
+                                <p className="text-[10px] font-bold text-[#2D6A4F] tracking-[0.35em] uppercase opacity-60">
                                     Credencial de Acceso
                                 </p>
                             </div>
 
                             {/* Main Content (QR) */}
-                            <div className="flex flex-col items-center justify-center flex-1 pb-8">
+                            <div className="flex flex-col items-center justify-start flex-1 pt-2 pb-8">
                                 <div className="bg-[#52B788] p-2.5 rounded-lg shadow-sm">
                                     <div className="bg-white p-1">
                                         <img
