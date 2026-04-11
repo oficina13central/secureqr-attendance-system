@@ -10,6 +10,8 @@ interface MyCredentialViewProps {
 }
 
 const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
+  if (!user) return null;
+
   const handleDownload = async () => {
     const node = document.getElementById('my-qr-badge');
     if (node) {

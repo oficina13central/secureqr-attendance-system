@@ -162,6 +162,9 @@ const App: React.FC = () => {
   }, [isSidebarOpen]);
 
   const renderAdminView = () => {
+    // 0. Seguridad extrema: si no hay usuario, no renderizamos nada administrativo
+    if (!currentUser) return null;
+
     // 1. Roles y permisos básicos
     const isSuperUser = currentUser?.role === 'superusuario';
     // Mantenemos esta variable genérica para ciertas acciones UI
@@ -193,7 +196,9 @@ const App: React.FC = () => {
     } else {
       // Priorizamos la matriz dinámica de permisos si existe
       const hasDynamicPermission = currentUser?.roles?.permissions && 
-                                   requiredPerms.some(p => currentUser.roles?.permissions?.includes(p));
+                                   Array.isArray(currentUser.roles?.permissions) &&
+                                   requiredPerms?.some(p => currentUser.roles?.permissions?.includes(p));
+      
       hasAccess = isSuperUser || !!hasDynamicPermission;
     }
 
