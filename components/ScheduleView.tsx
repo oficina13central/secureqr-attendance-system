@@ -11,7 +11,8 @@ import {
   Lock,
   Unlock,
   Printer,
-  Download
+  Download,
+  Search
 } from 'lucide-react';
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
@@ -53,6 +54,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchSectors = async () => {
@@ -104,6 +106,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (selectedSector !== 'all') {
       list = list.filter(e => (e.sector_id || 'General') === selectedSector);
     }
+    
+    // Filtro por nombre
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(e => 
+        e.full_name.toLowerCase().includes(term) ||
+        (e.dni && e.dni.includes(term))
+      );
+    }
+
     if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return list;
     if (currentUser.role === 'encargado') {
       // Un encargado ve su sector principal y todos sus sectores adicionales
@@ -114,7 +126,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return list.filter(e => mySectorIds.has(e.sector_id || 'General'));
     }
     return [];
-  }, [employees, currentUser, selectedSector]);
+  }, [employees, currentUser, selectedSector, searchTerm]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -355,6 +367,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
+          {/* ── SEARCH BAR ── */}
+          <div className="relative no-print">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all w-full sm:w-[250px]"
+            />
+          </div>
+
           {((currentUser.role === 'administrador' || currentUser.role === 'superusuario') || (currentUser.role === 'encargado' && (currentUser.managed_sectors || []).length > 0)) && (
             <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
