@@ -391,8 +391,8 @@ const App: React.FC = () => {
 
                   // 1. Verificación por matriz dinámica (Prioridad 1)
                   const requiredPerms = viewPermissions[subViewId] || [];
-                  if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
-                    if (requiredPerms.some(p => currentUser.roles!.permissions!.includes(p))) return true;
+                  if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles?.permissions)) {
+                    if (requiredPerms.some(p => currentUser.roles?.permissions?.includes(p))) return true;
                   }
                   return false;
                 })
