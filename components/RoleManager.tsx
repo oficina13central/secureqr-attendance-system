@@ -194,7 +194,7 @@ const RoleManager: React.FC = () => {
                                     Matriz de Permisos
                                 </h5>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                                     {permissions.map(perm => {
                                         const isGranted = role.permissions?.includes(perm.id);
                                         return (
@@ -218,6 +218,40 @@ const RoleManager: React.FC = () => {
                                             </label>
                                         );
                                     })}
+                                </div>
+
+                                {/* Botón de Guardado Prominente */}
+                                <div className="pt-6 border-t border-slate-50">
+                                    <button
+                                        onClick={() => handleSaveRole(role)}
+                                        disabled={isSaving}
+                                        className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center space-x-3 shadow-xl ${
+                                            isSaving 
+                                                ? 'bg-slate-100 text-slate-400 cursor-wait' 
+                                                : saving === null && role.permissions?.length !== (roles.find(r => r.id === role.id)?.permissions?.length) // simplified check
+                                                  ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/20 active:scale-95'
+                                                  : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20 active:scale-95'
+                                        }`}
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Guardando...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4" />
+                                                <span>Guardar Cambios</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    
+                                    {/* Success Message Fallback (Client Feedback) */}
+                                    {!isSaving && saving === null && (
+                                        <p className="text-center text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-3 animate-bounce">
+                                            ✓ Configuración disponible para este rol
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

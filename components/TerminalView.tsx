@@ -35,25 +35,28 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
   
-  // Robust click detection for hidden logout
-  const [clickCount, setClickCount] = useState(0);
-  const [lastClickTime, setLastClickTime] = useState(0);
+  // Robust PIN protection
+  const [showPinPad, setShowPinPad] = useState(false);
+  const [inputPin, setInputPin] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const TERMINAL_PIN = "0808";
 
-  const handleSecretClick = () => {
-    if (role !== 'terminal') return;
-    
-    const now = Date.now();
-    if (now - lastClickTime < 500) { // clicks must be within 500ms of each other
-      const newCount = clickCount + 1;
-      setClickCount(newCount);
-      if (newCount === 5) {
-        setShowLogoutConfirm(true);
-        setClickCount(0);
+  const handlePinInput = (num: string) => {
+    setPinError(false);
+    if (inputPin.length < 4) {
+      const newPin = inputPin + num;
+      setInputPin(newPin);
+      if (newPin.length === 4) {
+        if (newPin === TERMINAL_PIN) {
+          setShowPinPad(false);
+          setShowLogoutConfirm(true);
+          setInputPin('');
+        } else {
+          setPinError(true);
+          setTimeout(() => setInputPin(''), 1000);
+        }
       }
-    } else {
-      setClickCount(1);
     }
-    setLastClickTime(now);
   };
 
   const startSession = (mode: 'in' | 'out') => {
@@ -320,13 +323,13 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950"></div>
 
       <div className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-3 z-50">
-        {!sessionActive && role !== 'terminal' && (
+        {!sessionActive && (
           <button
-            onClick={onExit}
-            className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5"
+            onClick={() => setShowPinPad(true)}
+            className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5 active:scale-95"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span className="font-bold text-xs uppercase tracking-widest">Salir App</span>
+            <span className="font-bold text-xs uppercase tracking-widest">Salir Terminal</span>
           </button>
         )}
 
@@ -361,7 +364,6 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         <div className="text-center space-y-2 group relative">
           <h1 
             className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400 select-none cursor-default"
-            onClick={handleSecretClick}
           >LECTOR DE ACCESO</h1>
           {isEditingName ? (
             <div className="flex items-center justify-center space-x-2 animate-in fade-in zoom-in duration-200">
@@ -640,21 +642,73 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           padding-right: env(safe-area-inset-right);
         }
       `}</style>
+      {/* ── PIN PAD MODAL ── */}
+      {showPinPad && (
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[150] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 border border-slate-800 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="text-center space-y-2">
+              <ShieldAlert className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight">Acceso Restringido</h3>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Ingrese su PIN de Seguridad</p>
+            </div>
+
+            <div className="flex justify-center space-x-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${inputPin.length > i ? 'bg-indigo-500 border-indigo-500 scale-125' : 'bg-transparent border-slate-700'} ${pinError ? 'bg-red-500 border-red-500 animate-shake' : ''}`}
+                />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+                <button
+                  key={n}
+                  onClick={() => handlePinInput(n.toString())}
+                  className="h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-600 text-white font-black text-2xl rounded-2xl transition-all active:scale-90"
+                >
+                  {n}
+                </button>
+              ))}
+              <button 
+                onClick={() => setInputPin('')}
+                className="h-16 bg-slate-800/50 text-slate-500 font-bold rounded-2xl border border-slate-800"
+              >
+                C
+              </button>
+              <button
+                onClick={() => handlePinInput('0')}
+                className="h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-600 text-white font-black text-2xl rounded-2xl transition-all active:scale-90"
+              >
+                0
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPinPad(false);
+                  setInputPin('');
+                }}
+                className="h-16 bg-red-900/20 text-red-500 font-black text-xs uppercase tracking-widest rounded-2xl border border-red-500/20"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── LOGOUT CONFIRMATION MODAL ── */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 border border-slate-800 shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-300">
             <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.15)]">
-              <ShieldAlert className="w-12 h-12 text-red-500 h-12" />
+              <LogOut className="w-12 h-12 text-red-500" />
             </div>
             
             <div className="space-y-4">
               <h3 className="text-3xl font-black text-white tracking-tight uppercase">Cerrar Sesión</h3>
               <p className="text-slate-400 font-medium leading-relaxed">
                 ¿Está seguro de que desea cerrar la sesión en esta terminal? 
-                <span className="block mt-2 text-xs text-red-400 font-bold italic">
-                  Necesitará las credenciales de administrador para volver a ingresar.
-                </span>
               </p>
             </div>
 
