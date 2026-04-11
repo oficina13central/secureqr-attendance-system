@@ -288,8 +288,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
     };
 
-    const handlePrint = () => {
-        window.print();
+    const getQRBase64 = async (token: string): Promise<string> => {
+        try {
+            const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${token}&bgcolor=ffffff&color=2D6A4F`;
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error('Error fetching QR:', e);
+            return ''; // Fallback to empty if QR fails
+        }
     };
 
     const handleDownloadAll = async () => {
@@ -308,8 +321,6 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const zip = new JSZip();
             const folder = zip.folder("credenciales_secureqr");
             
-            // Re-use a single hidden element to render each badge and capture it
-            // This is more memory-efficient than rendering all at once
             const container = document.createElement('div');
             container.style.position = 'absolute';
             container.style.left = '-9999px';
@@ -320,30 +331,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 const emp = filteredEmployees[i];
                 setDownloadProgress({ current: i + 1, total: filteredEmployees.length });
 
-                // Render badge html to a string then to a node
-                container.innerHTML = getBadgeTemplate(emp);
+                // 1. Fetch QR as Base64 FIRST - this is the key to stability
+                const qrBase64 = await getQRBase64(emp.qr_token || '');
                 
-                // Wait for the QR image to load before capturing
-                const img = container.querySelector('img');
-                if (img) {
-                    await new Promise((resolve) => {
-                        if (img.complete) resolve(null);
-                        img.onload = () => resolve(null);
-                        img.onerror = () => resolve(null); // Continue even if QR fails
-                        // Set a safety timeout
-                        setTimeout(() => resolve(null), 1000);
-                    });
-                }
-
-                const blob = await toPng(container.firstChild as HTMLElement, {
+                // 2. Render badge with embedded base64 QR
+                container.innerHTML = getBadgeTemplate(emp, qrBase64);
+                
+                // 3. Capture image (now it's 100% local content)
+                const dataUrl = await toPng(container.firstChild as HTMLElement, {
                     quality: 0.8,
-                    pixelRatio: 1.5, // Reduced for batch to save memory/speed
-                    backgroundColor: '#ffffff',
-                    cacheBust: true
+                    pixelRatio: 1.5,
+                    backgroundColor: '#ffffff'
                 });
                 
-                const base64Data = blob.split(',')[1];
-                const fileName = `credencial-${emp.full_name.replace(/\s+/g, '-')}-${emp.dni || i}.png`;
+                const base64Data = dataUrl.split(',')[1];
+                const fileName = `credencial-${emp.full_name.replace(/\s+/g, '-')}.png`;
                 folder?.file(fileName, base64Data, { base64: true });
             }
 
@@ -351,43 +353,43 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             const sectorSuffix = selectedSector === 'all' ? 'Todos' : (sectors.find(s => s.id === selectedSector)?.name || 'Sector');
-            link.download = `Carnets_${sectorSuffix}_${new Date().toISOString().split('T')[0]}.zip`;
+            link.download = `Carnets_${sectorSuffix?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.zip`;
             link.click();
             
             document.body.removeChild(container);
         } catch (error) {
             console.error('Error en descarga masiva:', error);
-            alert('Hubo un error al generar el archivo ZIP. Intente con menos registros.');
+            alert('Error técnico al generar el paquete. Por favor, intente con un sector más pequeño.');
         } finally {
             setIsDownloading(false);
             setDownloadProgress({ current: 0, total: 0 });
         }
     };
 
-    // Helper to generate the exact same badge HTML as the modal
-    const getBadgeTemplate = (emp: Profile) => {
+    const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
         return `
-            <div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif;">
+            <div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 <div style="display: flex; flex-direction: column; align-items: center; padding-top: 2rem; padding-left: 2.5rem; padding-right: 2.5rem; text-align: center;">
-                    <h2 style="font-size: 1.875rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.5rem; margin-top: 1rem;">
+                    <h2 style="font-size: 1.875rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.5rem; margin-top: 1rem; font-family: sans-serif;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.875rem; font-weight: 700; color: #2D6A4F; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.7;">
+                    <p style="font-size: 0.875rem; font-weight: 700; color: #2D6A4F; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.7; font-family: sans-serif;">
                         Credencial de Acceso
                     </p>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-top: -2.5rem;">
                     <div style="background: #52B788; padding: 0.75rem; border-radius: 0.5rem;">
                         <div style="background: white; padding: 0.25rem;">
-                            <img 
-                                src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${emp.qr_token}&bgcolor=ffffff&color=2D6A4F"
-                                style="width: 112px; height: 112px;"
-                                crossorigin="anonymous"
-                            />
+                            ${qrBase64 ? `
+                                <img 
+                                    src="${qrBase64}"
+                                    style="width: 112px; height: 112px;"
+                                />
+                            ` : `<div style="width: 112px; height: 112px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
-                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 4rem; pointer-events: none;">
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 4rem;">
                     <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
                     </svg>
