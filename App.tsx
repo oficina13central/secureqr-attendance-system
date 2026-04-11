@@ -161,6 +161,22 @@ const App: React.FC = () => {
     }
   }, [isSidebarOpen]);
 
+ 
+  // 1. Definición global de permisos por vista
+  const viewPermissions: Record<AdminSubView, string[]> = {
+    'dashboard': ['VIEW_DASHBOARD'],
+    'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
+    'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
+    'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
+    'audit': ['VIEW_AUDIT_LOGS'],
+    'settings': ['MANAGE_SETTINGS'],
+    'fraud': ['VIEW_AUDIT_LOGS'],
+    'users': ['MANAGE_USERS'],
+    'my_credential': ['SELF_VIEW', 'VIEW_DASHBOARD'],
+    'terminal': ['MANAGE_TERMINAL'],
+    'manual': ['VIEW_DASHBOARD']
+  };
+
   const renderAdminView = () => {
     // 0. Seguridad extrema: si no hay usuario, no renderizamos nada administrativo
     if (!currentUser) return null;
@@ -170,24 +186,7 @@ const App: React.FC = () => {
     // Mantenemos esta variable genérica para ciertas acciones UI
     const isAdminUser = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
     
-    // 2. Definición de permisos por vista
-    // Constants moved outside or just kept here if not needed elsewhere, 
-    // but we'll use them for both access control and sidebar filtering.
-    const viewPermissions: Record<AdminSubView, string[]> = {
-      'dashboard': ['VIEW_DASHBOARD'],
-      'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
-      'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
-      'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
-      'audit': ['VIEW_AUDIT_LOGS'],
-      'settings': ['MANAGE_SETTINGS'],
-      'fraud': ['VIEW_AUDIT_LOGS'],
-      'users': ['MANAGE_USERS'],
-      'my_credential': ['SELF_VIEW', 'VIEW_DASHBOARD'],
-      'terminal': ['MANAGE_TERMINAL'],
-      'manual': ['VIEW_DASHBOARD']
-    };
-
-    // 3. Verificación de permiso para la vista actual
+    // 2. Verificación de permiso para la vista actual
     const requiredPerms = viewPermissions[adminSubView];
     
     let hasAccess = false;
