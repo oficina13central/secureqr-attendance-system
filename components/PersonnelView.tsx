@@ -322,44 +322,76 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const folder = zip.folder("credenciales_secureqr");
             
             const container = document.createElement('div');
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
-            container.style.top = '-9999px';
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '500px';
+            container.style.height = '315px';
+            container.style.zIndex = '-1000';
+            container.style.opacity = '0';
+            container.style.pointerEvents = 'none';
             document.body.appendChild(container);
+
+            let successCount = 0;
+            let errorCount = 0;
 
             for (let i = 0; i < filteredEmployees.length; i++) {
                 const emp = filteredEmployees[i];
                 setDownloadProgress({ current: i + 1, total: filteredEmployees.length });
 
-                // 1. Fetch QR as Base64 FIRST - this is the key to stability
-                const qrBase64 = await getQRBase64(emp.qr_token || '');
-                
-                // 2. Render badge with embedded base64 QR
-                container.innerHTML = getBadgeTemplate(emp, qrBase64);
-                
-                // 3. Capture image (now it's 100% local content)
-                const dataUrl = await toPng(container.firstChild as HTMLElement, {
-                    quality: 0.8,
-                    pixelRatio: 1.5,
-                    backgroundColor: '#ffffff'
-                });
-                
-                const base64Data = dataUrl.split(',')[1];
-                const fileName = `credencial-${emp.full_name.replace(/\s+/g, '-')}.png`;
-                folder?.file(fileName, base64Data, { base64: true });
+                try {
+                    // 1. Fetch QR as Base64
+                    const qrBase64 = await getQRBase64(emp.qr_token || '');
+                    
+                    // 2. Render badge
+                    container.innerHTML = getBadgeTemplate(emp, qrBase64);
+                    
+                    // Small delay to ensure DOM is updated
+                    await new Promise(r => setTimeout(r, 150));
+
+                    const badgeElement = container.firstChild as HTMLElement;
+                    if (!badgeElement) throw new Error("No se pudo crear el elemento del carnet");
+
+                    // 3. Capture image
+                    const dataUrl = await toPng(badgeElement, {
+                        quality: 0.8,
+                        pixelRatio: 1.5,
+                        backgroundColor: '#ffffff',
+                        skipFonts: true // Sometimes fonts cause timeout/crash
+                    });
+                    
+                    if (!dataUrl || dataUrl === 'data:,') throw new Error("Imagen generada vacía");
+
+                    const base64Data = dataUrl.split(',')[1];
+                    const fileName = `${emp.full_name.replace(/[^a-z0-9]/gi, '_')}.png`;
+                    folder?.file(fileName, base64Data, { base64: true });
+                    successCount++;
+                } catch (cardError) {
+                    console.error(`Error procesando carnet ${i + 1} (${emp.full_name}):`, cardError);
+                    errorCount++;
+                    // Non-blocking: continue with next card
+                }
+            }
+
+            if (successCount === 0) {
+                throw new Error("No se pudo generar ningún carnet con éxito.");
             }
 
             const content = await zip.generateAsync({ type: "blob" });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             const sectorSuffix = selectedSector === 'all' ? 'Todos' : (sectors.find(s => s.id === selectedSector)?.name || 'Sector');
-            link.download = `Carnets_${sectorSuffix?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.zip`;
+            link.download = `Carnets_${sectorSuffix?.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.zip`;
             link.click();
             
             document.body.removeChild(container);
-        } catch (error) {
-            console.error('Error en descarga masiva:', error);
-            alert('Error técnico al generar el paquete. Por favor, intente con un sector más pequeño.');
+
+            if (errorCount > 0) {
+                alert(`Descarga completada. Se generaron ${successCount} carnets, pero ${errorCount} fallaron.`);
+            }
+        } catch (error: any) {
+            console.error('Error crítico en descarga masiva:', error);
+            alert(`Error crítico: ${error.message || 'Error desconocido'}. Intente con un grupo más pequeño.`);
         } finally {
             setIsDownloading(false);
             setDownloadProgress({ current: 0, total: 0 });
@@ -390,7 +422,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     </div>
                 </div>
                 <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 4rem;">
-                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
                     </svg>
                 </div>
