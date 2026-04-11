@@ -81,11 +81,18 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         let list = employees;
 
         // Apply security filter for managers
-        if (currentUser.role === 'encargado') {
+        // Filtro de seguridad: Gestión Global vs Vista de Sector
+        const canManageGlobal = currentUser.roles?.permissions?.includes('MANAGE_PERSONNEL');
+        const canViewSector = currentUser.roles?.permissions?.includes('VIEW_SECTOR_PERSONNEL');
+
+        if (!canManageGlobal && canViewSector) {
             const mySectorIds = new Set<string>();
             if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
             (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
             list = list.filter(e => mySectorIds.has(e.sector_id || 'General'));
+        } else if (!canManageGlobal && !canViewSector) {
+            // Si no tiene ninguno de los dos permisos, por seguridad no ve a nadie
+            list = [];
         }
 
         return list.filter(emp => {

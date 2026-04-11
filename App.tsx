@@ -168,6 +168,8 @@ const App: React.FC = () => {
     const isAdminUser = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
     
     // 2. Definición de permisos por vista
+    // Constants moved outside or just kept here if not needed elsewhere, 
+    // but we'll use them for both access control and sidebar filtering.
     const viewPermissions: Record<AdminSubView, string[]> = {
       'dashboard': ['VIEW_DASHBOARD'],
       'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
@@ -189,9 +191,10 @@ const App: React.FC = () => {
     if (adminSubView === 'settings') {
       hasAccess = isSuperUser;
     } else {
-      hasAccess = isSuperUser || 
-                  (currentUser?.role === 'encargado' && ['schedule', 'personnel', 'my_credential'].includes(adminSubView)) || 
-                  (currentUser?.roles?.permissions && requiredPerms.some(p => currentUser.roles?.permissions?.includes(p)));
+      // Priorizamos la matriz dinámica de permisos si existe
+      const hasDynamicPermission = currentUser?.roles?.permissions && 
+                                   requiredPerms.some(p => currentUser.roles?.permissions?.includes(p));
+      hasAccess = isSuperUser || !!hasDynamicPermission;
     }
 
     // 4. Redirección forzada si no tiene acceso
@@ -217,7 +220,10 @@ const App: React.FC = () => {
       case 'my_credential': return <MyCredentialView user={currentUser!} />;
       case 'terminal': return (
         <div className="fixed inset-0 z-50 bg-slate-900 border-none">
-          <TerminalView onExit={() => isAdminUser ? setMainView('admin') : authService.signOut()} />
+          <TerminalView 
+            onExit={() => isAdminUser ? setMainView('admin') : authService.signOut()} 
+            role={currentUser?.role}
+          />
         </div>
       );
       case 'manual': return <ManualView />;
@@ -359,33 +365,29 @@ const App: React.FC = () => {
             <nav className="space-y-1.5">
               <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Menú Principal</p>
               {[
-                { id: 'dashboard', label: 'Panel General', icon: BarChart3, permission: 'VIEW_DASHBOARD' },
-                { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard, permission: 'SELF_VIEW' },
-                { id: 'schedule', label: 'Cronogramas', icon: Calendar, permission: 'MANAGE_SCHEDULES' },
-                { id: 'personnel', label: 'Personal', icon: Users, permission: 'MANAGE_PERSONNEL' },
-                { id: 'audit', label: 'Logs de Sistema', icon: History, permission: 'VIEW_AUDIT_LOGS' },
-                { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users, permission: 'VIEW_PERSONNEL_AUDIT' },
-                { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
-                { id: 'users', label: 'Usuarios', icon: UserCog, permission: 'MANAGE_USERS' },
-                { id: 'settings', label: 'Ajustes', icon: Settings, permission: 'MANAGE_SETTINGS' },
+                { id: 'dashboard', label: 'Panel General', icon: BarChart3 },
+                { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard },
+                { id: 'schedule', label: 'Cronogramas', icon: Calendar },
+                { id: 'personnel', label: 'Personal', icon: Users },
+                { id: 'audit', label: 'Logs de Sistema', icon: History },
+                { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users },
+                { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck },
+                { id: 'users', label: 'Usuarios', icon: UserCog },
+                { id: 'settings', label: 'Ajustes', icon: Settings },
               ]
                 .filter(item => {
-                  if (item.id === 'settings') {
-                    return currentUser?.role === 'superusuario';
-                  }
-                  if (currentUser?.role === 'superusuario') return true; // Superusuario siempre ve todo
+                  const subViewId = item.id as AdminSubView;
                   
-                  // Para los demás (incluido administrador), validamos su matriz dinámica o rol específico
+                  // Superusuario siempre ve todo
+                  if (currentUser?.role === 'superusuario') return true;
+                  
+                  // Ajustes solo para superusuario
+                  if (subViewId === 'settings') return false;
+
+                  // 1. Verificación por matriz dinámica (Prioridad 1)
+                  const requiredPerms = viewPermissions[subViewId] || [];
                   if (currentUser?.roles?.permissions && Array.isArray(currentUser.roles.permissions)) {
-                    if (currentUser.roles.permissions.includes(item.permission)) return true;
-                  }
-                  
-                  // Fallbacks legacy/seguridad
-                  if (currentUser?.role === 'empleado') {
-                    return ['my_credential', 'schedule'].includes(item.id);
-                  }
-                  if (currentUser?.role === 'encargado') {
-                    return ['my_credential', 'schedule', 'personnel'].includes(item.id);
+                    if (requiredPerms.some(p => currentUser.roles!.permissions!.includes(p))) return true;
                   }
                   return false;
                 })

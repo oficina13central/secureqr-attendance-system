@@ -34,6 +34,27 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
+  
+  // Robust click detection for hidden logout
+  const [clickCount, setClickCount] = useState(0);
+  const [lastClickTime, setLastClickTime] = useState(0);
+
+  const handleSecretClick = () => {
+    if (role !== 'terminal') return;
+    
+    const now = Date.now();
+    if (now - lastClickTime < 500) { // clicks must be within 500ms of each other
+      const newCount = clickCount + 1;
+      setClickCount(newCount);
+      if (newCount === 5) {
+        setShowLogoutConfirm(true);
+        setClickCount(0);
+      }
+    } else {
+      setClickCount(1);
+    }
+    setLastClickTime(now);
+  };
 
   const startSession = (mode: 'in' | 'out') => {
     setScanMode(mode);
@@ -340,13 +361,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         <div className="text-center space-y-2 group relative">
           <h1 
             className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400 select-none cursor-default"
-            onClick={(e) => {
-              if (role === 'terminal') {
-                if (e.detail === 5) {
-                  setShowLogoutConfirm(true);
-                }
-              }
-            }}
+            onClick={handleSecretClick}
           >LECTOR DE ACCESO</h1>
           {isEditingName ? (
             <div className="flex items-center justify-center space-x-2 animate-in fade-in zoom-in duration-200">

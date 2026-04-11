@@ -484,7 +484,7 @@ export const attendanceService = {
 
         finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
         let category = 1, label = '', color = '';
-        if (finalScore === 999) { category = 0; label = 'Clase 0 (Elite)'; color = 'bg-indigo-100 text-indigo-700 border-indigo-200'; }
+        if (finalScore === 999) { category = 0; label = 'Clase 0 (Altamente Puntual)'; color = 'bg-indigo-100 text-indigo-700 border-indigo-200'; }
         else if (finalScore >= 950) { category = 1; label = 'Clase 1 (Excelente)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
         else if (finalScore >= 750) { category = 2; label = 'Clase 2 (Estable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
         else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Regular)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }

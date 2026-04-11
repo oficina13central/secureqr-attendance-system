@@ -53,21 +53,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           : [];
         const fetchedRules = rulesRes.status === 'fulfilled' ? rulesRes.value : null;
 
-        // Apply security filter for managers
-        if (currentUser.role === 'encargado') {
-          const mySectorIds = new Set<string>();
-          if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
-          (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
-
-          setEmployees(fetchedEmployees.filter(e => mySectorIds.has(e.sector_id || 'General')));
-          setRecords(fetchedRecords.filter(r => {
-            const emp = fetchedEmployees.find(e => e.id === r.employee_id || e.full_name === r.employee_name);
-            return emp && mySectorIds.has(emp.sector_id || 'General');
-          }));
-        } else {
-          setRecords(fetchedRecords);
-          setEmployees(fetchedEmployees);
-        }
+        // Sincronizamos los datos según el alcance (global vs sector) 
+        // El filtrado real se realiza en los useMemo (authorizedEmployees, authorizedRecords)
+        setEmployees(fetchedEmployees);
+        setRecords(fetchedRecords);
         
         setSectors(fetchedSectors);
         setSchedules(fetchedSchedules);

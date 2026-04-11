@@ -243,10 +243,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const employee = employees.find(e => e.id === data.id);
             const accessibleSectorIds = getAccessibleSectorIds();
 
-            const isAdmin = currentUser?.role === 'administrador' || currentUser?.role === 'superusuario';
+            const isSuperUser = currentUser?.role === 'superusuario';
+            const hasAuditPerm = (currentUser as any)?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT');
+            
             const empSectorId = employee?.sector_id || '';
-            const hasAccess = isAdmin || accessibleSectorIds.length === 0 ||
-                accessibleSectorIds.includes(empSectorId) ||
+            const hasAccess = isSuperUser || 
+                (hasAuditPerm && (accessibleSectorIds.length === 0 || accessibleSectorIds.includes(empSectorId))) ||
                 sectors.find(s => s.name === empSectorId && accessibleSectorIds.includes(s.id)) !== undefined;
 
             const matchesSector = selectedSectorId === 'all' ||
