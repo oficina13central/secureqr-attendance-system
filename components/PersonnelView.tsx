@@ -321,16 +321,25 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 setDownloadProgress({ current: i + 1, total: filteredEmployees.length });
 
                 // Render badge html to a string then to a node
-                // We use a helper template function
                 container.innerHTML = getBadgeTemplate(emp);
                 
-                // Wait a tiny bit for assets/QR to potentially load
-                await new Promise(r => setTimeout(r, 100));
+                // Wait for the QR image to load before capturing
+                const img = container.querySelector('img');
+                if (img) {
+                    await new Promise((resolve) => {
+                        if (img.complete) resolve(null);
+                        img.onload = () => resolve(null);
+                        img.onerror = () => resolve(null); // Continue even if QR fails
+                        // Set a safety timeout
+                        setTimeout(() => resolve(null), 1000);
+                    });
+                }
 
                 const blob = await toPng(container.firstChild as HTMLElement, {
-                    quality: 0.9,
-                    pixelRatio: 2,
-                    backgroundColor: '#ffffff'
+                    quality: 0.8,
+                    pixelRatio: 1.5, // Reduced for batch to save memory/speed
+                    backgroundColor: '#ffffff',
+                    cacheBust: true
                 });
                 
                 const base64Data = blob.split(',')[1];
@@ -373,6 +382,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             <img 
                                 src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${emp.qr_token}&bgcolor=ffffff&color=2D6A4F"
                                 style="width: 112px; height: 112px;"
+                                crossorigin="anonymous"
                             />
                         </div>
                     </div>
