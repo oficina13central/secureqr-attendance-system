@@ -480,6 +480,29 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         document.body.removeChild(link);
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleDownload = async () => {
+        const node = document.getElementById('printable-badge');
+        if (node && showCardModal) {
+            try {
+                const dataUrl = await toPng(node, {
+                    quality: 0.95,
+                    pixelRatio: 2,
+                    backgroundColor: '#ffffff'
+                });
+                const link = document.createElement('a');
+                link.download = `credencial-${showCardModal.full_name.replace(/\s+/g, '-')}.png`;
+                link.href = dataUrl;
+                link.click();
+            } catch (error) {
+                console.error('Error generando la imagen:', error);
+            }
+        }
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
             {/* Header */}
@@ -818,14 +841,16 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         onClick={e => e.stopPropagation()}
                     >
 
-                        {/* The Badge Itself - Redesigned to horizont                        <div
+                        {/* The Badge Itself */}
+                        <div
                             id="printable-badge"
                             className="bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col print:shadow-none print:border print:border-slate-200"
-                            style={{
+                            style={{ width: '500px', minHeight: '315px' }}
+                        >
                             {/* Header Block - Centered Name */}
                             <div 
-                                className="flex flex-col items-center justify-center pt-8 px-10 text-center"
-                                style={{ height: '130px' }}
+                                className="flex flex-col items-center justify-center pt-8 px-10 pb-2 text-center"
+                                style={{ minHeight: '130px' }}
                             >
                                 <h2 
                                     className="font-black text-slate-800 uppercase tracking-tight leading-[1.1] mb-1"
@@ -850,8 +875,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     </div>
                                 </div>
                             </div>
-iv>
-                            </div>
+
 
                             {/* Decorative Waves at Bottom */}
                             <div className="absolute bottom-0 left-0 w-full h-16 overflow-hidden pointer-events-none">
