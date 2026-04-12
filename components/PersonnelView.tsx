@@ -909,32 +909,6 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 </div>
             )}
 
-                        <div className="mt-8 flex items-center space-x-4 print:hidden">
-                            <button
-                                onClick={() => setShowCardModal(null)}
-                                className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold backdrop-blur-sm transition-colors"
-                            >
-                                Cerrar
-                            </button>
-                            <button
-                                onClick={handlePrint}
-                                className="px-6 py-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-white font-bold backdrop-blur-sm transition-colors flex items-center space-x-2"
-                            >
-                                <Printer className="w-5 h-5" />
-                                <span>Imprimir</span>
-                            </button>
-                            <button
-                                onClick={handleDownload}
-                                className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/30 transition-all flex items-center space-x-2"
-                            >
-                                <Download className="w-5 h-5" />
-                                <span>Descargar PNG</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Default Schedule Modal */}
             {showScheduleModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
