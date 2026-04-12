@@ -402,37 +402,29 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         const len = emp.full_name.length;
         const nameFontSize = len > 28 ? '1.05rem' : len > 22 ? '1.25rem' : len > 16 ? '1.5rem' : '1.875rem';
 
-        return `<div style="padding: 6px; border-radius: 1.2rem; background: linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%); box-shadow: 0 25px 50px -12px rgba(45,106,79,0.4); position: relative; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              <div style="position:absolute;top:10px;left:10px;width:18px;height:18px;border-top:3px solid rgba(255,255,255,0.7);border-left:3px solid rgba(255,255,255,0.7);border-radius:3px 0 0 0;"></div>
-              <div style="position:absolute;top:10px;right:10px;width:18px;height:18px;border-top:3px solid rgba(255,255,255,0.7);border-right:3px solid rgba(255,255,255,0.7);border-radius:0 3px 0 0;"></div>
-              <div style="position:absolute;bottom:10px;left:10px;width:18px;height:18px;border-bottom:3px solid rgba(255,255,255,0.7);border-left:3px solid rgba(255,255,255,0.7);border-radius:0 0 0 3px;"></div>
-              <div style="position:absolute;bottom:10px;right:10px;width:18px;height:18px;border-bottom:3px solid rgba(255,255,255,0.7);border-right:3px solid rgba(255,255,255,0.7);border-radius:0 0 3px 0;"></div>
-              <div style="width: 500px; background: white; border-radius: 0.85rem; overflow: hidden; position: relative; display: flex; flex-direction: column;">
-                <div style="height:4px;background:repeating-linear-gradient(90deg,#2D6A4F 0px,#2D6A4F 8px,#52B788 8px,#52B788 16px,#B7E4C7 16px,#B7E4C7 20px);opacity:0.85;"></div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 150px; padding: 0 2.5rem; text-align: center;">
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin: 0 0 0.4rem 0; font-family: sans-serif; line-height: 1.15;">
+        return `<div style="width: 500px; height: 350px; padding: 4px; background: white; border: 2px solid #2D6A4F; border-radius: 1.25rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; padding: 0 2.5rem; text-align: center;">
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin: 0 0 0.4rem 0; line-height: 1.15;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.65rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.7; font-family: sans-serif; margin: 0;">
+                    <p style="font-size: 0.65rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.7; margin: 0;">
                         Credencial de Acceso
                     </p>
                 </div>
 
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; padding-top: 0.5rem;">
-                    <div style="background: #52B788; padding: 0.6rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; padding-top: 0.2rem;">
+                    <div style="background: #52B788; padding: 0.5rem; border-radius: 0.5rem;">
                         <div style="background: white; padding: 0.2rem;">
-                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 105px; height: 105px; display: block;" />` : `<div style="width: 105px; height: 105px; background: #f1f5f9;"></div>`}
+                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 110px; height: 110px; display: block;" />` : `<div style="width: 110px; height: 110px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
 
-                <div style="position: absolute; bottom: 4px; left: 0; width: 100%; height: 3.5rem; z-index: 0;">
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 2.5rem; z-index: -1; overflow: hidden; border-radius: 0 0 1.1rem 1.1rem;">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
                     </svg>
                 </div>
-                <div style="height:4px;background:repeating-linear-gradient(90deg,#B7E4C7 0px,#B7E4C7 8px,#52B788 8px,#52B788 16px,#2D6A4F 16px,#2D6A4F 20px);opacity:0.85;position:relative;z-index:1;"></div>
-              </div>
             </div>`;
     };
 
@@ -841,38 +833,22 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         className="bg-transparent w-full max-w-2xl flex flex-col items-center cursor-default"
                         onClick={e => e.stopPropagation()}
                     >
-                        {/* Outer decorative frame */}
+                        {/* ID Card Wrapper con marco limpio */}
                         <div
                             id="printable-badge"
-                            style={{
-                                padding: '6px',
-                                borderRadius: '1.4rem',
-                                background: 'linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%)',
-                                boxShadow: '0 0 0 1px rgba(45,106,79,0.2), 0 30px 60px -15px rgba(45,106,79,0.5)',
-                                position: 'relative',
+                            className="bg-white p-1 rounded-[1.5rem]"
+                            style={{ 
+                                border: '3px solid #065f46',
                                 display: 'inline-block',
+                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
                             }}
                         >
-                            {/* Corner ornaments */}
-                            {[
-                                { top: 10, left: 10, borderRadius: '4px 0 0 0', borderTop: '3px solid rgba(255,255,255,0.7)', borderLeft: '3px solid rgba(255,255,255,0.7)' },
-                                { top: 10, right: 10, borderRadius: '0 4px 0 0', borderTop: '3px solid rgba(255,255,255,0.7)', borderRight: '3px solid rgba(255,255,255,0.7)' },
-                                { bottom: 10, left: 10, borderRadius: '0 0 0 4px', borderBottom: '3px solid rgba(255,255,255,0.7)', borderLeft: '3px solid rgba(255,255,255,0.7)' },
-                                { bottom: 10, right: 10, borderRadius: '0 0 4px 0', borderBottom: '3px solid rgba(255,255,255,0.7)', borderRight: '3px solid rgba(255,255,255,0.7)' },
-                            ].map((style, i) => (
-                                <div key={i} style={{ position: 'absolute', width: 20, height: 20, zIndex: 10, ...style }} />
-                            ))}
-
-                            {/* Inner card */}
                             <div
-                                className="bg-white overflow-hidden relative flex flex-col print:shadow-none"
-                                style={{ width: '500px', borderRadius: '1rem' }}
+                                className="bg-white overflow-hidden relative flex flex-col"
+                                style={{ width: '500px', height: '330px', borderRadius: '1.2rem' }}
                             >
-                                {/* Security stripe top */}
-                                <div style={{ height: '4px', background: 'repeating-linear-gradient(90deg, #2D6A4F 0px, #2D6A4F 8px, #52B788 8px, #52B788 16px, #B7E4C7 16px, #B7E4C7 20px)', opacity: 0.85 }} />
-
                                 <div
-                                    style={{ height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center', gap: '6px' }}
+                                    style={{ height: '140px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center' }}
                                 >
                                     <h2
                                         className="font-black text-slate-800 uppercase tracking-tight"
@@ -887,35 +863,56 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     >
                                         {showCardModal.full_name}
                                     </h2>
-                                    <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#2D6A4F', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: 0 }}>
+                                    <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#065f46', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: '4px 0 0 0' }}>
                                         Credencial de Acceso
                                     </p>
                                 </div>
 
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '0.5rem' }}>
-                                    <div className="bg-[#52B788] p-2.5 rounded-lg shadow-sm">
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
+                                    <div className="bg-[#10b981] p-2 rounded-lg">
                                         <div className="bg-white p-1">
                                             <img
-                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=2D6A4F`}
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=064e3b`}
                                                 alt="QR Access Code"
-                                                className="w-28 h-28 object-contain"
+                                                className="w-24 h-24 object-contain"
                                             />
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="absolute bottom-4 left-0 w-full h-16 overflow-hidden pointer-events-none">
+                                <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
                                     <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" className="opacity-90" />
-                                        <path d="M-10,140 C100,100 350,160 510,120 L510,160 L-10,160 Z" fill="#40916C" className="opacity-60" />
-                                        <path d="M-10,150 C180,120 400,160 510,140 L510,160 L-10,160 Z" fill="#52B788" className="opacity-40" />
+                                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#065f46" className="opacity-90" />
                                     </svg>
                                 </div>
-
-                                {/* Security stripe bottom */}
-                                <div style={{ height: '4px', background: 'repeating-linear-gradient(90deg, #B7E4C7 0px, #B7E4C7 8px, #52B788 8px, #52B788 16px, #2D6A4F 16px, #2D6A4F 20px)', opacity: 0.85, position: 'relative', zIndex: 1 }} />
                             </div>
                         </div>
+
+                        <div className="mt-8 flex items-center space-x-4 print:hidden">
+                            <button
+                                onClick={() => setShowCardModal(null)}
+                                className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold backdrop-blur-sm transition-colors"
+                            >
+                                Cerrar
+                            </button>
+                            <button
+                                onClick={handlePrint}
+                                className="px-6 py-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-white font-bold backdrop-blur-sm transition-colors flex items-center space-x-2"
+                            >
+                                <Printer className="w-5 h-5" />
+                                <span>Imprimir</span>
+                            </button>
+                            <button
+                                onClick={handleDownload}
+                                className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/30 transition-all flex items-center space-x-2"
+                            >
+                                <Download className="w-5 h-5" />
+                                <span>Descargar PNG</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
                         <div className="mt-8 flex items-center space-x-4 print:hidden">
                             <button
@@ -1093,9 +1090,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          /* Asegurar que el marco de gradiente se imprima */
+          /* Asegurar que el marco sólido se imprima */
           #printable-badge {
-            background: linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%) !important;
+            background: white !important;
+            border: 3px solid #065f46 !important;
           }
           /* Adjust font sizes for actual print size */
           #printable-badge h2 {
