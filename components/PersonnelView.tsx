@@ -843,12 +843,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     >
                         {/* Outer decorative frame */}
                         <div
+                            id="printable-badge"
                             style={{
                                 padding: '6px',
                                 borderRadius: '1.4rem',
                                 background: 'linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%)',
                                 boxShadow: '0 0 0 1px rgba(45,106,79,0.2), 0 30px 60px -15px rgba(45,106,79,0.5)',
                                 position: 'relative',
+                                display: 'inline-block',
                             }}
                         >
                             {/* Corner ornaments */}
@@ -858,12 +860,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                 { bottom: 10, left: 10, borderRadius: '0 0 0 4px', borderBottom: '3px solid rgba(255,255,255,0.7)', borderLeft: '3px solid rgba(255,255,255,0.7)' },
                                 { bottom: 10, right: 10, borderRadius: '0 0 4px 0', borderBottom: '3px solid rgba(255,255,255,0.7)', borderRight: '3px solid rgba(255,255,255,0.7)' },
                             ].map((style, i) => (
-                                <div key={i} style={{ position: 'absolute', width: 20, height: 20, ...style }} />
+                                <div key={i} style={{ position: 'absolute', width: 20, height: 20, zIndex: 10, ...style }} />
                             ))}
 
                             {/* Inner card */}
                             <div
-                                id="printable-badge"
                                 className="bg-white overflow-hidden relative flex flex-col print:shadow-none"
                                 style={{ width: '500px', borderRadius: '1rem' }}
                             >
@@ -1080,15 +1081,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             position: absolute;
             left: 0;
             top: 0;
-            margin: 10mm; /* Small margin from edge of paper */
+            margin: 10mm; 
             width: 85.6mm !important;
             height: 53.98mm !important;
             min-width: 85.6mm !important;
             min-height: 53.98mm !important;
             box-shadow: none !important;
             border: 1px solid #eee !important;
-            border-radius: 3.18mm !important; /* CR80 standard radius is ~3.18mm */
+            border-radius: 3.18mm !important;
             transform: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Asegurar que el marco de gradiente se imprima */
+          #printable-badge {
+            background: linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%) !important;
           }
           /* Adjust font sizes for actual print size */
           #printable-badge h2 {

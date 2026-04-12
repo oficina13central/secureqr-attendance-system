@@ -43,12 +43,14 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
 
         {/* Outer decorative frame */}
         <div
+          id="my-qr-badge"
           style={{
             padding: '6px',
             borderRadius: '2.8rem',
             background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 30%, #c7d2fe 50%, #818cf8 70%, #4f46e5 100%)',
             boxShadow: '0 0 0 1px rgba(99,102,241,0.15), 0 25px 50px -12px rgba(99,102,241,0.35)',
             position: 'relative',
+            display: 'inline-block', // Asegura que el tamaño sea el del contenido
           }}
         >
           {/* Corner ornaments */}
@@ -75,13 +77,13 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
                   : pos.top !== undefined ? '0 4px 0 0'
                   : pos.left !== undefined ? '0 0 0 4px'
                   : '0 0 4px 0',
+                zIndex: 10,
               }}
             />
           ))}
 
           {/* Inner card */}
           <div 
-            id="my-qr-badge" 
             className="bg-white overflow-hidden relative flex flex-col"
             style={{ width: '380px', borderRadius: '2.4rem' }}
           >
