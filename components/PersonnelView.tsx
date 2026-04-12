@@ -400,29 +400,31 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
         const len = emp.full_name.length;
-        const nameFontSize = len > 28 ? '1.05rem' : len > 22 ? '1.25rem' : len > 16 ? '1.5rem' : '1.875rem';
+        const nameFontSize = len > 28 ? '1.1rem' : len > 22 ? '1.4rem' : len > 16 ? '1.7rem' : '2.1rem';
 
-        return `<div style="width: 500px; height: 350px; padding: 4px; background: white; border: 2px solid #2D6A4F; border-radius: 1.25rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; padding: 0 2.5rem; text-align: center;">
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin: 0 0 0.4rem 0; line-height: 1.15;">
+        return `<div style="width: 500px; height: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif; box-sizing: border-box;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 130px; padding: 0 2rem; text-align: center; margin-bottom: 1.5rem;">
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 800; color: #1e293b; text-transform: uppercase; margin: 0; line-height: 1;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.65rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.7; margin: 0;">
+                    <p style="font-size: 0.8rem; font-weight: 600; color: #52B788; letter-spacing: 0.3em; text-transform: uppercase; margin: 0.8rem 0 0 0; opacity: 0.8;">
                         Credencial de Acceso
                     </p>
                 </div>
 
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; padding-top: 0.2rem;">
-                    <div style="background: #52B788; padding: 0.5rem; border-radius: 0.5rem;">
-                        <div style="background: white; padding: 0.2rem;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; z-index: 10;">
+                    <div style="background: #52B788; padding: 0.8rem; border-radius: 1rem;">
+                        <div style="background: white; padding: 0.15rem; border-radius: 1px;">
                             ${qrBase64 ? `<img src="${qrBase64}" style="width: 110px; height: 110px; display: block;" />` : `<div style="width: 110px; height: 110px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
 
-                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 2.5rem; z-index: -1; overflow: hidden; border-radius: 0 0 1.1rem 1.1rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
-                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; z-index: 0; line-height: 0;">
+                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                        <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3"></path>
+                        <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6"></path>
+                        <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1"></path>
                     </svg>
                 </div>
             </div>`;
@@ -833,58 +835,51 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         className="bg-transparent w-full max-w-2xl flex flex-col items-center cursor-default"
                         onClick={e => e.stopPropagation()}
                     >
-                        {/* ID Card Wrapper con marco limpio */}
+                        {/* ID Card Wrapper coincidente con la referencia */}
                         <div
                             id="printable-badge"
-                            className="bg-white p-1 rounded-[1.5rem]"
-                            style={{ 
-                                border: '3px solid #065f46',
-                                display: 'inline-block',
-                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-                            }}
+                            className="bg-white border border-slate-200 overflow-hidden relative flex flex-col"
+                            style={{ width: '500px', height: '330px', borderRadius: '0.5rem', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)' }}
                         >
                             <div
-                                className="bg-white overflow-hidden relative flex flex-col"
-                                style={{ width: '500px', height: '330px', borderRadius: '1.2rem' }}
+                                style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1rem' }}
                             >
-                                <div
-                                    style={{ height: '140px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center' }}
+                                <h2
+                                    className="font-black text-slate-800 uppercase"
+                                    style={{
+                                        fontSize: showCardModal.full_name.length > 28 ? '1.2rem'
+                                                : showCardModal.full_name.length > 22 ? '1.5rem'
+                                                : showCardModal.full_name.length > 16 ? '1.8rem'
+                                                : '2.2rem',
+                                        lineHeight: 1,
+                                        margin: 0
+                                    }}
                                 >
-                                    <h2
-                                        className="font-black text-slate-800 uppercase tracking-tight"
-                                        style={{
-                                            fontSize: showCardModal.full_name.length > 28 ? '1.05rem'
-                                                    : showCardModal.full_name.length > 22 ? '1.25rem'
-                                                    : showCardModal.full_name.length > 16 ? '1.5rem'
-                                                    : '1.875rem',
-                                            lineHeight: 1.15,
-                                            margin: 0
-                                        }}
-                                    >
-                                        {showCardModal.full_name}
-                                    </h2>
-                                    <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#065f46', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: '4px 0 0 0' }}>
-                                        Credencial de Acceso
-                                    </p>
-                                </div>
+                                    {showCardModal.full_name}
+                                </h2>
+                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', opacity: 0.8, margin: '10px 0 0 0' }}>
+                                    Credencial de Acceso
+                                </p>
+                            </div>
 
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
-                                    <div className="bg-[#10b981] p-2 rounded-lg">
-                                        <div className="bg-white p-1">
-                                            <img
-                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=064e3b`}
-                                                alt="QR Access Code"
-                                                className="w-24 h-24 object-contain"
-                                            />
-                                        </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
+                                <div className="bg-[#52B788] p-3 rounded-2xl shadow-sm">
+                                    <div className="bg-white p-0.5 rounded-sm">
+                                        <img
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=1B4332`}
+                                            alt="QR Access Code"
+                                            className="w-24 h-24 object-contain"
+                                        />
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-                                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#065f46" className="opacity-90" />
-                                    </svg>
-                                </div>
+                            <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0, lineHeight: 0 }}>
+                                <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
+                                    <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3" />
+                                    <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6" />
+                                    <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1" />
+                                </svg>
                             </div>
                         </div>
 
@@ -1093,7 +1088,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
           /* Asegurar que el marco sólido se imprima */
           #printable-badge {
             background: white !important;
-            border: 3px solid #065f46 !important;
+            border: 1px solid #e2e8f0 !important;
           }
           /* Adjust font sizes for actual print size */
           #printable-badge h2 {

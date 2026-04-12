@@ -41,58 +41,52 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
       {/* Badge Container */}
       <div className="flex flex-col items-center space-y-8 w-full max-w-md">
 
-        {/* Credencial con marco limpio */}
+        {/* Credencial coincidente con la referencia */}
         <div 
           id="my-qr-badge" 
           className="bg-white overflow-hidden relative flex flex-col shadow-2xl"
           style={{ 
             width: '380px', 
             height: '580px', 
-            borderRadius: '2.5rem',
-            border: '4px solid #4f46e5',
+            borderRadius: '1rem',
+            border: '1px solid #e2e8f0',
             boxSizing: 'border-box'
           }}
         >
           {/* Header Block */}
-          <div className="bg-indigo-600 p-10 text-center space-y-4">
-            <div className="w-20 h-20 bg-white/20 rounded-3xl mx-auto flex items-center justify-center backdrop-blur-md border border-white/30 shadow-inner">
-               <ShieldCheck className="w-10 h-10 text-white" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-loose">
-                {user.full_name}
-              </h3>
-              <p className="text-xs font-black text-indigo-200 uppercase tracking-[0.3em]">
-                {user.role}
-              </p>
-            </div>
+          <div style={{ height: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>
+              {user.full_name}
+            </h3>
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', margin: '0.8rem 0 0 0', opacity: 0.8 }}>
+              Credencial de Acceso
+            </p>
           </div>
 
           {/* QR Area */}
-          <div className="flex-1 flex flex-col items-center justify-center p-10 bg-white space-y-8">
-            <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-inner">
-              <div className="bg-white p-4 rounded-2xl border border-slate-100">
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
+            <div style={{ background: '#52B788', padding: '1rem', borderRadius: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+              <div style={{ background: 'white', padding: '0.2rem', borderRadius: '2px' }}>
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${user.qr_token}&bgcolor=ffffff&color=4f46e5`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${user.qr_token}&bgcolor=ffffff&color=1B4332`}
                   alt="QR Access Code" 
                   className="w-48 h-48 object-contain"
                 />
               </div>
             </div>
-            <div className="text-center">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
-                Código de Acceso Intransferible
-              </p>
-              <p className="text-xs font-bold text-slate-600 mt-1">
+            <div className="mt-6 text-center">
+              <p style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 ID: {user.id.substring(0, 8).toUpperCase()}
               </p>
             </div>
           </div>
 
-          {/* Bottom Wave decoration sutil */}
-          <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none opacity-10">
-            <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-               <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#4f46e5" />
+          {/* Triple Wave al pie */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: 100 + '%', height: '80px', zIndex: 0, lineHeight: 0 }}>
+            <svg viewBox="0 0 500 150" preserveAspectRatio="none" style={{ width: 100 + '%', height: 100 + '%' }}>
+                <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3"></path>
+                <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6"></path>
+                <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1"></path>
             </svg>
           </div>
         </div>
