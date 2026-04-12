@@ -399,30 +399,23 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     };
 
     const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
-        // More aggressive dynamic font sizing
-        const nameFontSize = emp.full_name.length > 25 ? '1.25rem' : emp.full_name.length > 18 ? '1.4rem' : '1.875rem';
-        
-        return `<div style="width: 500px; height: 315px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                {/* Fixed height header area to prevent pushing QR down */}
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 130px; padding: 0 2.5rem; text-align: center; margin-top: 0.5rem;">
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin-bottom: 0.2rem; font-family: sans-serif; line-height: 1.1;">
+        const len = emp.full_name.length;
+        const nameFontSize = len > 28 ? '1.05rem' : len > 22 ? '1.25rem' : len > 16 ? '1.5rem' : '1.875rem';
+
+        return `<div style="width: 500px; height: 330px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 150px; padding: 0 2.5rem; text-align: center;">
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin: 0 0 0.4rem 0; font-family: sans-serif; line-height: 1.15;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.7rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.6; font-family: sans-serif; margin: 0;">
+                    <p style="font-size: 0.65rem; font-weight: 800; color: #2D6A4F; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.7; font-family: sans-serif; margin: 0;">
                         Credencial de Acceso
                     </p>
                 </div>
 
-                {/* QR Area starts lower and has dedicated space */}
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; padding-top: 0.5rem;">
                     <div style="background: #52B788; padding: 0.6rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                         <div style="background: white; padding: 0.2rem;">
-                            ${qrBase64 ? `
-                                <img 
-                                    src="${qrBase64}"
-                                    style="width: 105px; height: 105px; display: block;"
-                                />
-                            ` : `<div style="width: 105px; height: 105px; background: #f1f5f9;"></div>`}
+                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 105px; height: 105px; display: block;" />` : `<div style="width: 105px; height: 105px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
@@ -841,30 +834,33 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         onClick={e => e.stopPropagation()}
                     >
 
-                        {/* The Badge Itself */}
                         <div
                             id="printable-badge"
-                            className="bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col print:shadow-none print:border print:border-slate-200"
-                            style={{ width: '500px', minHeight: '315px' }}
+                            className="bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col print:shadow-none"
+                            style={{ width: '500px', height: '330px' }}
                         >
-                            {/* Header Block - Centered Name */}
-                            <div 
-                                className="flex flex-col items-center justify-center pt-8 px-10 pb-2 text-center"
-                                style={{ minHeight: '130px' }}
+                            <div
+                                style={{ height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center', gap: '6px' }}
                             >
-                                <h2 
-                                    className="font-black text-slate-800 uppercase tracking-tight leading-[1.1] mb-1"
-                                    style={{ fontSize: showCardModal.full_name.length > 25 ? '1.25rem' : showCardModal.full_name.length > 18 ? '1.4rem' : '1.875rem' }}
+                                <h2
+                                    className="font-black text-slate-800 uppercase tracking-tight"
+                                    style={{
+                                        fontSize: showCardModal.full_name.length > 28 ? '1.05rem'
+                                                : showCardModal.full_name.length > 22 ? '1.25rem'
+                                                : showCardModal.full_name.length > 16 ? '1.5rem'
+                                                : '1.875rem',
+                                        lineHeight: 1.15,
+                                        margin: 0
+                                    }}
                                 >
                                     {showCardModal.full_name}
                                 </h2>
-                                <p className="text-[10px] font-bold text-[#2D6A4F] tracking-[0.35em] uppercase opacity-60">
+                                <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#2D6A4F', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: 0 }}>
                                     Credencial de Acceso
                                 </p>
                             </div>
 
-                            {/* Main Content (QR) */}
-                            <div className="flex flex-col items-center justify-start flex-1 pt-2 pb-8">
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '0.5rem' }}>
                                 <div className="bg-[#52B788] p-2.5 rounded-lg shadow-sm">
                                     <div className="bg-white p-1">
                                         <img
@@ -876,25 +872,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                 </div>
                             </div>
 
-
-                            {/* Decorative Waves at Bottom */}
                             <div className="absolute bottom-0 left-0 w-full h-16 overflow-hidden pointer-events-none">
                                 <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                    <path
-                                        d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z"
-                                        fill="#2D6A4F"
-                                        className="opacity-90"
-                                    />
-                                    <path
-                                        d="M-10,140 C100,100 350,160 510,120 L510,160 L-10,160 Z"
-                                        fill="#40916C"
-                                        className="opacity-60"
-                                    />
-                                    <path
-                                        d="M-10,150 C180,120 400,160 510,140 L510,160 L-10,160 Z"
-                                        fill="#52B788"
-                                        className="opacity-40"
-                                    />
+                                    <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" className="opacity-90" />
+                                    <path d="M-10,140 C100,100 350,160 510,120 L510,160 L-10,160 Z" fill="#40916C" className="opacity-60" />
+                                    <path d="M-10,150 C180,120 400,160 510,140 L510,160 L-10,160 Z" fill="#52B788" className="opacity-40" />
                                 </svg>
                             </div>
                         </div>
