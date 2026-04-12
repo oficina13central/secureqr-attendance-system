@@ -402,7 +402,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         const len = emp.full_name.length;
         const nameFontSize = len > 28 ? '1.05rem' : len > 22 ? '1.25rem' : len > 16 ? '1.5rem' : '1.875rem';
 
-        return `<div style="width: 500px; height: 330px; background: white; border-radius: 1rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        return `<div style="padding: 6px; border-radius: 1.2rem; background: linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%); box-shadow: 0 25px 50px -12px rgba(45,106,79,0.4); position: relative; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <div style="position:absolute;top:10px;left:10px;width:18px;height:18px;border-top:3px solid rgba(255,255,255,0.7);border-left:3px solid rgba(255,255,255,0.7);border-radius:3px 0 0 0;"></div>
+              <div style="position:absolute;top:10px;right:10px;width:18px;height:18px;border-top:3px solid rgba(255,255,255,0.7);border-right:3px solid rgba(255,255,255,0.7);border-radius:0 3px 0 0;"></div>
+              <div style="position:absolute;bottom:10px;left:10px;width:18px;height:18px;border-bottom:3px solid rgba(255,255,255,0.7);border-left:3px solid rgba(255,255,255,0.7);border-radius:0 0 0 3px;"></div>
+              <div style="position:absolute;bottom:10px;right:10px;width:18px;height:18px;border-bottom:3px solid rgba(255,255,255,0.7);border-right:3px solid rgba(255,255,255,0.7);border-radius:0 0 3px 0;"></div>
+              <div style="width: 500px; background: white; border-radius: 0.85rem; overflow: hidden; position: relative; display: flex; flex-direction: column;">
+                <div style="height:4px;background:repeating-linear-gradient(90deg,#2D6A4F 0px,#2D6A4F 8px,#52B788 8px,#52B788 16px,#B7E4C7 16px,#B7E4C7 20px);opacity:0.85;"></div>
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 150px; padding: 0 2.5rem; text-align: center;">
                     <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: -0.025em; margin: 0 0 0.4rem 0; font-family: sans-serif; line-height: 1.15;">
                         ${emp.full_name}
@@ -420,11 +426,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     </div>
                 </div>
 
-                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 3.5rem; z-index: -1;">
+                <div style="position: absolute; bottom: 4px; left: 0; width: 100%; height: 3.5rem; z-index: 0;">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
                         <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" style="opacity: 0.9;"></path>
                     </svg>
                 </div>
+                <div style="height:4px;background:repeating-linear-gradient(90deg,#B7E4C7 0px,#B7E4C7 8px,#52B788 8px,#52B788 16px,#2D6A4F 16px,#2D6A4F 20px);opacity:0.85;position:relative;z-index:1;"></div>
+              </div>
             </div>`;
     };
 
@@ -833,51 +841,78 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         className="bg-transparent w-full max-w-2xl flex flex-col items-center cursor-default"
                         onClick={e => e.stopPropagation()}
                     >
-
+                        {/* Outer decorative frame */}
                         <div
-                            id="printable-badge"
-                            className="bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col print:shadow-none"
-                            style={{ width: '500px', height: '330px' }}
+                            style={{
+                                padding: '6px',
+                                borderRadius: '1.4rem',
+                                background: 'linear-gradient(135deg, #2D6A4F 0%, #52B788 30%, #B7E4C7 50%, #52B788 70%, #1B4332 100%)',
+                                boxShadow: '0 0 0 1px rgba(45,106,79,0.2), 0 30px 60px -15px rgba(45,106,79,0.5)',
+                                position: 'relative',
+                            }}
                         >
-                            <div
-                                style={{ height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center', gap: '6px' }}
-                            >
-                                <h2
-                                    className="font-black text-slate-800 uppercase tracking-tight"
-                                    style={{
-                                        fontSize: showCardModal.full_name.length > 28 ? '1.05rem'
-                                                : showCardModal.full_name.length > 22 ? '1.25rem'
-                                                : showCardModal.full_name.length > 16 ? '1.5rem'
-                                                : '1.875rem',
-                                        lineHeight: 1.15,
-                                        margin: 0
-                                    }}
-                                >
-                                    {showCardModal.full_name}
-                                </h2>
-                                <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#2D6A4F', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: 0 }}>
-                                    Credencial de Acceso
-                                </p>
-                            </div>
+                            {/* Corner ornaments */}
+                            {[
+                                { top: 10, left: 10, borderRadius: '4px 0 0 0', borderTop: '3px solid rgba(255,255,255,0.7)', borderLeft: '3px solid rgba(255,255,255,0.7)' },
+                                { top: 10, right: 10, borderRadius: '0 4px 0 0', borderTop: '3px solid rgba(255,255,255,0.7)', borderRight: '3px solid rgba(255,255,255,0.7)' },
+                                { bottom: 10, left: 10, borderRadius: '0 0 0 4px', borderBottom: '3px solid rgba(255,255,255,0.7)', borderLeft: '3px solid rgba(255,255,255,0.7)' },
+                                { bottom: 10, right: 10, borderRadius: '0 0 4px 0', borderBottom: '3px solid rgba(255,255,255,0.7)', borderRight: '3px solid rgba(255,255,255,0.7)' },
+                            ].map((style, i) => (
+                                <div key={i} style={{ position: 'absolute', width: 20, height: 20, ...style }} />
+                            ))}
 
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '0.5rem' }}>
-                                <div className="bg-[#52B788] p-2.5 rounded-lg shadow-sm">
-                                    <div className="bg-white p-1">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=2D6A4F`}
-                                            alt="QR Access Code"
-                                            className="w-28 h-28 object-contain"
-                                        />
+                            {/* Inner card */}
+                            <div
+                                id="printable-badge"
+                                className="bg-white overflow-hidden relative flex flex-col print:shadow-none"
+                                style={{ width: '500px', borderRadius: '1rem' }}
+                            >
+                                {/* Security stripe top */}
+                                <div style={{ height: '4px', background: 'repeating-linear-gradient(90deg, #2D6A4F 0px, #2D6A4F 8px, #52B788 8px, #52B788 16px, #B7E4C7 16px, #B7E4C7 20px)', opacity: 0.85 }} />
+
+                                <div
+                                    style={{ height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 2.5rem', textAlign: 'center', gap: '6px' }}
+                                >
+                                    <h2
+                                        className="font-black text-slate-800 uppercase tracking-tight"
+                                        style={{
+                                            fontSize: showCardModal.full_name.length > 28 ? '1.05rem'
+                                                    : showCardModal.full_name.length > 22 ? '1.25rem'
+                                                    : showCardModal.full_name.length > 16 ? '1.5rem'
+                                                    : '1.875rem',
+                                            lineHeight: 1.15,
+                                            margin: 0
+                                        }}
+                                    >
+                                        {showCardModal.full_name}
+                                    </h2>
+                                    <p style={{ fontSize: '0.65rem', fontWeight: 800, color: '#2D6A4F', letterSpacing: '0.35em', textTransform: 'uppercase', opacity: 0.7, margin: 0 }}>
+                                        Credencial de Acceso
+                                    </p>
+                                </div>
+
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '0.5rem' }}>
+                                    <div className="bg-[#52B788] p-2.5 rounded-lg shadow-sm">
+                                        <div className="bg-white p-1">
+                                            <img
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=2D6A4F`}
+                                                alt="QR Access Code"
+                                                className="w-28 h-28 object-contain"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="absolute bottom-0 left-0 w-full h-16 overflow-hidden pointer-events-none">
-                                <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                    <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" className="opacity-90" />
-                                    <path d="M-10,140 C100,100 350,160 510,120 L510,160 L-10,160 Z" fill="#40916C" className="opacity-60" />
-                                    <path d="M-10,150 C180,120 400,160 510,140 L510,160 L-10,160 Z" fill="#52B788" className="opacity-40" />
-                                </svg>
+                                <div className="absolute bottom-4 left-0 w-full h-16 overflow-hidden pointer-events-none">
+                                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
+                                        <path d="M-10,130 C150,110 250,150 510,90 L510,160 L-10,160 Z" fill="#2D6A4F" className="opacity-90" />
+                                        <path d="M-10,140 C100,100 350,160 510,120 L510,160 L-10,160 Z" fill="#40916C" className="opacity-60" />
+                                        <path d="M-10,150 C180,120 400,160 510,140 L510,160 L-10,160 Z" fill="#52B788" className="opacity-40" />
+                                    </svg>
+                                </div>
+
+                                {/* Security stripe bottom */}
+                                <div style={{ height: '4px', background: 'repeating-linear-gradient(90deg, #B7E4C7 0px, #B7E4C7 8px, #52B788 8px, #52B788 16px, #2D6A4F 16px, #2D6A4F 20px)', opacity: 0.85, position: 'relative', zIndex: 1 }} />
                             </div>
                         </div>
 
