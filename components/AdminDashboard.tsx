@@ -195,11 +195,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       baseRecs = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
 
       if (activeFilter === 'history_absent') {
-        baseRecs = baseRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo');
+        baseRecs = baseRecs.filter(r => r.status === 'ausente');
       } else if (activeFilter === 'history_late') {
-        baseRecs = baseRecs.filter(r => r.status === 'tarde');
+        baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
       } else if (activeFilter === 'history_all') {
-        baseRecs = baseRecs.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status));
+        baseRecs = baseRecs.filter(r => ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status));
       }
     } else {
       // Today mode
@@ -207,11 +207,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       baseRecs = [...todayRecs, ...realTimeAbsences];
 
       if (activeFilter === 'present') {
-        baseRecs = baseRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual'].includes(r.status));
+        baseRecs = baseRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status));
       } else if (activeFilter === 'late') {
-        baseRecs = baseRecs.filter(r => r.status === 'tarde');
+        baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
       } else if (activeFilter === 'absent') {
-        baseRecs = baseRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo');
+        baseRecs = baseRecs.filter(r => r.status === 'ausente');
       }
     }
 
@@ -226,9 +226,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const today = getLocalDateString();
     const todayRecs = authorizedRecords.filter(r => r.date === today);
     return {
-      presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual'].includes(r.status)).length,
-      tardes: todayRecs.filter(r => r.status === 'tarde').length,
-      ausentes: todayRecs.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo').length + realTimeAbsences.length
+      presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
+      tardes: todayRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
+      ausentes: todayRecs.filter(r => r.status === 'ausente').length + realTimeAbsences.length
     };
   }, [authorizedRecords, realTimeAbsences]);
 
@@ -287,9 +287,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     
     const recentRecords = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
 
-    const presentes = recentRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length;
-    const tardanzas = recentRecords.filter(r => r.status === 'tarde').length;
-    const ausencias = recentRecords.filter(r => r.status === 'ausente' || r.status === 'sin_presentismo').length;
+    const presentes = recentRecords.filter(r => ['presente', 'en_horario', 'manual', 'tarde', 'sin_presentismo'].includes(r.status)).length;
+    const tardanzas = recentRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length;
+    const ausencias = recentRecords.filter(r => r.status === 'ausente').length;
 
     const total = presentes + tardanzas + ausencias;
     const puntualidad = total > 0 ? Math.round(((presentes) / total) * 100) : 0;
@@ -306,7 +306,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       getScheduledShiftForRecord(r),
       formatTime(r.check_in),
       formatTime(r.check_out),
-      r.status === 'sin_presentismo' ? 'Perdió el Presentismo' : r.status
+      r.status === 'sin_presentismo' ? 'Llegada Tarde' : r.status
     ]);
 
     const csvContent = [headers.join(";"), ...rows.map(row => row.join(";"))].join("\n");
@@ -541,7 +541,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                       'bg-slate-50 text-slate-500 border-slate-200'
                     }`}>
                       {r.status === 'en_horario' || r.status === 'presente' ? 'En Horario' :
-                       r.status === 'sin_presentismo' ? 'Ausente' : 
+                       r.status === 'sin_presentismo' ? 'Llegada Tarde' : 
                        r.status.replace('_', ' ')}
                     </span>
                   </td>

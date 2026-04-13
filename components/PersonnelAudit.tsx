@@ -673,7 +673,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                                     record.status === 'descanso' ? 'bg-slate-100 text-slate-500 border-slate-200' :
                                                                         'bg-red-100 text-red-700 border-red-200' // sin presentismo
                                                     }`}>
-                                                    {record.status === 'sin_presentismo' ? 'Perdió el Presentismo' : record.status.replace(/_/g, ' ')}
+                                                    {record.status === 'sin_presentismo' ? 'Llegada Tarde' : record.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
                                             <td className="py-4 text-right text-sm font-black text-slate-700">
