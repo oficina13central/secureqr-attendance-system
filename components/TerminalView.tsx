@@ -30,8 +30,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [cameraMode, setCameraMode] = useState<'user' | 'environment'>(
+    (localStorage.getItem('terminal_camera_mode') as 'user' | 'environment') || 'environment'
+  );
 
   const videoRef = useRef<HTMLVideoElement>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
   
@@ -83,6 +87,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     setIsEditingName(false);
   };
 
+  const toggleCamera = () => {
+    const nextMode = cameraMode === 'environment' ? 'user' : 'environment';
+    setCameraMode(nextMode);
+    localStorage.setItem('terminal_camera_mode', nextMode);
+  };
+
   useEffect(() => {
     setPendingCount(offlineService.count);
 
@@ -101,7 +111,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     async function setupCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
+          video: { facingMode: cameraMode }
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -127,7 +137,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
     };
-  }, [scanning]);
+  }, [scanning, cameraMode]);
 
   const scanFrame = () => {
     if (!videoRef.current || !canvasRef.current || !scanning) return;
@@ -447,6 +457,19 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                   title="Cancelar y Volver"
                 >
                   <ArrowLeft className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="absolute top-6 right-6 z-30">
+                <button
+                  onClick={toggleCamera}
+                  className="bg-indigo-600/80 backdrop-blur-md text-white p-3 rounded-full border border-white/20 hover:bg-indigo-500 transition-all shadow-xl active:scale-90 flex items-center space-x-2"
+                  title="Cambiar Cámara"
+                >
+                  <Camera className="w-6 h-6" />
+                  <span className="text-[10px] font-black uppercase tracking-tight pr-1">
+                    {cameraMode === 'environment' ? 'Frontal' : 'Trasera'}
+                  </span>
                 </button>
               </div>
 
