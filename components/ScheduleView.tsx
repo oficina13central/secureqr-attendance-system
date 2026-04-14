@@ -286,12 +286,27 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return <span className="text-slate-300 text-[10px]">—</span>;
     }
 
-    const baseClass = isBase ? "opacity-40 border-dashed hover:opacity-80 transition-opacity" : "";
+    // Definición de estilos dinámicos
+    const getShiftStyles = (theme: 'amber' | 'indigo' | 'emerald' | 'red' | 'slate') => {
+      const colors = {
+        amber: "bg-amber-100/80 text-amber-700 border-amber-200",
+        indigo: "bg-indigo-100/80 text-indigo-700 border-indigo-200",
+        emerald: "bg-emerald-100/80 text-emerald-700 border-emerald-200",
+        red: "bg-red-100/80 text-red-700 border-red-200",
+        slate: "bg-slate-100/80 text-slate-500 border-slate-200"
+      };
+      
+      const stateClass = isBase 
+        ? "border-dashed opacity-100" 
+        : "border-solid shadow-sm ring-1 ring-black/5 scale-[1.02] z-10 opacity-100";
+      
+      return `${colors[theme]} ${stateClass} px-2 py-1 rounded-md transition-all`;
+    };
 
     if (activeShift.type === 'off') {
       return (
         <div className="flex flex-col items-center">
-          <span className={`bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${baseClass}`}>
+          <span className={`${getShiftStyles('slate')} text-[9px] font-black uppercase tracking-widest`}>
             Descanso
           </span>
         </div>
@@ -299,9 +314,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     if (activeShift.type === 'vacation' || activeShift.type === 'medical') {
+      const theme = activeShift.type === 'vacation' ? 'emerald' : 'red';
       return (
         <div className="flex flex-col items-center">
-          <span className={`${activeShift.type === 'vacation' ? "bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm" : "bg-red-100 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm"} ${baseClass}`}>
+          <span className={`${getShiftStyles(theme)} text-[9px] font-black uppercase tracking-widest`}>
             {activeShift.type === 'vacation' ? 'Vacaciones' : 'Licencia Médica'}
           </span>
         </div>
@@ -311,7 +327,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'continuous') {
       return (
         <div className="flex flex-col items-center">
-          <span className={`bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-md text-[10px] font-bold ${baseClass}`}>
+          <span className={`${getShiftStyles('amber')} text-[10px] font-bold`}>
             {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
           </span>
         </div>
@@ -320,15 +336,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'split') {
       return (
         <div className="flex flex-col gap-1 items-center">
-          <span className={`bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold ${baseClass}`}>
+          <span className={`${getShiftStyles('indigo')} text-[9px] font-bold py-0.5`}>
             {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
           </span>
-          <span className={`bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[9px] font-bold ${baseClass}`}>
+          <span className={`${getShiftStyles('indigo')} text-[9px] font-bold py-0.5`}>
             {activeShift.segments[1]?.start} - {activeShift.segments[1]?.end}
           </span>
         </div>
       );
     }
+
   };
 
   // Sector name for print header
