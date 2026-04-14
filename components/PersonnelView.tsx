@@ -586,7 +586,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             style={{ minWidth: '180px' }}
                         >
                             <option value="all">Todos los Scorings</option>
-                            <option value="0">🟣 Clase 0 (Elite)</option>
+                            <option value="0">🟣 Clase 0 (Altamente Puntual)</option>
                             <option value="1">🟢 Clase 1 (Excelente)</option>
                             <option value="2">🟡 Clase 2 (Estable)</option>
                             <option value="3">🟠 Clase 3 (Regular)</option>

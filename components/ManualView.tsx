@@ -148,7 +148,9 @@ const ManualView: React.FC = () => {
               <ul className="space-y-4">
                 {[
                   { title: "Escaneo QR", desc: "Uso de credencial digital o física impresa.", color: "text-indigo-600" },
+                  { title: "Selección de Cámara", desc: "Cambie entre cámara frontal o trasera manualmente.", color: "text-blue-500" },
                   { title: "Ingreso DNI", desc: "Teclado numérico para marcación directa en caso de falla de cámara.", color: "text-amber-500" },
+                  { title: "Validación de Licencias", desc: "Rechazo automático en días de descanso o vacaciones.", color: "text-rose-500" },
                   { title: "Sync Automático", desc: "Las fichadas offline se suben en cuanto vuelve el internet.", color: "text-emerald-500" },
                 ].map((item, idx) => (
                   <li key={idx} className="flex items-start space-x-3">
@@ -159,6 +161,7 @@ const ManualView: React.FC = () => {
                     </div>
                   </li>
                 ))}
+
               </ul>
             </div>
             
@@ -184,11 +187,11 @@ const ManualView: React.FC = () => {
                <ShieldAlert className="w-8 h-8 text-rose-500" />
              </div>
              <div>
-               <h4 className="text-lg font-black uppercase tracking-tight mb-1">Cierre de Sesión Seguro (Botón Oculto)</h4>
-               <p className="text-sm font-medium leading-relaxed">
-                 Para evitar que los empleados apaguen la terminal accidentalmente, el botón de "Cerrar Sesión" ha sido eliminado de la interfaz visual. Para poder cerrar la sesión, un administrador o encargado <strong>debe tocar/hacer clic 5 veces seguidas de forma muy rápida sobre el título principal que dice "LECTOR DE ACCESO"</strong> en la parte superior central de la pantalla. Esto desplegará la alerta confidencial para cerrar sesión.
-               </p>
-             </div>
+                <h4 className="text-lg font-black uppercase tracking-tight mb-1">Cierre de Sesión Seguro (Protección por PIN)</h4>
+                <p className="text-sm font-medium leading-relaxed">
+                  Para evitar cierres de sesión accidentales, el botón de salida está protegido. Para cerrar la sesión, debe presionar el botón <strong>"Salir Terminal"</strong> en la esquina superior izquierda e ingresar el PIN de seguridad: <strong className="text-rose-600 underline decoration-rose-200 decoration-2">0808</strong>. Luego, confirme la acción en el cuadro de diálogo flotante.
+                </p>
+              </div>
           </div>
         </div>
       </section>
@@ -204,7 +207,8 @@ const ManualView: React.FC = () => {
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 flex flex-col justify-center">
             <h3 className="text-lg font-black text-indigo-400 uppercase tracking-widest">Escala de Clasificación</h3>
             <div className="space-y-3 font-bold text-xs uppercase tracking-tighter">
-              <div className="flex items-center space-x-3 text-indigo-300"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 0: Elite (Puntaje Perfecto)</span></div>
+              <div className="flex items-center space-x-3 text-indigo-300"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 0: Altamente Puntual (Puntaje Perfecto)</span></div>
+
               <div className="flex items-center space-x-3 text-emerald-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 1: Excelente</span></div>
               <div className="flex items-center space-x-3 text-amber-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 2: Estable</span></div>
               <div className="flex items-center space-x-3 text-orange-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 3: Regular</span></div>
@@ -329,12 +333,13 @@ const ManualView: React.FC = () => {
                   <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
                     <li className="flex items-start">
                       <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
-                      <span><strong className="text-slate-800">Inferencia de Faltas:</strong> El sistema cruza automáticamente los días sin marcar contra el cronograma asignado, generando un "ausente" sin interacción humana.</span>
+                      <span><strong className="text-slate-800">Directorio y Credenciales:</strong> Gestión completa de legajos con capacidad de <strong>descarga masiva de carnets (ZIP)</strong> por sector para impresión rápida.</span>
                     </li>
                     <li className="flex items-start">
                       <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
                       <span><strong className="text-slate-800">Edición Detallada:</strong> Con el botón "Ver Detalle" puedes justificar fechas pasadas (licencias, vacaciones) además de poder extraer el CSV minucioso de ese único empleado.</span>
                     </li>
+
                   </ul>
                </div>
             </div>
@@ -398,10 +403,12 @@ const ManualView: React.FC = () => {
             <tbody className="divide-y divide-white/5">
               {[
                 { p: "Cámara no activa", c: "Permisos denegados", s: "Permitir uso de cámara en el navegador." },
+                { p: "Cámara incorrecta", c: "Dispositivo con múltiples cámaras", s: "Use el botón de cambio de cámara en la pantalla de escaneo." },
                 { p: "Error 'Duplicate'", c: "Fichaje reciente", s: "Aguardar 10 min entre fichadas (evita duplicidad)." },
                 { p: "Acceso Bloqueado", c: "Suspensión administrativa", s: "Consultar log de suspensión en módulo Usuarios." },
                 { p: "QR no leído", c: "Baja luminosidad", s: "Subir el brillo del móvil o limpiar lente de cámara." },
-                { p: "Cierre de Sesión en Terminal", c: "Botón CERRAR SESION oculto por seguridad", s: "Presione rápidamente 5 veces el título principal 'LECTOR DE ACCESO' para poder salir." },
+                { p: "Cierre de Sesión en Terminal", c: "Protección por PIN", s: "Presione 'Salir Terminal' e ingrese el PIN 0808." },
+
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors group">
                   <td className="py-6 pr-4 flex items-center"><ShieldAlert className="w-4 h-4 mr-3 text-rose-500 opacity-0 group-hover:opacity-100" />{row.p}</td>

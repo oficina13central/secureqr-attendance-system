@@ -40,12 +40,23 @@ graph TD
 La Terminal es el componente que se instala en los puntos de entrada/salida.
 
 ### 2.1 Configuración de la Terminal
-Al iniciar la sesión como **Terminal**, se puede personalizar el nombre (ej: "Planta Norte" o "Entrada Principal"). Este nombre quedará registrado en cada marcación realizada desde ese dispositivo.
+Al iniciar la sesión como **Terminal**, se puede personalizar el nombre (ej: "Planta Norte" o "Entrada Principal").
+
+*   **Nombre de Terminal**: Este nombre quedará registrado en cada marcación.
+*   **Selección de Cámara**: El sistema permite alternar entre la cámara frontal y trasera (o externa) mediante el botón de cámara en la interfaz de escaneo. El sistema recordará su preferencia en este dispositivo.
+
 
 ### 2.2 Proceso de Marcado de Asistencia
-Existen dos métodos para registrar la entrada:
-1.  **Escaneo QR**: El empleado muestra su credencial (física o digital) frente a la cámara. El sistema valida el token y registra el ingreso instantáneamente.
+Existen dos métodos para registrar la entrada/salida:
+1.  **Escaneo QR**: El empleado muestra su credencial (física o digital) frente a la cámara. El sistema valida el token y registra el ingreso/egreso instantáneamente.
 2.  **Ingreso por DNI**: En caso de fallas de cámara o pérdida de credencial, se puede usar el botón "Ingreso Manual" para tipear el número de documento.
+
+**Motivos de Rechazo Comunes:**
+*   **Ya Fichó**: Intento de duplicar entrada.
+*   **Día de Descanso**: El empleado tiene asignado un día libre según su cronograma.
+*   **Vacaciones**: El empleado se encuentra en periodo de licencia por vacaciones.
+*   **Falta de Entrada**: Intento de marcar salida sin una entrada previa.
+
 
 ```mermaid
 flowchart LR
@@ -67,6 +78,13 @@ Si la conexión a internet falla:
 *   Aparecerá un indicador de "Fichadas Pendientes" en color ámbar.
 *   Una vez que vuelva la conexión, el sistema sincronizará automáticamente todos los datos con el servidor.
 
+### 2.4 Cierre de Sesión Seguro (PIN)
+Para evitar cierres accidentales o no autorizados, la salida del modo terminal está protegida. 
+1.  Presione el botón **"Salir Terminal"** (esquina superior izquierda).
+2.  Ingrese el PIN de seguridad: **0808**.
+3.  Confirme el cierre de sesión.
+
+
 ---
 
 ## 3. Gestión de Personal y Scoring
@@ -83,11 +101,13 @@ Al registrar un nuevo ingreso, es vital completar:
 El sistema califica automáticamente el comportamiento de asistencia en los últimos 90 días:
 *   **Puntaje Máximo**: 999 puntos.
 *   **Clases de Scoring**:
-    *   🟢 **Clase 1 (Asistencia Perfecta)**: Sin llegadas tarde ni ausencias.
-    *   🟡 **Clase 2 (Mejorable)**: Algunas tardanzas breves.
-    *   🟠 **Clase 3 (Deficiente)**: Reiteración de faltas o tardanzas.
-    *   🔴 **Clase 4 (Crónico)**: Problemas persistentes de conducta.
-    *   🌑 **Clase 5 (Irrecuperable)**: Nivel crítico de incumplimiento.
+    *   🟣 **Clase 0 (Altamente Puntual)**: Nivel de excelencia técnica en asistencia.
+    *   🟢 **Clase 1 (Excelente)**: Asistencia casi perfecta, sin ausencias.
+    *   🟡 **Clase 2 (Estable)**: Algunas tardanzas breves esporádicas.
+    *   🟠 **Clase 3 (Regular)**: Reiteración de faltas o tardanzas.
+    *   🔴 **Clase 4 (Alerta)**: Problemas persistentes de conducta.
+    *   🌑 **Clase 5 (Crónica)**: Nivel crítico de incumplimiento.
+
 
 ```mermaid
 gitGraph
@@ -102,8 +122,10 @@ gitGraph
 ### 3.3 Emisión de Credenciales
 Cada empleado tiene un carnet único. Desde el panel de personal se puede:
 *   Visualizar el carnet con QR.
-*   Descargar el carnet como imagen (PNG) para enviar por WhatsApp.
-*   Imprimir credenciales físicas.
+*   Descargar el carnet como imagen (PNG) individual.
+*   **Descarga Masiva (ZIP)**: Permite descargar todos los carnets del sector seleccionado en un solo archivo comprimido listo para imprimir o distribuir.
+*   Imprimir credenciales físicas directamente.
+
 
 ---
 
@@ -163,9 +185,13 @@ El sistema no depende de roles estáticos. El Superusuario puede crear nuevos ro
 | Problema | Causa Probable | Solución |
 | :--- | :--- | :--- |
 | **La cámara no enciende** | Permisos del navegador denegados. | Clic en el icono del candado (barra de direcciones) y permitir Cámara. |
-| **QR no reconocido** | Token expirado o luz insuficiente. | Intentar ingreso manual o regenerar token desde Personal. |
-| **Error 'Duplicate'** | El empleado ya marcó entrada hoy. | Verifique en Auditoría si ya existe una ficha abierta. |
-| **Acceso Bloqueado** | Cuenta suspendida. | Contactar al Superusuario para revisar el motivo de la suspensión. |
+| **Cámara equivocada** | Selección de cámara errónea. | Use el botón de cambio de cámara en la interfaz de escaneo. |
+| **QR no reconocido** | Token expirado o luz insuficiente. | Intentar ingreso manual o subir el brillo del teléfono. |
+| **Error 'Duplicate'** | Intento de doble fichada. | Espere 10 minutos entre marcas del mismo tipo. |
+| **Acceso Denegado** | Día libre o vacaciones. | Verifique el cronograma del empleado en el módulo Auditoría. |
+| **No puedo salir de Terminal** | Protección por PIN activa. | Use el PIN **0808** tras presionar "Salir Terminal". |
+| **Acceso Bloqueado** | Cuenta suspendida. | Contactar al Superusuario para revisar el log de suspensión. |
+
 
 ---
 
