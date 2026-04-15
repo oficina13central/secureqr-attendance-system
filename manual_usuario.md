@@ -28,7 +28,7 @@ graph TD
 
 ### 1.2 Roles del Sistema
 *   **Superusuario**: Acceso total a la configuración del sistema y base de datos.
-*   **Administrador**: Gestión de personal, usuarios, auditorías y análisis de fraude.
+*   **Administrador**: Gestión de personal, usuarios, auditorías y auditoría automática.
 *   **Encargado**: Gestión de sectores específicos, personal a cargo y cronogramas.
 *   **Empleado**: Solo puede ver su propio cronograma y su credencial digital.
 *   **Terminal**: Rol restringido para dispositivos de marcación (tablets/PCs en puerta).
@@ -160,7 +160,7 @@ Muestra un resumen mensual por empleado con:
 *   Cantidad de ausencias.
 *   Veces que perdió el presentismo por exceder la tolerancia técnica.
 
-### 5.3 Análisis de Fraude
+### 5.3 Auditoría Automática
 Módulo basado en patrones que detecta:
 *   Marcaciones sospechosas (ej: dos fichadas en tiempos imposibles).
 *   Anomalías en el uso de la terminal.
@@ -204,7 +204,7 @@ Sí. Los códigos son persistentes. Una vez impreso, servirá indefinidamente a 
 El administrador puede realizar un "Cierre Manual" desde la Auditoría de Personal para evitar que el registro quede abierto eternamente.
 
 **¿El sistema detecta si alguien usa una foto del código?**
-El módulo de Análisis de Fraude detecta registros en tiempos imposibles o desde terminales no habituales, alertando a la administración.
+El módulo de Auditoría Automática detecta registros en tiempos imposibles o desde terminales no habituales, alertando a la administración.
 
 ---
 

@@ -375,7 +375,7 @@ const App: React.FC = () => {
                 { id: 'personnel', label: 'Personal', icon: Users },
                 { id: 'audit', label: 'Logs de Sistema', icon: History },
                 { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users },
-                { id: 'fraud', label: 'Análisis de Fraude', icon: ShieldCheck },
+                { id: 'fraud', label: 'Auditoría Automática', icon: ShieldCheck },
                 { id: 'users', label: 'Usuarios', icon: UserCog },
                 { id: 'settings', label: 'Ajustes', icon: Settings },
               ]

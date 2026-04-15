@@ -41,7 +41,7 @@ const FraudAnalysis: React.FC = () => {
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center">
-            Análisis de <span className="ml-2 text-indigo-600">Fraude IA</span>
+            Auditoría <span className="ml-2 text-indigo-600">Automática</span>
           </h2>
           <p className="text-slate-500 font-medium">Detección de anomalías mediante inteligencia artificial generativa.</p>
         </div>

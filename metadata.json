@@ -1,6 +1,6 @@
 {
   "name": "Control de Asistencias",
-  "description": "Un sistema avanzado de control de asistencia mediante códigos QR con auditoría estricta, límites de corrección y análisis de fraude impulsado por IA.",
+  "description": "Un sistema avanzado de control de asistencia mediante códigos QR con auditoría estricta, límites de corrección y auditoría automática impulsada por IA.",
   "requestFramePermissions": [
     "camera"
   ]

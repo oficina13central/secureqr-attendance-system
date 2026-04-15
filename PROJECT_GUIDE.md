@@ -39,7 +39,7 @@ Los estados de asistencia se calculan en base a umbrales configurables:
     - **Soft Delete**: Los usuarios "eliminados" se archivan (`deleted_at`) para no perder el histórico de asistencias.
 - **Recuperación de Clave**: Flujo integrado de recuperación vía email que abre un modal de nueva contraseña al regresar a la aplicación (`App.tsx` escucha el evento `PASSWORD_RECOVERY`).
 
-### 5. Análisis de Fraude e IA
+### 5. Auditoría Automática e IA
 - Módulo que detecta anomalías en las marcaciones (ej: múltiples intentos fallidos, ubicaciones inusuales, patrones de tiempo sospechosos).
 - Integración con **Google Gemini AI** para análisis predictivo (requiere `VITE_GEMINI_API_KEY`).
 - Clasificación de riesgo: **Bajo**, **Medio**, **Alto**.

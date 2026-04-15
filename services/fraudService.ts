@@ -32,7 +32,7 @@ export const fraudService = {
       const recentLogs = auditLogs.slice(0, 50);
 
       const prompt = `
-        Analiza detalladamente los siguientes datos cruzados de la empresa y detecta posibles patrones de fraude, favoritismos o anomalías severas.
+        Analiza detalladamente los siguientes datos cruzados de la empresa y detecta posibles patrones de anomalías, favoritismos o inconsistencias severas.
         Debes prestar especial atención a correlaciones sospechosas (ej: un encargado modificando manualmente de forma constante el cronograma o asistencias de un empleado específico, justificativos repetitivos, marcas simultáneas, etc).
         
         [REGISTROS DE ASISTENCIA RECIENTES]
