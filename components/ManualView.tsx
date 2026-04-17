@@ -427,7 +427,10 @@ const ManualView: React.FC = () => {
            <ShieldCheck className="w-5 h-5" />
            <span className="font-black tracking-tighter">SECURE QR CONTROL</span>
         </div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Versión 2.0.4 • 2026</p>
+        <div className="flex flex-col items-center space-y-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Versión 2.0.4 • 2026</p>
+          <p className="text-[9px] font-bold text-indigo-500/60 uppercase tracking-[0.3em]">Diseñado por Isaac Gomez</p>
+        </div>
       </footer>
 
       {/* Print styles */}
