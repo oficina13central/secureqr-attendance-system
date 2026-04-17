@@ -189,7 +189,7 @@ const ManualView: React.FC = () => {
              <div>
                 <h4 className="text-lg font-black uppercase tracking-tight mb-1">Cierre de Sesión Seguro (Protección por PIN)</h4>
                 <p className="text-sm font-medium leading-relaxed">
-                  Para evitar cierres de sesión accidentales, el botón de salida está protegido. Para cerrar la sesión, debe presionar el botón <strong>"Salir Terminal"</strong> en la esquina superior izquierda e ingresar el PIN de seguridad: <strong className="text-rose-600 underline decoration-rose-200 decoration-2">0808</strong>. Luego, confirme la acción en el cuadro de diálogo flotante.
+                  Para evitar cierres de sesión accidentales, el botón de salida está protegido. Para cerrar la sesión, debe presionar el botón <strong>"Salir Terminal"</strong> en la esquina superior izquierda e ingresar el <strong>PIN de seguridad provisto por el administrador</strong>. Luego, confirme la acción en el cuadro de diálogo flotante.
                 </p>
               </div>
           </div>
@@ -407,7 +407,7 @@ const ManualView: React.FC = () => {
                 { p: "Error 'Duplicate'", c: "Fichaje reciente", s: "Aguardar 10 min entre fichadas (evita duplicidad)." },
                 { p: "Acceso Bloqueado", c: "Suspensión administrativa", s: "Consultar log de suspensión en módulo Usuarios." },
                 { p: "QR no leído", c: "Baja luminosidad", s: "Subir el brillo del móvil o limpiar lente de cámara." },
-                { p: "Cierre de Sesión en Terminal", c: "Protección por PIN", s: "Presione 'Salir Terminal' e ingrese el PIN 0808." },
+                { p: "Cierre de Sesión en Terminal", c: "Protección por PIN", s: "Presione 'Salir Terminal' e ingrese el PIN de seguridad." },
 
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors group">

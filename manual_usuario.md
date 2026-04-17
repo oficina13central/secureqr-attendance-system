@@ -81,7 +81,7 @@ Si la conexión a internet falla:
 ### 2.4 Cierre de Sesión Seguro (PIN)
 Para evitar cierres accidentales o no autorizados, la salida del modo terminal está protegida. 
 1.  Presione el botón **"Salir Terminal"** (esquina superior izquierda).
-2.  Ingrese el PIN de seguridad: **0808**.
+2.  Ingrese el PIN de seguridad provisto por el administrador.
 3.  Confirme el cierre de sesión.
 
 
@@ -189,7 +189,7 @@ El sistema no depende de roles estáticos. El Superusuario puede crear nuevos ro
 | **QR no reconocido** | Token expirado o luz insuficiente. | Intentar ingreso manual o subir el brillo del teléfono. |
 | **Error 'Duplicate'** | Intento de doble fichada. | Espere 10 minutos entre marcas del mismo tipo. |
 | **Acceso Denegado** | Día libre o vacaciones. | Verifique el cronograma del empleado en el módulo Auditoría. |
-| **No puedo salir de Terminal** | Protección por PIN activa. | Use el PIN **0808** tras presionar "Salir Terminal". |
+| **No puedo salir de Terminal** | Protección por PIN activa. | Use el PIN de seguridad tras presionar "Salir Terminal". |
 | **Acceso Bloqueado** | Cuenta suspendida. | Contactar al Superusuario para revisar el log de suspensión. |
 
 
