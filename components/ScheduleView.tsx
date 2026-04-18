@@ -536,11 +536,15 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             color: #ffffff !important;
             background: #4f46e5 !important; /* Indigo primary for header */
           }
+          .schedule-table-wrapper th span {
+            color: #ffffff !important; /* Fuerza contraste para Dom, Lun, etc. */
+          }
           .schedule-table-wrapper th:first-child {
             text-align: left;
             padding-left: 10px;
             width: 24%;
             background: #4338ca !important;
+            color: #ffffff !important;
           }
 
           .schedule-table-wrapper td {
