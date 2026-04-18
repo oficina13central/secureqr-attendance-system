@@ -398,7 +398,15 @@ export const attendanceService = {
                     const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
                     const scheduledTime = new Date(checkInDate);
                     scheduledTime.setHours(schedHours, schedMins, 0, 0);
-                    const diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+                    let diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+                    
+                    // Lógica para Turnos Nocturnos:
+                    // Si la diferencia es muy negativa (ej. llega a las 00:30 para un turno de las 22:00),
+                    // significa que la fichada pertenece al turno que empezó ayer.
+                    if (diffInMinutes < -600) {
+                        diffInMinutes += 1440; // Sumamos 24 horas para comparar con el inicio de ayer
+                    }
+
                     newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
                     if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
                     else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
