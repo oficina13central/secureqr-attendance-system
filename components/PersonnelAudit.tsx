@@ -131,8 +131,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         const emp = employees.find(e => e.id === selectedEmployeeId);
         const targetMonth = selectedDate.getMonth();
         const targetYear = selectedDate.getFullYear();
-        const startDate = getLocalDateString(new Date(targetYear, targetMonth, 1));
-        const endDate = getLocalDateString(new Date(targetYear, targetMonth + 1, 0));
+        const startDate = new Date(targetYear, targetMonth, 1).toISOString().split('T')[0];
+        const endDate = new Date(targetYear, targetMonth + 1, 0).toISOString().split('T')[0];
 
         if (!window.confirm(`¿Desea recalcular todos los registros de ${emp?.full_name} para el periodo ${startDate} al ${endDate}? Se respetarán los cambios manuales.`)) return;
 
@@ -699,7 +699,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 className={`flex items-center space-x-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-                                <span>{recalculating ? 'Recalculando...' : 'Recalcular'}</span>
+                                <span>{recalculating ? 'Recalcular' : 'Recalcular'}</span>
                             </button>
                             <button
                                 onClick={() => setSelectedEmployeeId(null)}

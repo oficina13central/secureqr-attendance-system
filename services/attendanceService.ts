@@ -348,23 +348,16 @@ export const attendanceService = {
         let updatedCount = 0;
         let errorCount = 0;
         try {
-            // Obtener reglas y perfil primero
-            const [rules, { data: profile }] = await Promise.all([
-                settingsService.getRules(),
-                supabase.from('profiles').select('full_name, default_schedule').eq('id', employeeId).maybeSingle()
-            ]);
-            
-            const defaultSchedule = profile?.default_schedule;
-            
-            // Obtener todos los registros y cronogramas del periodo
             const { data: records, error: recordsError } = await supabase
                 .from('attendance_records')
                 .select('*')
                 .eq('employee_id', employeeId)
                 .gte('date', startDate)
-                .lte('date', endDate);
+                .lte('date', endDate)
+                .not('status', 'eq', 'manual');
 
             if (recordsError) throw recordsError;
+            if (!records || records.length === 0) return { updated: 0, errors: 0 };
 
             const { data: schedules, error: schedError } = await supabase
                 .from('schedules')
@@ -375,105 +368,60 @@ export const attendanceService = {
 
             if (schedError) throw schedError;
 
-            // Generar lista de fechas
-            const start = new Date(`${startDate}T12:00:00`);
-            const end = new Date(`${endDate}T12:00:00`);
-            const dates: string[] = [];
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                dates.push(getLocalDateString(new Date(d)));
-            }
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('default_schedule')
+                .eq('id', employeeId)
+                .maybeSingle();
+            const defaultSchedule = profile?.default_schedule;
 
-            for (const dateStr of dates) {
-                const dateObj = new Date(`${dateStr}T12:00:00`);
-                let schedule = schedules?.find(s => s.date === dateStr);
-                
+            const rules = await settingsService.getRules();
+
+            for (const record of records) {
+                const dateObj = new Date(`${record.date}T12:00:00`);
+                let schedule = schedules?.find(s => s.date === record.date);
                 if (!schedule && defaultSchedule) {
                     const metadata = defaultSchedule.metadata;
-                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                    if (!metadata?.valid_from || record.date >= metadata.valid_from) {
                         const base = defaultSchedule[dateObj.getDay().toString()];
-                        if (base) schedule = { date: dateStr, type: base.type, segments: base.segments } as any;
+                        if (base) schedule = { date: record.date, type: base.type, segments: base.segments } as any;
                     }
                 }
-
-                if (!schedule) continue;
-
-                const dayRecords = records?.filter(r => r.date === dateStr) || [];
                 
-                if (dayRecords.length === 0) {
-                    // No hay registro, crear uno de Ausente/Descanso/Vacaciones
-                    // Solo si la fecha es en el pasado o hoy
-                    if (dateStr <= getLocalDateString()) {
-                        const status = schedule.type === 'off' ? 'descanso' : 
-                                     schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
-                        
-                        const { error: insertError } = await supabase
-                            .from('attendance_records')
-                            .insert([{
-                                id: crypto.randomUUID(),
-                                employee_id: employeeId,
-                                employee_name: profile?.full_name || 'Empleado',
-                                date: dateStr,
-                                check_in: null,
-                                check_out: null,
-                                status: status,
-                                minutes_late: 0
-                            }]);
-                        
-                        if (insertError) errorCount++;
-                        else updatedCount++;
-                    }
-                } else {
-                    // Hay registros, actualizar si no son manuales
-                    for (const record of dayRecords) {
-                        if (record.status === 'manual') continue;
+                if (!schedule) continue;
+                let newStatus = record.status;
+                let newMinutesLate = record.minutes_late;
 
-                        let newStatus = record.status;
-                        let newMinutesLate = record.minutes_late;
+                if (record.check_in && schedule.segments && schedule.segments.length > 0) {
+                    const checkInDate = new Date(record.check_in);
+                    const firstSegment = schedule.segments[0];
+                    const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
+                    const scheduledTime = new Date(checkInDate);
+                    scheduledTime.setHours(schedHours, schedMins, 0, 0);
+                    const diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+                    newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
+                    if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
+                    else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
+                    else newStatus = 'en_horario';
+                } else if (!record.check_in) {
+                    newStatus = schedule.type === 'off' ? 'descanso' : 
+                               schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
+                }
 
-                        if (record.check_in && schedule.segments && schedule.segments.length > 0) {
-                            const checkInDate = new Date(record.check_in);
-                            const firstSegment = schedule.segments[0];
-                            const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
-                            
-                            // Ajustar fecha del cronograma al día del registro
-                            const scheduledTime = new Date(checkInDate);
-                            scheduledTime.setHours(schedHours, schedMins, 0, 0);
-                            
-                            // Lógica básica para turnos nocturnos: si la marca es antes de las 6 AM y el turno empieza tarde noche
-                            // podríamos estar ante una marca del turno que empezó el día anterior.
-                            // Pero para recálculo mensual simplificamos: comparamos con el horario del día del registro.
-                            
-                            const diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
-                            
-                            // Si la diferencia es muy grande negativa (ej: entró a las 00:05 para un turno de las 22:00 del día anterior)
-                            // el record.date debería ser el del día que empezó el turno. 
-                            // Aquí asumimos que el record.date es correcto.
-                            
-                            newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
-                            
-                            if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
-                            else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
-                            else newStatus = 'en_horario';
-                        } else if (!record.check_in) {
-                            newStatus = schedule.type === 'off' ? 'descanso' : 
-                                       schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
-                        }
-
-                        if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
-                            const { error: updateError } = await supabase
-                                .from('attendance_records')
-                                .update({ status: newStatus, minutes_late: newMinutesLate })
-                                .eq('id', record.id);
-                            if (updateError) errorCount++;
-                            else updatedCount++;
-                        }
-                    }
+                if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
+                    const { error: updateError } = await supabase
+                        .from('attendance_records')
+                        .update({ status: newStatus, minutes_late: newMinutesLate })
+                        .eq('id', record.id);
+                    if (updateError) errorCount++;
+                    else updatedCount++;
                 }
             }
 
+            const { data: empData } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
             await auditService.logAction({
                 manager_name: managerName,
-                employee_name: profile?.full_name || 'Empleado Desconocido',
+                employee_name: empData?.full_name || 'Empleado Desconocido',
                 action: 'Recálculo de Asistencia',
                 old_value: 'N/A',
                 new_value: `Periodo: ${startDate} al ${endDate}`,
@@ -482,7 +430,6 @@ export const attendanceService = {
 
             return { updated: updatedCount, errors: errorCount };
         } catch (err) {
-            console.error('Error en recalculateAttendance:', err);
             return { updated: updatedCount, errors: 1 };
         }
     },
