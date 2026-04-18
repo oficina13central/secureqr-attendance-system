@@ -443,14 +443,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         @media print {
           @page {
             size: A4 landscape;
-            margin: 8mm 10mm;
-          }
-
-          /* Forzamos colores en navegadores modernos */
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
+            margin: 10mm 12mm;
           }
 
           /* Ocultar todo el DOM, mostrar solo header y tabla */
@@ -466,7 +459,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             display: block !important;
             position: static !important;
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 24px; /* Más aire para un look premium */
           }
 
           .schedule-table-wrapper {
@@ -478,30 +471,29 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             box-shadow: none !important;
           }
 
-          /* Header de impresión */
+          /* Header de impresión - Minimalista Premium */
           .print-header-top {
             display: flex !important;
             justify-content: space-between;
             align-items: flex-end;
-            border-bottom: 3px solid #6366f1; /* Indigo accent */
-            padding-bottom: 12px;
-            margin-bottom: 10px;
+            border-bottom: 2px solid #0f172a; /* Negro profundo para elegancia */
+            padding-bottom: 10px;
+            margin-bottom: 12px;
           }
           .print-company {
             display: block;
             font-size: 8pt;
             font-weight: 800;
-            color: #6366f1;
+            color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.2em;
+            letter-spacing: 0.15em;
           }
           .print-doc {
             display: block;
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: 900;
-            color: #1e1b4b; /* Deep Indigo */
-            line-height: 1;
-            margin-top: 4px;
+            color: #0f172a;
+            line-height: 1.1;
           }
           .print-meta {
             display: flex;
@@ -509,16 +501,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             align-items: flex-end;
             gap: 2px;
             font-size: 8pt;
-            color: #64748b;
+            color: #475569;
             font-weight: 600;
           }
 
-          /* Tabla */
+          /* Tabla - Limpia y de alto contraste */
           .schedule-table-wrapper table {
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
-            font-size: 8.5pt !important;
+            font-size: 8pt !important;
           }
 
           .schedule-table-wrapper thead {
@@ -526,29 +518,24 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           }
 
           .schedule-table-wrapper th {
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid #1e293b !important;
             padding: 8px 4px !important;
             font-size: 8pt !important;
             font-weight: 800 !important;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             text-align: center;
-            color: #ffffff !important;
-            background: #4f46e5 !important; /* Indigo primary for header */
-          }
-          .schedule-table-wrapper th span {
-            color: #ffffff !important; /* Fuerza contraste para Dom, Lun, etc. */
+            color: #0f172a;
+            background: #f8fafc !important; /* Gris ultra-claro para th */
           }
           .schedule-table-wrapper th:first-child {
             text-align: left;
-            padding-left: 10px;
-            width: 24%;
-            background: #4338ca !important;
-            color: #ffffff !important;
+            padding-left: 8px;
+            width: 25%;
           }
 
           .schedule-table-wrapper td {
-            border: 1px solid #f1f5f9 !important;
+            border: 1px solid #1e293b !important;
             padding: 6px 4px !important;
             font-size: 8pt !important;
             text-align: center;
@@ -557,49 +544,33 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           }
           .schedule-table-wrapper td:first-child {
             text-align: left;
-            padding-left: 10px;
-            font-weight: 700;
-            color: #1e293b;
-            background: #f8fafc !important;
+            padding-left: 8px;
+            font-weight: 800;
+            color: #0f172a;
           }
 
-          /* Evitar que una fila se corte */
+          /* Evitar cortes de fila */
           .schedule-table-wrapper tr {
             page-break-inside: avoid;
           }
 
-          /* Etiquetas (Badges) */
+          /* Badges: Limpios, fondo gris muy suave */
           .schedule-table-wrapper span {
-            padding: 4px 8px !important;
-            border-radius: 6px !important;
+            background: #f1f5f9 !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 4px 6px !important;
+            border-radius: 4px !important;
             font-size: 7.5pt !important;
             font-weight: 800 !important;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
+            color: #334155 !important;
             display: inline-block !important;
-            margin: 1px 0 !important;
-            border-width: 1px !important;
-            border-style: solid !important;
           }
 
-          /* Forzamos que los spans mantengan sus clases de Tailwind en impresin */
-          .bg-amber-100\/80 { background-color: #fef3c7 !important; color: #b45309 !important; border-color: #fcd34d !important; }
-          .bg-indigo-100\/80 { background-color: #e0e7ff !important; color: #4338ca !important; border-color: #c7d2fe !important; }
-          .bg-emerald-100\/80 { background-color: #d1fae5 !important; color: #047857 !important; border-color: #6ee7b7 !important; }
-          .bg-red-100\/80 { background-color: #fee2e2 !important; color: #b91c1c !important; border-color: #fca5a5 !important; }
-          .bg-slate-100\/80 { background-color: #f1f5f9 !important; color: #64748b !important; border-color: #e2e8f0 !important; }
-          .bg-slate-100 { background-color: #f1f5f9 !important; color: #94a3b8 !important; border-color: #e2e8f0 !important; }
-
-          /* Ocultar elementos innecesarios */
+          /* Ocultar elementos */
           .no-print,
           button, select, input,
           .fixed, header, nav, .absolute {
             display: none !important;
-          }
-
-          /* Asegurar que el contenido visible no se oculte por accidentales position absolute */
-          .schedule-table-wrapper .relative {
-            position: static !important;
           }
         }
       `}</style>
