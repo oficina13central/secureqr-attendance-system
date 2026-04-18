@@ -413,7 +413,8 @@ export const attendanceService = {
                     else newStatus = 'en_horario';
                 } else if (!record.check_in) {
                     newStatus = schedule.type === 'off' ? 'descanso' : 
-                               schedule.type === 'vacation' ? 'vacaciones' : 'ausente';
+                               schedule.type === 'vacation' ? 'vacaciones' : 
+                               schedule.type === 'medical' ? 'licencia_medica' : 'ausente';
                 }
 
                 if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
