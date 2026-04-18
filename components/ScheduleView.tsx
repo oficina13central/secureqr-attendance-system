@@ -443,7 +443,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         @media print {
           @page {
             size: A4 landscape;
-            margin: 10mm 12mm;
+            margin: 8mm 10mm;
+          }
+
+          /* Forzamos colores en navegadores modernos */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
 
           /* Ocultar todo el DOM, mostrar solo header y tabla */
@@ -455,13 +462,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             visibility: visible;
           }
 
-          /* FLUJO NORMAL: sin position fixed/absolute
-             Así el navegador pagina automáticamente */
           .print-header {
             display: block !important;
             position: static !important;
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 20px;
           }
 
           .schedule-table-wrapper {
@@ -478,99 +483,119 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             display: flex !important;
             justify-content: space-between;
             align-items: flex-end;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 5px;
-            margin-bottom: 8px;
+            border-bottom: 3px solid #6366f1; /* Indigo accent */
+            padding-bottom: 12px;
+            margin-bottom: 10px;
           }
           .print-company {
             display: block;
-            font-size: 7pt;
-            font-weight: 700;
-            color: #475569;
+            font-size: 8pt;
+            font-weight: 800;
+            color: #6366f1;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.2em;
           }
           .print-doc {
             display: block;
-            font-size: 14pt;
-            font-weight: 700;
-            color: #0f172a;
-            line-height: 1.1;
+            font-size: 18pt;
+            font-weight: 900;
+            color: #1e1b4b; /* Deep Indigo */
+            line-height: 1;
+            margin-top: 4px;
           }
           .print-meta {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 2px;
-            font-size: 7.5pt;
-            color: #475569;
+            font-size: 8pt;
+            color: #64748b;
+            font-weight: 600;
           }
-          .print-meta span { display: block; }
 
-          /* Tabla — flujo normal para paginación automática */
+          /* Tabla */
           .schedule-table-wrapper table {
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
-            font-size: 8pt !important;
+            font-size: 8.5pt !important;
           }
 
-          /* thead se repite en cada página nueva */
           .schedule-table-wrapper thead {
             display: table-header-group !important;
           }
 
           .schedule-table-wrapper th {
-            border: 1.5px solid #334155 !important;
-            padding: 5px 4px !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 8px 4px !important;
             font-size: 8pt !important;
-            font-weight: 700 !important;
+            font-weight: 800 !important;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             text-align: center;
-            color: #0f172a;
-            background: #ffffff !important;
+            color: #ffffff !important;
+            background: #4f46e5 !important; /* Indigo primary for header */
           }
           .schedule-table-wrapper th:first-child {
             text-align: left;
-            padding-left: 6px;
-            width: 26%;
+            padding-left: 10px;
+            width: 24%;
+            background: #4338ca !important;
           }
 
           .schedule-table-wrapper td {
-            border: 1.5px solid #334155 !important;
-            padding: 4px 3px !important;
-            font-size: 7.5pt !important;
+            border: 1px solid #f1f5f9 !important;
+            padding: 6px 4px !important;
+            font-size: 8pt !important;
             text-align: center;
             vertical-align: middle;
             background: #ffffff !important;
           }
           .schedule-table-wrapper td:first-child {
             text-align: left;
-            padding-left: 6px;
+            padding-left: 10px;
+            font-weight: 700;
+            color: #1e293b;
+            background: #f8fafc !important;
           }
 
-          /* Evitar que una fila se corte entre páginas */
+          /* Evitar que una fila se corte */
           .schedule-table-wrapper tr {
             page-break-inside: avoid;
           }
 
-          /* Badges: solo texto, sin fondo ni borde */
+          /* Etiquetas (Badges) */
           .schedule-table-wrapper span {
-            background: none !important;
-            border: none !important;
-            padding: 0 !important;
-            font-size: 7pt !important;
-            font-weight: 700 !important;
-            color: #1e293b !important;
-            box-shadow: none !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            font-size: 7.5pt !important;
+            font-weight: 800 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            display: inline-block !important;
+            margin: 1px 0 !important;
+            border-width: 1px !important;
+            border-style: solid !important;
           }
 
-          /* Ocultar avatares, botones y controles */
+          /* Forzamos que los spans mantengan sus clases de Tailwind en impresin */
+          .bg-amber-100\/80 { background-color: #fef3c7 !important; color: #b45309 !important; border-color: #fcd34d !important; }
+          .bg-indigo-100\/80 { background-color: #e0e7ff !important; color: #4338ca !important; border-color: #c7d2fe !important; }
+          .bg-emerald-100\/80 { background-color: #d1fae5 !important; color: #047857 !important; border-color: #6ee7b7 !important; }
+          .bg-red-100\/80 { background-color: #fee2e2 !important; color: #b91c1c !important; border-color: #fca5a5 !important; }
+          .bg-slate-100\/80 { background-color: #f1f5f9 !important; color: #64748b !important; border-color: #e2e8f0 !important; }
+          .bg-slate-100 { background-color: #f1f5f9 !important; color: #94a3b8 !important; border-color: #e2e8f0 !important; }
+
+          /* Ocultar elementos innecesarios */
           .no-print,
           button, select, input,
-          .fixed, header, nav {
+          .fixed, header, nav, .absolute {
             display: none !important;
+          }
+
+          /* Asegurar que el contenido visible no se oculte por accidentales position absolute */
+          .schedule-table-wrapper .relative {
+            position: static !important;
           }
         }
       `}</style>
