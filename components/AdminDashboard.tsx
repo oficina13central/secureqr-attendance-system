@@ -121,11 +121,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   // Filter records based on authorized employees
   const authorizedRecords = useMemo(() => {
-    if (!authorizedSectors) return records;
-    return records.filter(record => {
-      const emp = employees.find(e => e.full_name === record.employee_name);
-      return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
-    });
+    let recs = records;
+    if (authorizedSectors) {
+      recs = recs.filter(record => {
+        const emp = employees.find(e => e.full_name === record.employee_name);
+        return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
+      });
+    }
+    // Filtramos las ausencias generadas en periodo de prueba (antes o en 19 de Abril)
+    return recs.filter(r => !(r.status === 'ausente' && r.date <= '2026-04-19'));
   }, [records, employees, authorizedSectors]);
 
   const formatTime = (isoString: string | null) => {
@@ -192,6 +196,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   // ── VIRTUAL ABSENCES DETECTION ──
   const realTimeAbsences = useMemo(() => {
     const today = getLocalDateString();
+    
+    // Evitar generar ausencias virtuales si el sistema aún no inicia oficialmente
+    if (today <= '2026-04-19') return [];
+
     const now = new Date();
     const [y, mm, dd] = today.split('-').map(Number);
     const todayNum = new Date(y, mm - 1, dd).getDay().toString();

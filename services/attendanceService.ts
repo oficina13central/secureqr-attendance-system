@@ -490,6 +490,9 @@ export const attendanceService = {
         let medicalPenalty = 0;
         
         for (const record of records) {
+            // Ignorar penalidades antes de la fecha de inicio oficial (20 de Abril 2026)
+            if (record.date <= '2026-04-19') continue;
+
             if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
             
             const rDate = new Date(`${record.date}T12:00:00`);
@@ -519,8 +522,7 @@ export const attendanceService = {
 
         finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
         let category = 1, label = '', color = '';
-        if (finalScore === 999) { category = 0; label = 'Clase 0 (Altamente Puntual)'; color = 'bg-indigo-100 text-indigo-700 border-indigo-200'; }
-        else if (finalScore >= 950) { category = 1; label = 'Clase 1 (Excelente)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
+        if (finalScore >= 950) { category = 1; label = 'Clase 1 (Normal)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
         else if (finalScore >= 750) { category = 2; label = 'Clase 2 (Estable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
         else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Regular)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }
         else if (finalScore >= 250) { category = 4; label = 'Clase 4 (Alerta)'; color = 'bg-rose-100 text-rose-700 border-rose-300'; }
