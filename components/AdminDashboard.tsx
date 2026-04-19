@@ -303,6 +303,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
       } else if (activeFilter === 'absent') {
         baseRecs = baseRecs.filter(r => r.status === 'ausente');
+      } else if (activeFilter === 'off') {
+        baseRecs = baseRecs.filter(r => r.status === 'descanso');
+      } else if (activeFilter === 'vacation') {
+        baseRecs = baseRecs.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica');
       }
     }
 
@@ -316,12 +320,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const stats = useMemo(() => {
     const today = getLocalDateString();
     const todayRecs = correctedRecords.filter(r => r.date === today);
+    const recordedIds = new Set(todayRecs.map(r => r.employee_id.toLowerCase()));
+    
+    let descansos = todayRecs.filter(r => r.status === 'descanso').length;
+    let vacaciones = todayRecs.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica').length;
+
+    // A los no fichados les revisamos su cronograma para sumarlos a descansos o vacaciones
+    authorizedEmployees.forEach(emp => {
+      const empId = emp.id.toLowerCase();
+      if (recordedIds.has(empId)) return;
+
+      let shift = scheduleMap.get(`${empId}_${today}`);
+      if (!shift && emp.default_schedule) {
+         const todayNum = new Date().getDay().toString();
+         if (emp.default_schedule[todayNum]) shift = emp.default_schedule[todayNum];
+      }
+      
+      if (shift) {
+        if (shift.type === 'off') descansos++;
+        if (shift.type === 'vacation' || shift.type === 'medical') vacaciones++;
+      }
+    });
+
     return {
       presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
       tardes: todayRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
-      ausentes: todayRecs.filter(r => r.status === 'ausente').length + realTimeAbsences.length
+      ausentes: todayRecs.filter(r => r.status === 'ausente').length + realTimeAbsences.length,
+      descansos,
+      vacaciones
     };
-  }, [correctedRecords, realTimeAbsences]);
+  }, [correctedRecords, realTimeAbsences, authorizedEmployees, scheduleMap]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
@@ -415,24 +443,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-700 bg-slate-50/50 min-h-screen">
       
       {/* 1. Top Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
         {[
-          { id: 'present', label: 'Presentes (Hoy)', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
-          { id: 'late', label: 'Tardanzas (Hoy)', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
-          { id: 'absent', label: 'Ausencias (Hoy)', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
-          { id: 'all', label: 'Total Activos', value: authorizedEmployees.length, icon: ShieldCheck, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
+          { id: 'present', label: 'Presentes', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
+          { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
+          { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
+          { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
+          { id: 'vacation', label: 'Vacaciones/Lic.', value: stats.vacaciones, icon: ShieldCheck, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
+          { id: 'all', label: 'Totales', value: authorizedEmployees.length, icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
         ].map((stat, i) => (
           <button 
             key={i} 
             onClick={() => setActiveFilter(activeFilter === stat.id ? 'all' : stat.id as any)}
-            className={`bg-white px-5 py-4 rounded-3xl border transition-all text-left flex items-center space-x-4 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-100 shadow-sm'}`}
+            className={`bg-white px-3 md:px-4 py-3 md:py-4 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col items-start gap-2 lg:gap-3 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-100 shadow-sm'}`}
           >
-            <div className={`p-3 rounded-2xl ${stat.bg}`}>
-              <stat.icon className={`w-5 h-5 ${stat.color}`} strokeWidth={2.5} />
+            <div className={`p-2 lg:p-3 rounded-xl lg:rounded-2xl shrink-0 ${stat.bg}`}>
+              <stat.icon className={`w-4 h-4 lg:w-5 lg:h-5 ${stat.color}`} strokeWidth={2.5} />
             </div>
             <div className="flex flex-col">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              <p className="text-2xl font-black text-slate-800 leading-none mt-1">{stat.value}</p>
+              <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+              <p className="text-xl md:text-2xl font-black text-slate-800 leading-none mt-1">{stat.value}</p>
             </div>
           </button>
         ))}
