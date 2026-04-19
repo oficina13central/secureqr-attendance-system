@@ -254,6 +254,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const empId = emp?.id?.toLowerCase() || normalizedRecordId;
       if (!empId) return r;
 
+      const dateKey = r.date.substring(0, 10);
       let shift = scheduleMap.get(`${empId}_${dateKey}`);
       
       if (!shift && emp.default_schedule) {
