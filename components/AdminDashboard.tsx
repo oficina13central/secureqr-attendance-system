@@ -196,10 +196,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   // ── VIRTUAL ABSENCES DETECTION ──
   const realTimeAbsences = useMemo(() => {
     const today = getLocalDateString();
-    
-    // Evitar generar ausencias virtuales si el sistema aún no inicia oficialmente
-    if (today <= '2026-04-19') return [];
-
     const now = new Date();
     const [y, mm, dd] = today.split('-').map(Number);
     const todayNum = new Date(y, mm - 1, dd).getDay().toString();
@@ -244,6 +240,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else {
+          if (today <= '2026-04-19') return; // Evitar generar ausencias virtuales antes de la fecha de inicio
+
           // Es un turno normal (continuous / split)
           const shiftStartStr = shift.segments?.[0]?.start;
           if (shiftStartStr) {
