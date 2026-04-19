@@ -116,9 +116,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   };
 
   // ── HELPER: GET SCHEDULED SHIFT ──
-  const getScheduledShiftForRecord = (record: AttendanceRecord | { employee_id: string, date: string }) => {
+  const getScheduledShiftForRecord = (record: AttendanceRecord | { employee_id: string, date: string, employee_name?: string }) => {
+    if (!record) return 'Sin Turno';
+
+    // Normalizamos la fecha para asegurar formato YYYY-MM-DD de 10 caracteres
+    const recordDate = record.date.substring(0, 10);
+    
+    // Intentamos encontrar el empleado para tener el objeto completo
+    const emp = employees.find(e => 
+      e.id === record.employee_id || 
+      (record.employee_name && e.full_name.trim().toLowerCase() === record.employee_name.trim().toLowerCase())
+    );
+
+    const empId = emp?.id || record.employee_id;
+
     // 1. Prioridad: Horarios específicos en la tabla 'schedules'
-    const shift = schedules.find(s => s.employee_id === record.employee_id && s.date === record.date);
+    const shift = schedules.find(s => 
+      s.employee_id === empId && 
+      s.date.substring(0, 10) === recordDate
+    );
+
     if (shift) {
       if (shift.type === 'vacation') return 'Vacaciones';
       if (shift.type === 'medical') return 'Licencia Médica';
@@ -129,20 +146,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     }
     
     // 2. Fallback: Horario base definido en el perfil del empleado
-    const emp = employees.find(e => e.id === record.employee_id);
     if (emp && emp.default_schedule) {
-      // Usamos una traslación robusta para evitar errores de zona horaria al parsear la fecha YYYY-MM-DD
-      const [year, month, day] = record.date.split('-').map(Number);
-      const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
-      
-      const defShift = emp.default_schedule[dayOfWeek];
-      if (defShift) {
-        if (defShift.type === 'off') return 'Descanso';
-        if (defShift.type === 'vacation') return 'Vacaciones';
-        if (defShift.type === 'medical') return 'Licencia Médica';
-        if (defShift.segments?.[0]) {
-          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      try {
+        // Usamos una traslación robusta para evitar errores de zona horaria
+        const parts = recordDate.split('-');
+        if (parts.length === 3) {
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const day = parseInt(parts[2], 10);
+          // new Date(year, month-1, day) crea la fecha en hora LOCAL
+          const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
+          
+          const defShift = emp.default_schedule[dayOfWeek];
+          if (defShift) {
+            if (defShift.type === 'off') return 'Descanso';
+            if (defShift.type === 'vacation') return 'Vacaciones';
+            if (defShift.type === 'medical') return 'Licencia Médica';
+            if (defShift.segments?.[0]) {
+              return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+            }
+          }
         }
+      } catch (e) {
+        console.error('Error parsing date for default schedule:', e);
       }
     }
 
