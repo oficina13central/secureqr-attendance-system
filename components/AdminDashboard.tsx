@@ -214,24 +214,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         }
       }
 
-      // IMPORTANTE: Ignorar si es descanso, vacaciones o licencia
-      if (shift && shift.type !== 'off' && shift.type !== 'vacation' && shift.type !== 'medical') {
-        const shiftStartStr = shift.segments?.[0]?.start;
-        if (shiftStartStr) {
-          const [h, m] = shiftStartStr.split(':').map(Number);
-          const shiftStart = new Date(y, mm - 1, dd, h, m);
-          const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
-          
-          if (minutesSinceStart >= gracePeriod) {
-            virtualAbsences.push({
-              employee_id: emp.id,
-              employee_name: emp.full_name,
-              date: today,
-              status: 'ausente',
-              check_in: null,
-              check_out: null,
-              minutes_late: 0
-            });
+      if (shift) {
+        if (shift.type === 'off') {
+          virtualAbsences.push({
+            employee_id: emp.id,
+            employee_name: emp.full_name,
+            date: today,
+            status: 'descanso',
+            check_in: null,
+            check_out: null,
+            minutes_late: 0
+          });
+        } else if (shift.type === 'vacation' || shift.type === 'medical') {
+          virtualAbsences.push({
+            employee_id: emp.id,
+            employee_name: emp.full_name,
+            date: today,
+            status: shift.type === 'vacation' ? 'vacaciones' : 'licencia_medica',
+            check_in: null,
+            check_out: null,
+            minutes_late: 0
+          });
+        } else {
+          // Es un turno normal (continuous / split)
+          const shiftStartStr = shift.segments?.[0]?.start;
+          if (shiftStartStr) {
+            const [h, m] = shiftStartStr.split(':').map(Number);
+            const shiftStart = new Date(y, mm - 1, dd, h, m);
+            const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+            
+            if (minutesSinceStart >= gracePeriod) {
+              virtualAbsences.push({
+                employee_id: emp.id,
+                employee_name: emp.full_name,
+                date: today,
+                status: 'ausente',
+                check_in: null,
+                check_out: null,
+                minutes_late: 0
+              });
+            }
           }
         }
       }
@@ -320,36 +342,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const stats = useMemo(() => {
     const today = getLocalDateString();
     const todayRecs = correctedRecords.filter(r => r.date === today);
-    const recordedIds = new Set(todayRecs.map(r => r.employee_id.toLowerCase()));
-    
-    let descansos = todayRecs.filter(r => r.status === 'descanso').length;
-    let vacaciones = todayRecs.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica').length;
-
-    // A los no fichados les revisamos su cronograma para sumarlos a descansos o vacaciones
-    authorizedEmployees.forEach(emp => {
-      const empId = emp.id.toLowerCase();
-      if (recordedIds.has(empId)) return;
-
-      let shift = scheduleMap.get(`${empId}_${today}`);
-      if (!shift && emp.default_schedule) {
-         const todayNum = new Date().getDay().toString();
-         if (emp.default_schedule[todayNum]) shift = emp.default_schedule[todayNum];
-      }
-      
-      if (shift) {
-        if (shift.type === 'off') descansos++;
-        if (shift.type === 'vacation' || shift.type === 'medical') vacaciones++;
-      }
-    });
+    const allTodayRecords = [...todayRecs, ...realTimeAbsences];
 
     return {
-      presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
-      tardes: todayRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
-      ausentes: todayRecs.filter(r => r.status === 'ausente').length + realTimeAbsences.length,
-      descansos,
-      vacaciones
+      presentes: allTodayRecords.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
+      tardes: allTodayRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
+      ausentes: allTodayRecords.filter(r => r.status === 'ausente').length,
+      descansos: allTodayRecords.filter(r => r.status === 'descanso').length,
+      vacaciones: allTodayRecords.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica').length
     };
-  }, [correctedRecords, realTimeAbsences, authorizedEmployees, scheduleMap]);
+  }, [correctedRecords, realTimeAbsences]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
