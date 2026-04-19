@@ -213,6 +213,10 @@ export const attendanceService = {
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
 
+            // IMPORTANTE: Evitar generar ausencias automáticas de días de prueba/instalación.
+            // El sistema de detección de faltas arranca oficialmente el 20 de Abril de 2026.
+            if (dateStr <= '2026-04-19') continue;
+
             const { data: existingToday } = await supabase
                 .from('attendance_records')
                 .select('employee_id, employee_name')
