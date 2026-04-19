@@ -35,13 +35,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
-      const today = getLocalDateString();
       try {
         const [recordsRes, employeesRes, sectorsRes, schedulesRes, rulesRes] = await Promise.allSettled([
           attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+          supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).limit(5000),
           settingsService.getRules()
         ]);
 
@@ -53,24 +52,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           : [];
         const fetchedRules = rulesRes.status === 'fulfilled' ? rulesRes.value : null;
 
-        // Sincronizamos los datos según el alcance (global vs sector) 
-        // El filtrado real se realiza en los useMemo (authorizedEmployees, authorizedRecords)
         setEmployees(fetchedEmployees);
         setRecords(fetchedRecords);
-        
         setSectors(fetchedSectors);
         setSchedules(fetchedSchedules);
         setRules(fetchedRules);
 
-        if (employeesRes.status === 'fulfilled' && employeesRes.value) {
-           attendanceService.syncPastAbsences(employeesRes.value as Profile[]).then(async () => {
+        // Sincronización de ausencias del pasado y hoy (si pasó el período de gracia)
+        if (fetchedEmployees.length > 0) {
+           attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
+             // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
                attendanceService.getAll(),
-               supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+               supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).limit(5000)
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules.data) setSchedules(updatedSchedules.data);
-           }).catch(e => console.error('Sync error:', e));
+           }).catch(e => console.error('Error in sync:', e));
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -80,6 +78,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     };
     loadDashboardData();
   }, []);
+
+  // ── OPTIMIZED LOOKUP: SCHEDULE MAP ──
+  // Creamos un mapa indexado por employeeId_date para búsqueda O(1) ultra rápida y fiable
+  const scheduleMap = useMemo(() => {
+    const map = new Map<string, any>();
+    schedules.forEach(s => {
+      const dateKey = s.date.substring(0, 10);
+      map.set(`${s.employee_id}_${dateKey}`, s);
+    });
+    return map;
+  }, [schedules]);
 
   const getSectorForEmployee = (employeeName: string) => {
     const emp = employees.find(e => e.full_name === employeeName);
@@ -121,115 +130,89 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   };
 
   // ── HELPER: GET SCHEDULED SHIFT ──
-  const getScheduledShiftForRecord = (record: AttendanceRecord | { employee_id: string, date: string, employee_name?: string }) => {
+  const getScheduledShiftForRecord = (record: { employee_id: string, date: string }) => {
     if (!record) return 'Sin Turno';
+    const dateKey = record.date.substring(0, 10);
+    const compositeKey = `${record.employee_id}_${dateKey}`;
 
-    // Normalizamos la fecha para asegurar formato YYYY-MM-DD de 10 caracteres
-    const recordDate = record.date.substring(0, 10);
-    
-    // Intentamos encontrar el empleado para tener el objeto completo
-    const emp = employees.find(e => 
-      (record.employee_id && e.id === record.employee_id) || 
-      (record.employee_name && e.full_name.trim().toLowerCase() === record.employee_name.trim().toLowerCase())
-    );
-
-    const empId = emp?.id || record.employee_id;
-    const empName = emp?.full_name || record.employee_name || '';
-
-    // 1. Prioridad: Horarios específicos en la tabla 'schedules'
-    // Buscamos por ID o por coincidencia en el ID del objeto que suele ser "empId_date"
-    const shift = schedules.find(s => {
-      const matchId = s.employee_id === empId || s.id?.startsWith(empId + '_');
-      const matchDate = s.date.includes(recordDate);
-      return matchId && matchDate;
-    });
-
+    // 1. Prioridad: Horario específico en tabla 'schedules'
+    const shift = scheduleMap.get(compositeKey);
     if (shift) {
+      if (shift.type === 'off') return 'Descanso';
       if (shift.type === 'vacation') return 'Vacaciones';
       if (shift.type === 'medical') return 'Licencia Médica';
-      if (shift.type === 'off') return 'Descanso';
       if (shift.segments?.[0]) {
         return shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
       }
     }
     
-    // 2. Fallback: Horario base definido en el perfil del empleado
+    // 2. Fallback: Horario base (plantilla)
+    const emp = employees.find(e => e.id === record.employee_id);
     if (emp && emp.default_schedule) {
-      try {
-        // Usamos una traslación robusta para evitar errores de zona horaria
-        const parts = recordDate.split('-');
-        if (parts.length === 3) {
-          const year = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10);
-          const day = parseInt(parts[2], 10);
-          // new Date(year, month-1, day) crea la fecha en hora LOCAL
-          const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
-          
-          const defShift = emp.default_schedule[dayOfWeek];
-          if (defShift) {
-            if (defShift.type === 'off') return 'Descanso';
-            if (defShift.type === 'vacation') return 'Vacaciones';
-            if (defShift.type === 'medical') return 'Licencia Médica';
-            if (defShift.segments?.[0]) {
-              return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
-            }
-          }
+      const [year, month, day] = dateKey.split('-').map(Number);
+      const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
+      
+      const defShift = emp.default_schedule[dayOfWeek];
+      if (defShift) {
+        if (defShift.type === 'off') return 'Descanso';
+        if (defShift.type === 'vacation') return 'Vacaciones';
+        if (defShift.type === 'medical') return 'Licencia Médica';
+        if (defShift.segments?.[0]) {
+          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
         }
-      } catch (e) {
-        console.error('Error parsing date for default schedule:', e);
       }
     }
 
     return 'Sin Turno';
   };
 
-  // ── INFER REAL-TIME ABSENCES ──
+  // ── VIRTUAL ABSENCES DETECTION ──
   const realTimeAbsences = useMemo(() => {
     const today = getLocalDateString();
     const now = new Date();
-    const todayDayOfWeek = now.getDay().toString();
-    const todayRecords = authorizedRecords.filter(r => r.date === today);
-    const recordedEmpIds = new Set(todayRecords.map(r => r.employee_id));
-
-    const absences: AttendanceRecord[] = [];
+    const [y, mm, dd] = today.split('-').map(Number);
+    const todayNum = new Date(y, mm - 1, dd).getDay().toString();
+    const recordedEmpIds = new Set(records.filter(r => r.date === today).map(r => r.employee_id));
+    
+    const virtualAbsences: any[] = [];
+    const gracePeriod = rules?.ausente_gracia || 120;
 
     authorizedEmployees.forEach(emp => {
       if (recordedEmpIds.has(emp.id)) return;
 
-      let shift = schedules.find(s => s.employee_id === emp.id && s.date === today);
+      // Usamos el mismo mapa de búsqueda para consistencia total
+      let shift = scheduleMap.get(`${emp.id}_${today}`);
+      
       if (!shift && emp.default_schedule) {
         const metadata = emp.default_schedule.metadata;
         if (!metadata?.valid_from || today >= metadata.valid_from) {
-          shift = emp.default_schedule[todayDayOfWeek];
+          shift = emp.default_schedule[todayNum];
         }
       }
 
-      if (shift && shift.type !== 'off' && shift.segments?.[0]?.start) {
-        const [h, m] = shift.segments[0].start.split(':').map(Number);
-        const shiftStart = new Date();
-        shiftStart.setHours(h, m, 0, 0);
-
-        const gracePeriod = rules?.ausente_gracia || 120;
-        const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
-
-        // Only mark as absent if grace period has passed
-        if (minutesSinceStart > gracePeriod) {
-          absences.push({
-            id: `virtual_${emp.id}`,
-            employee_id: emp.id,
-            employee_name: emp.full_name,
-            date: today,
-            check_in: null,
-            check_out: null,
-            status: 'ausente',
-            minutes_late: 0
-          });
+      if (shift && shift.type !== 'off' && shift.type !== 'vacation' && shift.type !== 'medical') {
+        const shiftStartStr = shift.segments?.[0]?.start;
+        if (shiftStartStr) {
+          const [h, m] = shiftStartStr.split(':').map(Number);
+          const shiftStart = new Date(y, mm - 1, dd, h, m);
+          const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+          
+          if (minutesSinceStart >= gracePeriod) {
+            virtualAbsences.push({
+              employee_id: emp.id,
+              employee_name: emp.full_name,
+              date: today,
+              status: 'ausente',
+              check_in: null,
+              check_out: null,
+              minutes_late: 0
+            });
+          }
         }
       }
     });
-
-    return absences;
-  }, [authorizedEmployees, authorizedRecords, schedules, rules]);
+    return virtualAbsences;
+  }, [records, authorizedEmployees, rules, scheduleMap, schedules]);
 
   const filteredRecords = useMemo(() => {
     const today = getLocalDateString();
