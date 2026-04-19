@@ -18,6 +18,7 @@ import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
+import { attendanceService } from '../services/attendanceService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface ScheduleViewProps {
@@ -252,6 +253,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
         reason: 'Modificación manual de cronograma'
       });
+
+      // Recalcular asistencia para el rango modificado para corregir ausencias previas generadas automáticamente
+      const startStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.startDate || targetDateStr) : targetDateStr;
+      const endStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.endDate || targetDateStr) : targetDateStr;
+      await attendanceService.recalculateAttendance(selectedTarget.empId, startStr, endStr, currentUser.full_name || 'Admin');
     }
 
     setIsModalOpen(false);

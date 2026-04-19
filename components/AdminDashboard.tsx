@@ -235,6 +235,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return virtualAbsences;
   }, [records, authorizedEmployees, rules, scheduleMap, schedules]);
 
+  // ── RECORD CORRECTION FALLBACK ──
+  // Si un registro "ausente" fue generado antes de que se asignaran vacaciones/licencias en el cronograma, 
+  // esto corrige visualmente su estado en tiempo real.
+  const correctedRecords = useMemo(() => {
+    return authorizedRecords.map(r => {
+      if (r.check_in) return r; // Si tiene fichada real, no intervenimos.
+
+      const normalizedRecordId = r.employee_id?.toLowerCase();
+      const emp = employees.find(e => 
+        (normalizedRecordId && e.id.toLowerCase() === normalizedRecordId) || 
+        (r.employee_name && e.full_name.trim().toLowerCase() === r.employee_name.trim().toLowerCase())
+      );
+      const empId = emp?.id?.toLowerCase() || normalizedRecordId;
+      if (!empId) return r;
+
+      const dateKey = r.date.substring(0, 10);
+      const shift = scheduleMap.get(`${empId}_${dateKey}`);
+      
+      if (shift) {
+        if (shift.type === 'off') return { ...r, status: 'descanso' };
+        if (shift.type === 'vacation') return { ...r, status: 'vacaciones' };
+        if (shift.type === 'medical') return { ...r, status: 'licencia_medica' };
+      }
+      return r;
+    });
+  }, [authorizedRecords, scheduleMap, employees]);
+
   const filteredRecords = useMemo(() => {
     const today = getLocalDateString();
     let baseRecs: AttendanceRecord[] = [];
@@ -243,7 +270,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       // 30 day history mode
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      baseRecs = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
+      baseRecs = correctedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
 
       if (activeFilter === 'history_absent') {
         baseRecs = baseRecs.filter(r => r.status === 'ausente');
@@ -254,7 +281,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       }
     } else {
       // Today mode
-      const todayRecs = authorizedRecords.filter(r => r.date === today);
+      const todayRecs = correctedRecords.filter(r => r.date === today);
       baseRecs = [...todayRecs, ...realTimeAbsences];
 
       if (activeFilter === 'present') {
