@@ -16,6 +16,7 @@ import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
 import { supabase } from '../services/supabaseClient';
+import { scheduleService } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface AdminDashboardProps {
@@ -40,15 +41,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).limit(5000),
+          scheduleService.getAllSchedulesInRange(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
           settingsService.getRules()
         ]);
 
         const fetchedRecords = recordsRes.status === 'fulfilled' ? (recordsRes.value as AttendanceRecord[]) : [];
         const fetchedEmployees = employeesRes.status === 'fulfilled' ? (employeesRes.value as Profile[]) : [];
         const fetchedSectors = sectorsRes.status === 'fulfilled' ? (sectorsRes.value as Sector[]) : [];
-        const fetchedSchedules = (schedulesRes.status === 'fulfilled' && (schedulesRes.value as any).data) 
-          ? (schedulesRes.value as any).data 
+        const fetchedSchedules = (schedulesRes.status === 'fulfilled' && schedulesRes.value) 
+          ? schedulesRes.value 
           : [];
         const fetchedRules = rulesRes.status === 'fulfilled' ? rulesRes.value : null;
 
@@ -64,10 +65,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
              // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
                attendanceService.getAll(),
-               supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).limit(5000)
+               scheduleService.getAllSchedulesInRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
              ]);
              setRecords(updatedRecords);
-             if (updatedSchedules.data) setSchedules(updatedSchedules.data);
+             if (updatedSchedules) setSchedules(updatedSchedules);
            }).catch(e => console.error('Error in sync:', e));
         }
       } catch (err) {

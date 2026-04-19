@@ -32,6 +32,43 @@ export const scheduleService = {
         return data || [];
     },
 
+    async getAllSchedulesInRange(startDate: string, endDate?: string): Promise<ShiftData[]> {
+        let allSchedules: ShiftData[] = [];
+        let page = 0;
+        const limit = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            let query = supabase
+                .from('schedules')
+                .select('*')
+                .gte('date', startDate)
+                .range(page * limit, (page + 1) * limit - 1);
+            
+            if (endDate) {
+                query = query.lte('date', endDate);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error fetching paginated schedules:', error);
+                break;
+            }
+
+            if (data && data.length > 0) {
+                allSchedules = [...allSchedules, ...data];
+                page++;
+                if (data.length < limit) {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
+        }
+        return allSchedules;
+    },
+
     async save(shifts: ShiftData | ShiftData[]): Promise<(ShiftData | null)[] | ShiftData | null> {
         const shiftsToSave = Array.isArray(shifts) ? shifts : [shifts];
         const { data, error } = await supabase
