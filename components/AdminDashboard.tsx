@@ -182,6 +182,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       }
     }
 
+    if (record.status === 'vacaciones') return 'Vacaciones';
+    if (record.status === 'licencia_medica') return 'Licencia Médica';
+    if (record.status === 'descanso') return 'Descanso';
+
     return 'Sin Turno';
   };
 
@@ -250,8 +254,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const empId = emp?.id?.toLowerCase() || normalizedRecordId;
       if (!empId) return r;
 
-      const dateKey = r.date.substring(0, 10);
-      const shift = scheduleMap.get(`${empId}_${dateKey}`);
+      let shift = scheduleMap.get(`${empId}_${dateKey}`);
+      
+      if (!shift && emp.default_schedule) {
+        const [y, mm, dd] = dateKey.split('-').map(Number);
+        if (!isNaN(y) && !isNaN(mm) && !isNaN(dd)) {
+            const dayOfWeek = new Date(y, mm - 1, dd).getDay().toString();
+            const defShift = emp.default_schedule[dayOfWeek];
+            if (defShift) shift = defShift;
+        }
+      }
       
       if (shift) {
         if (shift.type === 'off') return { ...r, status: 'descanso' };
@@ -302,13 +314,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   const stats = useMemo(() => {
     const today = getLocalDateString();
-    const todayRecs = authorizedRecords.filter(r => r.date === today);
+    const todayRecs = correctedRecords.filter(r => r.date === today);
     return {
       presentes: todayRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
       tardes: todayRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
       ausentes: todayRecs.filter(r => r.status === 'ausente').length + realTimeAbsences.length
     };
-  }, [authorizedRecords, realTimeAbsences]);
+  }, [correctedRecords, realTimeAbsences]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
