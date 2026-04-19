@@ -117,19 +117,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   // ── HELPER: GET SCHEDULED SHIFT ──
   const getScheduledShiftForRecord = (record: AttendanceRecord | { employee_id: string, date: string }) => {
-    // 1. Check for a specific schedule
+    // 1. Prioridad: Horarios específicos en la tabla 'schedules'
     const shift = schedules.find(s => s.employee_id === record.employee_id && s.date === record.date);
-    if (shift && shift.type !== 'off' && shift.segments?.[0]) {
-      return shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+    if (shift) {
+      if (shift.type === 'vacation') return 'Vacaciones';
+      if (shift.type === 'medical') return 'Licencia Médica';
+      if (shift.type === 'off') return 'Descanso';
+      if (shift.segments?.[0]) {
+        return shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      }
     }
     
-    // 2. Fallback to default schedule
+    // 2. Fallback: Horario base definido en el perfil del empleado
     const emp = employees.find(e => e.id === record.employee_id);
     if (emp && emp.default_schedule) {
-      const dayOfWeek = new Date(record.date + 'T00:00:00').getDay().toString();
+      // Usamos una traslación robusta para evitar errores de zona horaria al parsear la fecha YYYY-MM-DD
+      const [year, month, day] = record.date.split('-').map(Number);
+      const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
+      
       const defShift = emp.default_schedule[dayOfWeek];
-      if (defShift && defShift.type !== 'off' && defShift.segments?.[0]) {
-        return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      if (defShift) {
+        if (defShift.type === 'off') return 'Descanso';
+        if (defShift.type === 'vacation') return 'Vacaciones';
+        if (defShift.type === 'medical') return 'Licencia Médica';
+        if (defShift.segments?.[0]) {
+          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+        }
       }
     }
 
