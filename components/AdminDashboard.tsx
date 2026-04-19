@@ -81,61 +81,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   // ── OPTIMIZED LOOKUP: SCHEDULE MAP ──
   // Creamos un mapa indexado por employeeId_date para búsqueda O(1) ultra rápida y fiable
+  // IMPORTANTE: Normalizamos los IDs a minúsculas para evitar discrepancias de formato
   const scheduleMap = useMemo(() => {
     const map = new Map<string, any>();
     schedules.forEach(s => {
       const dateKey = s.date.substring(0, 10);
-      map.set(`${s.employee_id}_${dateKey}`, s);
+      const empId = s.employee_id?.toLowerCase();
+      if (empId) {
+        map.set(`${empId}_${dateKey}`, s);
+      }
     });
     return map;
   }, [schedules]);
 
-  const getSectorForEmployee = (employeeName: string) => {
-    const emp = employees.find(e => e.full_name === employeeName);
-    if (!emp) return 'Sin Sector';
-    return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
-  };
-
-  // Determine authorized sectors based on role and permissions
-  const authorizedSectors = useMemo(() => {
-    const perms = currentUser.roles?.permissions || [];
-    const hasGlobalView = perms.includes('VIEW_DASHBOARD');
-    
-    if (hasGlobalView) return null; // Null means global access
-    
-    // Restricted to assigned sectors
-    const userSectors = [currentUser.sector_id, ...(currentUser.managed_sectors || [])].filter(Boolean) as string[];
-    return userSectors;
-  }, [currentUser]);
-
-  // Filter employees first so other memos use the restricted list
-  const authorizedEmployees = useMemo(() => {
-    if (!authorizedSectors) return employees;
-    return employees.filter(emp => emp.sector_id && authorizedSectors.includes(emp.sector_id));
-  }, [employees, authorizedSectors]);
-
-  // Filter records based on authorized employees
-  const authorizedRecords = useMemo(() => {
-    if (!authorizedSectors) return records;
-    return records.filter(record => {
-      const emp = employees.find(e => e.full_name === record.employee_name);
-      return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
-    });
-  }, [records, employees, authorizedSectors]);
-
-  const formatTime = (isoString: string | null) => {
-    if (!isoString) return '--:--';
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-
   // ── HELPER: GET SCHEDULED SHIFT ──
-  const getScheduledShiftForRecord = (record: { employee_id: string, date: string }) => {
+  const getScheduledShiftForRecord = (record: { employee_id: string, date: string, employee_name?: string }) => {
     if (!record) return 'Sin Turno';
     const dateKey = record.date.substring(0, 10);
-    const compositeKey = `${record.employee_id}_${dateKey}`;
+    
+    // Normalizamos el ID del registro si existe
+    const normalizedRecordId = record.employee_id?.toLowerCase();
 
-    // 1. Prioridad: Horario específico en tabla 'schedules'
+    // 1. Intentamos encontrar el objeto de perfil completo para tener el ID consolidado
+    // Redundancia: Buscamos por ID o por Nombre (normalizado)
+    const emp = employees.find(e => 
+      (normalizedRecordId && e.id.toLowerCase() === normalizedRecordId) || 
+      (record.employee_name && e.full_name.trim().toLowerCase() === record.employee_name.trim().toLowerCase())
+    );
+
+    const empId = emp?.id?.toLowerCase() || normalizedRecordId;
+    if (!empId) return 'Sin Turno';
+
+    const compositeKey = `${empId}_${dateKey}`;
+
+    // 2. Prioridad: Horario específico en mapa 'schedules'
     const shift = scheduleMap.get(compositeKey);
     if (shift) {
       if (shift.type === 'off') return 'Descanso';
@@ -146,19 +125,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       }
     }
     
-    // 2. Fallback: Horario base (plantilla)
-    const emp = employees.find(e => e.id === record.employee_id);
+    // 3. Fallback: Horario base (plantilla) del perfil encontrado
     if (emp && emp.default_schedule) {
       const [year, month, day] = dateKey.split('-').map(Number);
-      const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
-      
-      const defShift = emp.default_schedule[dayOfWeek];
-      if (defShift) {
-        if (defShift.type === 'off') return 'Descanso';
-        if (defShift.type === 'vacation') return 'Vacaciones';
-        if (defShift.type === 'medical') return 'Licencia Médica';
-        if (defShift.segments?.[0]) {
-          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
+        const defShift = emp.default_schedule[dayOfWeek];
+        if (defShift) {
+          if (defShift.type === 'off') return 'Descanso';
+          if (defShift.type === 'vacation') return 'Vacaciones';
+          if (defShift.type === 'medical') return 'Licencia Médica';
+          if (defShift.segments?.[0]) {
+            return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+          }
         }
       }
     }
@@ -172,16 +151,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const now = new Date();
     const [y, mm, dd] = today.split('-').map(Number);
     const todayNum = new Date(y, mm - 1, dd).getDay().toString();
-    const recordedEmpIds = new Set(records.filter(r => r.date === today).map(r => r.employee_id));
+    const recordedEmpIds = new Set(records.filter(r => r.date === today).map(r => r.employee_id.toLowerCase()));
     
     const virtualAbsences: any[] = [];
     const gracePeriod = rules?.ausente_gracia || 120;
 
     authorizedEmployees.forEach(emp => {
-      if (recordedEmpIds.has(emp.id)) return;
+      const empId = emp.id.toLowerCase();
+      if (recordedEmpIds.has(empId)) return;
 
-      // Usamos el mismo mapa de búsqueda para consistencia total
-      let shift = scheduleMap.get(`${emp.id}_${today}`);
+      // Usamos el mismo mapa de búsqueda con IDs normalizados
+      let shift = scheduleMap.get(`${empId}_${today}`);
       
       if (!shift && emp.default_schedule) {
         const metadata = emp.default_schedule.metadata;
@@ -190,6 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         }
       }
 
+      // IMPORTANTE: Ignorar si es descanso, vacaciones o licencia
       if (shift && shift.type !== 'off' && shift.type !== 'vacation' && shift.type !== 'medical') {
         const shiftStartStr = shift.segments?.[0]?.start;
         if (shiftStartStr) {
