@@ -63,9 +63,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         setRules(fetchedRules);
 
         if (employeesRes.status === 'fulfilled' && employeesRes.value) {
-           attendanceService.syncPastAbsences(employeesRes.value as Profile[]).then(() => {
-             attendanceService.getAll().then(setRecords).catch(e => console.error(e));
-           }).catch(e => console.error(e));
+           attendanceService.syncPastAbsences(employeesRes.value as Profile[]).then(async () => {
+             const [updatedRecords, updatedSchedules] = await Promise.all([
+               attendanceService.getAll(),
+               supabase.from('schedules').select('*').gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+             ]);
+             setRecords(updatedRecords);
+             if (updatedSchedules.data) setSchedules(updatedSchedules.data);
+           }).catch(e => console.error('Sync error:', e));
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -124,17 +129,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     
     // Intentamos encontrar el empleado para tener el objeto completo
     const emp = employees.find(e => 
-      e.id === record.employee_id || 
+      (record.employee_id && e.id === record.employee_id) || 
       (record.employee_name && e.full_name.trim().toLowerCase() === record.employee_name.trim().toLowerCase())
     );
 
     const empId = emp?.id || record.employee_id;
+    const empName = emp?.full_name || record.employee_name || '';
 
     // 1. Prioridad: Horarios específicos en la tabla 'schedules'
-    const shift = schedules.find(s => 
-      s.employee_id === empId && 
-      s.date.substring(0, 10) === recordDate
-    );
+    // Buscamos por ID o por coincidencia en el ID del objeto que suele ser "empId_date"
+    const shift = schedules.find(s => {
+      const matchId = s.employee_id === empId || s.id?.startsWith(empId + '_');
+      const matchDate = s.date.includes(recordDate);
+      return matchId && matchDate;
+    });
 
     if (shift) {
       if (shift.type === 'vacation') return 'Vacaciones';
