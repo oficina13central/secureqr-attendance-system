@@ -165,12 +165,15 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         return employees.map(emp => {
             const monthRecords = [...records.filter(r => {
                 const d = new Date(r.date);
+                // Ignorar ausencias de prueba antes del inicio oficial (20 de Abril)
+                if (r.status === 'ausente' && r.date <= '2026-04-19') return false;
+                
                 return d.getMonth() === targetMonth &&
                     d.getFullYear() === targetYear &&
                     r.employee_id === emp.id;
             })];
 
-            if (isCurrentMonth) {
+            if (isCurrentMonth && todayStr > '2026-04-19') {
                 const hasTodayRecord = monthRecords.some(r => r.date === todayStr);
                 if (!hasTodayRecord) {
                     let shift = schedules.find(s => s.employee_id === emp.id && s.date === todayStr);
