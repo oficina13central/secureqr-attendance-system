@@ -206,7 +206,9 @@ export const attendanceService = {
 
     async syncPastAbsences(employees: Profile[]): Promise<void> {
         const today = new Date();
-        for (let i = 1; i <= 3; i++) {
+        const rules = await settingsService.getRules();
+        
+        for (let i = 0; i <= 3; i++) {
             const checkDate = new Date();
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
@@ -223,7 +225,7 @@ export const attendanceService = {
                 if (!recordedEmpIds.has(emp.id) && !recordedNames.has(emp.full_name)) {
                     const { data: schedule } = await supabase
                         .from('schedules')
-                        .select('type')
+                        .select('type, segments')
                         .eq('employee_id', emp.id)
                         .eq('date', dateStr)
                         .single();
@@ -233,15 +235,35 @@ export const attendanceService = {
                         const metadata = emp.default_schedule.metadata;
                         if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
                             const base = emp.default_schedule[checkDate.getDay().toString()];
-                            if (base) activeSchedule = { type: base.type } as any;
+                            if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                         }
                     }
 
-                    let status: 'ausente' | 'descanso' | 'vacaciones' | null = null;
-                    if (activeSchedule) {
-                        status = activeSchedule.type === 'off' ? 'descanso' : 
-                                 activeSchedule.type === 'vacation' ? 'vacaciones' : 'ausente';
+                    if (!activeSchedule || activeSchedule.type === 'off') continue;
+
+                    // Si es hoy (i=0), verificar período de gracia
+                    if (i === 0) {
+                        const shiftStartStr = activeSchedule.segments?.[0]?.start;
+                        if (shiftStartStr) {
+                            const [h, m] = shiftStartStr.split(':').map(Number);
+                            const shiftStart = new Date(today);
+                            shiftStart.setHours(h, m, 0, 0);
+                            
+                            const gracePeriod = rules.ausente_gracia || 120;
+                            const minutesSinceStart = (today.getTime() - shiftStart.getTime()) / 60000;
+                            
+                            // Si aún no pasó el período de gracia, no marcar como ausente todavía
+                            if (minutesSinceStart < gracePeriod) continue;
+                        } else if (activeSchedule.type !== 'vacation' && activeSchedule.type !== 'medical') {
+                            // Sin horario definido y no es licencia/vacación, esperamos al final del día
+                            continue;
+                        }
                     }
+
+                    let status: 'ausente' | 'descanso' | 'vacaciones' | 'licencia_medica' | null = null;
+                    status = activeSchedule.type === 'vacation' ? 'vacaciones' : 
+                             activeSchedule.type === 'medical' ? 'licencia_medica' : 'ausente';
+                    
                     if (status) await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
                 }
             }
