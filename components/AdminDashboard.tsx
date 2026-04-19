@@ -94,6 +94,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return map;
   }, [schedules]);
 
+  const getSectorForEmployee = (employeeName: string) => {
+    const emp = employees.find(e => e.full_name === employeeName);
+    if (!emp) return 'Sin Sector';
+    return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
+  };
+
+  // Determine authorized sectors based on role and permissions
+  const authorizedSectors = useMemo(() => {
+    const perms = currentUser.roles?.permissions || [];
+    const hasGlobalView = perms.includes('VIEW_DASHBOARD');
+    
+    if (hasGlobalView) return null; // Null means global access
+    
+    // Restricted to assigned sectors
+    const userSectors = [currentUser.sector_id, ...(currentUser.managed_sectors || [])].filter(Boolean) as string[];
+    return userSectors;
+  }, [currentUser]);
+
+  // Filter employees first so other memos use the restricted list
+  const authorizedEmployees = useMemo(() => {
+    if (!authorizedSectors) return employees;
+    return employees.filter(emp => emp.sector_id && authorizedSectors.includes(emp.sector_id));
+  }, [employees, authorizedSectors]);
+
+  // Filter records based on authorized employees
+  const authorizedRecords = useMemo(() => {
+    if (!authorizedSectors) return records;
+    return records.filter(record => {
+      const emp = employees.find(e => e.full_name === record.employee_name);
+      return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
+    });
+  }, [records, employees, authorizedSectors]);
+
+  const formatTime = (isoString: string | null) => {
+    if (!isoString) return '--:--';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  };
+
   // ── HELPER: GET SCHEDULED SHIFT ──
   const getScheduledShiftForRecord = (record: { employee_id: string, date: string, employee_name?: string }) => {
     if (!record) return 'Sin Turno';
