@@ -115,8 +115,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   // Filter employees first so other memos use the restricted list
   const authorizedEmployees = useMemo(() => {
-    if (!authorizedSectors) return employees;
-    return employees.filter(emp => emp.sector_id && authorizedSectors.includes(emp.sector_id));
+    // Filter out terminal accounts from personnel stats
+    const realEmployees = employees.filter(emp => emp.role !== 'terminal' && emp.roles?.id !== 'terminal');
+    
+    if (!authorizedSectors) return realEmployees;
+    return realEmployees.filter(emp => emp.sector_id && authorizedSectors.includes(emp.sector_id));
   }, [employees, authorizedSectors]);
 
   // Filter records based on authorized employees
