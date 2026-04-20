@@ -20,6 +20,7 @@ import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
+import { scheduleService } from '../services/scheduleService';
 import AttendanceCalendarView from './AttendanceCalendarView';
 
 interface PersonnelAuditProps {
@@ -397,12 +398,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="border-4 border-red-500 p-4 rounded-3xl bg-red-50/30">
+                <div>
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center">
                         Auditoría de <span className="ml-2 text-indigo-600 mr-3">Personal</span>
                         <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full shadow-lg shadow-indigo-600/30 animate-pulse">V2 SYNC ACTIVATED</span>
                     </h2>
-                    <p className="text-slate-500 font-medium italic mt-1 font-bold text-red-600">!! ATENCIÓN: SI VES ESTE BORDE ROJO, LA ACTUALIZACIÓN SE COMPLETÓ !!</p>
+                    <p className="text-slate-500 font-medium italic mt-1">Consolidado mensual de cumplimiento y presentismo.</p>
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4">

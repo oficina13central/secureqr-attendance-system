@@ -395,16 +395,16 @@ export const attendanceService = {
             const empDniNormalized = (profile.dni || '').trim();
             const defaultSchedule = profile.default_schedule;
 
-            // Fetch records for the period - AGGRESSIVE SEARCH (By UUID, Name or DNI)
-            const { data: records, error: recordsError } = await supabase
+            // Fetch all records for the period - AGGRESSIVE SEARCH (By UUID, Name or DNI)
+            const { data: allRecords, error: fetchRecordsError } = await supabase
                 .from('attendance_records')
                 .select('*')
                 .or(`employee_id.eq.${employeeId},employee_name.ilike.%${profile.full_name}%`)
                 .gte('date', startDate)
                 .lte('date', endDate);
 
-            if (recordsError) throw recordsError;
-            if (!records || records.length === 0) return { updated: 0, errors: 0 };
+            if (fetchRecordsError) throw fetchRecordsError;
+            if (!allRecords || allRecords.length === 0) return { updated: 0, errors: 0 };
 
             // Fetch schedules for the period
             const { data: schedules, error: schedError } = await supabase
@@ -418,7 +418,7 @@ export const attendanceService = {
 
             const rules = await settingsService.getRules();
 
-            for (const record of records) {
+            for (const record of allRecords) {
                 const recordDateStr = record.date.split('T')[0];
                 
                 // Buscar con estrategia multi-llave en los schedules cargados
