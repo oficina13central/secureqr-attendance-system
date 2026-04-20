@@ -276,6 +276,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 check_out: null,
                 minutes_late: 0
               });
+            } else {
+              // Si aún no pasó el periodo de gracia, lo mostramos como pendiente
+              virtualAbsences.push({
+                employee_id: emp.id,
+                employee_name: emp.full_name,
+                date: today,
+                status: 'pendiente',
+                check_in: null,
+                check_out: null,
+                minutes_late: 0
+              });
             }
           });
         }
