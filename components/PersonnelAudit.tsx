@@ -397,12 +397,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div>
+                <div className="border-4 border-red-500 p-4 rounded-3xl bg-red-50/30">
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center">
                         Auditoría de <span className="ml-2 text-indigo-600 mr-3">Personal</span>
                         <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full shadow-lg shadow-indigo-600/30 animate-pulse">V2 SYNC ACTIVATED</span>
                     </h2>
-                    <p className="text-slate-500 font-medium italic mt-1">Consolidado mensual de cumplimiento y presentismo.</p>
+                    <p className="text-slate-500 font-medium italic mt-1 font-bold text-red-600">!! ATENCIÓN: SI VES ESTE BORDE ROJO, LA ACTUALIZACIÓN SE COMPLETÓ !!</p>
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4">
@@ -843,10 +843,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                             <button
                                 onClick={handleRecalculate}
                                 disabled={recalculating}
-                                className={`flex items-center space-x-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-                                <span>{recalculating ? 'Recalcular' : 'Recalcular'}</span>
+                                <span>{recalculating ? 'Recalculando...' : 'Recalcular'}</span>
                             </button>
                             <button
                                 onClick={() => setSelectedEmployeeId(null)}
