@@ -517,12 +517,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">Panel de Control</h1>
             <div className="flex items-center mt-1">
-              <span className="relative flex h-2 w-2 mr-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
-                Monitoreo en Tiempo Real • {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                Monitoreo en Tiempo Real • <span className="text-indigo-500">{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
               </p>
             </div>
           </div>
