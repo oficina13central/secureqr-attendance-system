@@ -224,20 +224,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         
         setSavingId(recordId);
         try {
-            // Convert HH:mm to full ISO or append to existing date
             const record = records.find(r => r.id === recordId);
             if (!record) return;
 
-            const datePart = record.date.split('T')[0];
-            const updatedCheckIn = `${datePart}T${newTime}:00`;
+            const [h, m] = newTime.split(':').map(Number);
+            const checkInDate = new Date(record.date);
+            checkInDate.setHours(h, m, 0, 0);
+            
+            const updatedCheckIn = checkInDate.toISOString();
 
             const success = await attendanceService.updateRecord(recordId, {
-                check_in: updatedCheckIn
+                check_in: updatedCheckIn,
+                manual_reason: 'Corrección administrativa'
             });
 
             if (success) {
                 setEditingRecordId(null);
-                // Trigger recalculate for this employee and period
                 const targetMonth = selectedDate.getMonth();
                 const targetYear = selectedDate.getFullYear();
                 const startDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
@@ -391,7 +393,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const formatTime = (isoString: string | null) => {
         if (!isoString) return '--:--';
         const date = new Date(isoString);
-        return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
     };
 
     const handleExport = () => {
@@ -771,15 +773,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                         </div>
 
                         <div className="max-h-[60vh] overflow-y-auto p-8">
-                            {/* Diagnostic Section */}
                             <div className="mb-6 bg-slate-50 rounded-2xl p-6 border border-slate-100">
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
                                         Diagnóstico de Presentismo
                                     </h4>
                                 </div>
-
-
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-mono">
                                     <div className="space-y-1">

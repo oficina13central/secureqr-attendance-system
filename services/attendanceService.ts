@@ -379,8 +379,7 @@ export const attendanceService = {
                 .select('*')
                 .eq('employee_id', employeeId)
                 .gte('date', startDate)
-                .lte('date', endDate)
-                .not('status', 'eq', 'manual');
+                .lte('date', endDate);
 
             if (recordsError) throw recordsError;
             if (!records || records.length === 0) return { updated: 0, errors: 0 };
@@ -523,8 +522,7 @@ export const attendanceService = {
         const { error } = await supabase
             .from('attendance_records')
             .update({
-                ...updates,
-                status: 'manual' // Optional: mark as manual to distinguish from system-generated
+                ...updates
             })
             .eq('id', id);
 
