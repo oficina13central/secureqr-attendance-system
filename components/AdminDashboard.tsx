@@ -450,6 +450,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-700 bg-slate-50/50 min-h-screen">
       
+      {/* Dashboard Header & Today's Date */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Panel de Control</h1>
+          <div className="flex items-center mt-1">
+            <span className="relative flex h-2 w-2 mr-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+              Monitoreo en Tiempo Real • {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Top Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
         {[
