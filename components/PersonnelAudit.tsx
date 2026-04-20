@@ -12,7 +12,8 @@ import {
     XCircle,
     RefreshCw,
     Info,
-    Calendar
+    Calendar,
+    ShieldCheck
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -21,6 +22,7 @@ import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
 import { scheduleService } from '../services/scheduleService';
+import { getLocalDateString } from '../utils/dateUtils';
 import AttendanceCalendarView from './AttendanceCalendarView';
 
 interface PersonnelAuditProps {
