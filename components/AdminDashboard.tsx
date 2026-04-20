@@ -163,7 +163,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       (record.employee_name && e.full_name.trim().toLowerCase() === record.employee_name.trim().toLowerCase())
     );
 
-    const empId = emp?.id?.toLowerCase() || normalizedRecordId;
+    const empId = emp?.id?.toLowerCase() || normalizedRecordId || '';
     if (!empId) return 'Sin Turno';
 
     const compositeKey = `${empId}_${dateKey}`;
@@ -209,12 +209,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const now = new Date();
     const [y, mm, dd] = today.split('-').map(Number);
     const todayNum = new Date(y, mm - 1, dd).getDay().toString();
-    const recordedEmpIds = new Set(records.filter(r => r.date === today).map(r => r.employee_id.toLowerCase()));
+    const recordedEmpIds = new Set(records.filter(r => r.date === today && r.employee_id).map(r => r.employee_id.toLowerCase()));
     
     const virtualAbsences: any[] = [];
     const gracePeriod = rules?.ausente_gracia || 120;
 
     authorizedEmployees.forEach(emp => {
+      if (!emp.id) return;
       const empId = emp.id.toLowerCase();
       if (recordedEmpIds.has(empId)) return;
 
@@ -289,7 +290,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         (normalizedRecordId && e.id.toLowerCase() === normalizedRecordId) || 
         (r.employee_name && e.full_name.trim().toLowerCase() === r.employee_name.trim().toLowerCase())
       );
-      const empId = emp?.id?.toLowerCase() || normalizedRecordId;
+      const empId = emp?.id?.toLowerCase() || normalizedRecordId || '';
       if (!empId) return r;
 
       const dateKey = r.date.substring(0, 10);
@@ -354,8 +355,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
     return baseRecs.filter(r => {
       const search = searchTerm.toLowerCase();
-      const sectorName = getSectorForEmployee(r.employee_name).toLowerCase();
-      return r.employee_name.toLowerCase().includes(search) || sectorName.includes(search);
+      const empName = r.employee_name || '';
+      const sectorName = getSectorForEmployee(empName).toLowerCase();
+      return empName.toLowerCase().includes(search) || sectorName.includes(search);
     });
   }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors]);
 
@@ -369,8 +371,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return todayRecs.filter(r => {
       if (!r.check_in || !['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)) return false;
       
-      const empId = r.employee_id?.toLowerCase();
-      const emp = employees.find(e => e.id.toLowerCase() === empId);
+      const empId = r.employee_id?.toLowerCase() || '';
+      const emp = empId ? employees.find(e => e.id && e.id.toLowerCase() === empId) : null;
       
       // Find shift end time from schedule
       let shiftEndMinutes = -1;
@@ -719,7 +721,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               ) : filteredRecords.length === 0 ? (
                 <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400 font-bold text-sm">Sin registros que coincidan con la búsqueda.</td></tr>
               ) : filteredRecords.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={r.id || `${r.employee_id}_${r.date}`} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-5">
                     <div>
                       {activeFilter.startsWith('history') && (
@@ -747,7 +749,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                     }`}>
                       {r.status === 'en_horario' || r.status === 'presente' ? 'En Horario' :
                        r.status === 'sin_presentismo' ? 'Llegada Tarde' : 
-                       r.status.replace('_', ' ')}
+                       (r.status || '').replace('_', ' ')}
                     </span>
                   </td>
                 </tr>
