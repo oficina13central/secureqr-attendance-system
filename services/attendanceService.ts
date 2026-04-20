@@ -413,7 +413,7 @@ export const attendanceService = {
             const { data: schedules, error: schedError } = await supabase
                 .from('schedules')
                 .select('date, type, segments, employee_id')
-                .or(`employee_id.eq.${employeeId},employee_id.ilike.%${profile.full_name}%`)
+                .eq('employee_id', employeeId)
                 .gte('date', startDate)
                 .lte('date', endDate);
 
