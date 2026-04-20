@@ -403,7 +403,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 <div>
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center">
                         Auditoría de <span className="ml-2 text-indigo-600 mr-3">Personal</span>
-                        <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full shadow-lg shadow-indigo-600/30 animate-pulse">V2 SYNC ACTIVATED</span>
                     </h2>
                     <p className="text-slate-500 font-medium italic mt-1">Consolidado mensual de cumplimiento y presentismo.</p>
                 </div>
@@ -727,37 +726,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                             <div className="mb-6 bg-slate-50 rounded-2xl p-6 border border-slate-100">
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
-                                        <ShieldCheck className="w-4 h-4 mr-2 text-indigo-500" />
                                         Diagnóstico de Presentismo
                                     </h4>
-                                    <button 
-                                        onClick={() => setDebugMode(!debugMode)}
-                                        className="text-[10px] font-bold text-indigo-500 hover:underline"
-                                    >
-                                        {debugMode ? 'Ocultar Detalles Técnicos' : 'Ver Detalles Técnicos'}
-                                    </button>
                                 </div>
 
-                                {debugMode && (
-                                    <div className="space-y-4 mb-4 text-[11px] font-mono bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto">
-                                        <div>[SISTEMA] Hoy es: {new Date().toISOString().split('T')[0]} ({['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date().getDay()]})</div>
-                                        <div>[PERFIL] ID: {selectedEmployee.id}</div>
-                                        <div>[PERFIL] DNI: {selectedEmployee.dni || 'No definido'}</div>
-                                        <div>[BASE] Schedule JSON: {JSON.stringify(employees.find(e => e.id === selectedEmployee.id)?.default_schedule || {}, null, 2)}</div>
-                                        <div>[DEBUG] Buscando overrides para: {new Date().toISOString().split('T')[0]}</div>
-                                        <div className="border-t border-slate-700 pt-2 text-indigo-300">
-                                            Schedules en Memoria (Últimos 30 días): {schedules.filter(s => s.employee_id === selectedEmployee.id || s.employee_id === selectedEmployee.name).length} registros.
-                                            {schedules
-                                                .filter(s => {
-                                                    const sId = (s.employee_id || '').toLowerCase().trim();
-                                                    const eId = selectedEmployee.id.toLowerCase().trim();
-                                                    const eName = (selectedEmployee.name || '').toLowerCase().trim();
-                                                    return sId === eId || sId === eName;
-                                                })
-                                                .map(s => `\n- ${s.date.split('T')[0]}: ${s.type}`).join('')}
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-mono">
                                     <div className="space-y-1">
