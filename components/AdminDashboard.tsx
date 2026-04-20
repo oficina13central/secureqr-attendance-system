@@ -34,7 +34,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [schedules, setSchedules] = useState<any[]>([]); // Today's schedules
   const [rules, setRules] = useState<AttendanceRules | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -335,7 +335,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const todayRecs = correctedRecords.filter(r => r.date === today);
       baseRecs = [...todayRecs, ...realTimeAbsences];
 
-      if (activeFilter === 'present') {
+      if (activeFilter === 'working') {
+        baseRecs = workingNowRecords;
+      } else if (activeFilter === 'present') {
         baseRecs = baseRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status));
       } else if (activeFilter === 'late') {
         baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
@@ -357,18 +359,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     });
   }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors]);
 
-  const stats = useMemo(() => {
+  // ── NEW: Employees Currently Working ──
+  const workingNowRecords = useMemo(() => {
     const today = getLocalDateString();
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const todayRecs = correctedRecords.filter(r => r.date === today);
-    const allTodayRecords = [...todayRecs, ...realTimeAbsences];
-
-    // Count employees currently working (checked in and shift not yet ended)
-    const checkedInToday = todayRecs.filter(r => r.check_in && ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status));
-    let trabajandoAhora = 0;
-
-    checkedInToday.forEach(r => {
+    
+    return todayRecs.filter(r => {
+      if (!r.check_in || !['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)) return false;
+      
       const empId = r.employee_id?.toLowerCase();
       const emp = employees.find(e => e.id.toLowerCase() === empId);
       
@@ -402,21 +402,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         if (shiftStart) {
           const [sh, sm] = shiftStart.split(':').map(Number);
           const startMinutes = sh * 60 + sm;
-          if (shiftEndMinutes < startMinutes) {
-            // Nocturnal shift: always still working during the same calendar day
-            trabajandoAhora++;
-            return;
-          }
+          if (shiftEndMinutes < startMinutes) return true;
         }
         // Normal shift: check if current time is before shift end
-        if (nowMinutes < shiftEndMinutes) {
-          trabajandoAhora++;
-        }
-      } else {
-        // No schedule found, assume still working if checked in today
-        trabajandoAhora++;
+        return nowMinutes < shiftEndMinutes;
       }
+      return true; // No schedule found, assume still working if checked in today
     });
+  }, [correctedRecords, employees, scheduleMap]);
+
+  const stats = useMemo(() => {
+    const today = getLocalDateString();
+    const todayRecs = correctedRecords.filter(r => r.date === today);
+    const allTodayRecords = [...todayRecs, ...realTimeAbsences];
 
     return {
       presentes: allTodayRecords.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status)).length,
@@ -425,9 +423,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       descansos: allTodayRecords.filter(r => r.status === 'descanso').length,
       vacaciones: allTodayRecords.filter(r => r.status === 'vacaciones').length,
       licencias: allTodayRecords.filter(r => r.status === 'licencia_medica').length,
-      trabajandoAhora
+      trabajandoAhora: workingNowRecords.length
     };
-  }, [correctedRecords, realTimeAbsences, employees, scheduleMap]);
+  }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
