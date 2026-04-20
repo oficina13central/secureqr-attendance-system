@@ -540,19 +540,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             
             <div className="space-y-4">
               <button 
-                onClick={() => setActiveFilter('history_all')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_all' ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50' : 'hover:bg-white/5'}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="p-1.5 rounded-full bg-emerald-500/10">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-300">En Horario</span>
-                </div>
-                <span className="font-black text-lg">{thirtyDaysStats.presentes}</span>
-              </button>
-
-              <button 
                 onClick={() => setActiveFilter('history_late')}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_late' ? 'bg-amber-500/20 ring-1 ring-amber-500/50' : 'hover:bg-white/5'}`}
               >
