@@ -519,6 +519,22 @@ export const attendanceService = {
         }
     },
 
+    async updateRecord(id: string, updates: Partial<AttendanceRecord>): Promise<boolean> {
+        const { error } = await supabase
+            .from('attendance_records')
+            .update({
+                ...updates,
+                status: 'manual' // Optional: mark as manual to distinguish from system-generated
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error updating attendance record:', error);
+            return false;
+        }
+        return true;
+    },
+
     async calculateScoring(employeeId: string): Promise<{ score: number, category: number, label: string, color: string }> {
         const now = new Date();
         const pastDate = new Date();

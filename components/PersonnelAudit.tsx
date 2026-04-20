@@ -13,7 +13,10 @@ import {
     RefreshCw,
     Info,
     Calendar,
-    ShieldCheck
+    ShieldCheck,
+    Edit2,
+    Check,
+    X
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -51,10 +54,13 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [showOnlyAbsences, setShowOnlyAbsences] = useState(false);
     const [showOnlyNoPresentismo, setShowOnlyNoPresentismo] = useState(false);
 
-    // Estado para el mes y año seleccionado (por defecto el mes actual)
     const [selectedDate, setSelectedDate] = useState(() => {
         return new Date();
     });
+
+    const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+    const [editingTime, setEditingTime] = useState<string>('');
+    const [savingId, setSavingId] = useState<string | null>(null);
 
     const months = [
         "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -210,6 +216,49 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         } finally {
             setRecalculating(false);
             loadData(true);
+        }
+    };
+
+    const handleUpdateRecordTime = async (recordId: string, newTime: string) => {
+        if (!newTime || !recordId) return;
+        
+        setSavingId(recordId);
+        try {
+            // Convert HH:mm to full ISO or append to existing date
+            const record = records.find(r => r.id === recordId);
+            if (!record) return;
+
+            const datePart = record.date.split('T')[0];
+            const updatedCheckIn = `${datePart}T${newTime}:00`;
+
+            const success = await attendanceService.updateRecord(recordId, {
+                check_in: updatedCheckIn
+            });
+
+            if (success) {
+                setEditingRecordId(null);
+                // Trigger recalculate for this employee and period
+                const targetMonth = selectedDate.getMonth();
+                const targetYear = selectedDate.getFullYear();
+                const startDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
+                const endDate = new Date(targetYear, targetMonth + 1, 0).toISOString().split('T')[0];
+                
+                await attendanceService.recalculateAttendance(
+                    selectedEmployeeId!,
+                    startDate,
+                    endDate,
+                    currentUser.full_name || 'Admin'
+                );
+                
+                await loadData(true);
+            } else {
+                alert('Error al actualizar el registro.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error en la operación.');
+        } finally {
+            setSavingId(null);
         }
     };
 
@@ -759,9 +808,52 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                             <td colSpan={4} className="py-8 text-center text-slate-400 italic">No hay registros detallados para este mes.</td>
                                         </tr>
                                     ) : selectedEmployeeData.detailedRecords.map((record) => (
-                                        <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={record.id} className="hover:bg-slate-50 transition-colors group">
                                             <td className="py-4 text-sm font-bold text-slate-600">{record.date}</td>
-                                            <td className="py-4 text-sm font-black text-slate-800">{formatTime(record.check_in)}</td>
+                                            <td className="py-4">
+                                                {editingRecordId === record.id ? (
+                                                    <div className="flex items-center space-x-2">
+                                                        <input 
+                                                            type="time" 
+                                                            value={editingTime}
+                                                            onChange={(e) => setEditingTime(e.target.value)}
+                                                            className="text-sm font-black bg-white border border-indigo-300 rounded px-2 py-1 outline-none ring-2 ring-indigo-500/20"
+                                                            autoFocus
+                                                        />
+                                                        <button 
+                                                            onClick={() => handleUpdateRecordTime(record.id, editingTime)}
+                                                            disabled={savingId === record.id}
+                                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                                            title="Guardar"
+                                                        >
+                                                            {savingId === record.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setEditingRecordId(null)}
+                                                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                            title="Cancelar"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center space-x-2 group/time">
+                                                        <span className="text-sm font-black text-slate-800">
+                                                            {record.check_in ? formatTime(record.check_in) : '—'}
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setEditingRecordId(record.id);
+                                                                setEditingTime(record.check_in ? record.check_in.split('T')[1].substring(0, 5) : '08:00');
+                                                            }}
+                                                            className="opacity-0 group-hover/time:opacity-100 p-1 text-indigo-500 hover:bg-indigo-50 rounded transition-all"
+                                                            title="Corregir Hora"
+                                                        >
+                                                            <Edit2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="py-4 text-center">
                                                 <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${['en_horario', 'presente'].includes(record.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     record.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
@@ -769,6 +861,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                             record.status === 'vacaciones' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                                                 record.status === 'licencia_medica' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
                                                                     record.status === 'descanso' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                                        record.status === 'manual' ? 'bg-purple-50 text-purple-600 border-purple-100' :
                                                                         'bg-red-100 text-red-700 border-red-200'
                                                     }`}>
                                                     {record.status === 'sin_presentismo' ? 'Llegada Tarde' : record.status.replace(/_/g, ' ')}
