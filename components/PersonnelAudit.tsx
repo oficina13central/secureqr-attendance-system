@@ -572,14 +572,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 ml-auto">
-                    <button
-                        onClick={() => loadData(true)}
-                        className="flex items-center space-x-2 px-5 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-                        title="Forzar sincronización de cronogramas y asistencias"
-                    >
-                        <RefreshCw className="w-5 h-5" />
-                        <span className="text-[10px] font-black uppercase tracking-wider">Sincronizar Todo</span>
-                    </button>
                     {selectedEmployeeId && (
                         <button
                             onClick={handleRecalculate}
