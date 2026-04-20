@@ -11,6 +11,7 @@ import {
   Activity,
   CalendarCheck,
   Briefcase,
+  Umbrella,
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { attendanceService } from '../services/attendanceService';
@@ -539,7 +540,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
             { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
             { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
-            { id: 'vacation', label: 'Vacaciones', value: stats.vacaciones, icon: ShieldCheck, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
+            { id: 'vacation', label: 'Vacaciones', value: stats.vacaciones, icon: Umbrella, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
             { id: 'medical', label: 'Lic. Médica', value: stats.licencias, icon: HeartPulse, color: 'text-cyan-500', bg: 'bg-cyan-50', activeColor: 'ring-cyan-500 bg-cyan-100' },
             { id: 'all', label: 'Totales', value: authorizedEmployees.length, icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
           ].map((stat, i) => (
