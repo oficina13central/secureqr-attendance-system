@@ -351,7 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const allTodayRecords = [...todayRecs, ...realTimeAbsences];
 
     return {
-      presentes: allTodayRecords.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status)).length,
+      presentes: allTodayRecords.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status)).length,
       tardes: allTodayRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
       ausentes: allTodayRecords.filter(r => r.status === 'ausente').length,
       descansos: allTodayRecords.filter(r => r.status === 'descanso').length,
@@ -414,14 +414,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     
     const recentRecords = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
 
-    const presentes = recentRecords.filter(r => ['presente', 'en_horario', 'manual', 'tarde', 'sin_presentismo'].includes(r.status)).length;
+    const enHorario = recentRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length;
     const tardanzas = recentRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length;
     const ausencias = recentRecords.filter(r => r.status === 'ausente').length;
 
-    const total = presentes + tardanzas + ausencias;
-    const puntualidad = total > 0 ? Math.round(((presentes) / total) * 100) : 0;
+    const totalIngresos = enHorario + tardanzas + ausencias;
+    const puntualidad = totalIngresos > 0 ? Math.round((enHorario / totalIngresos) * 100) : 0;
 
-    return { presentes, tardanzas, ausencias, puntualidad };
+    return { presentes: enHorario, tardanzas, ausencias, puntualidad };
   }, [authorizedRecords]);
 
   const handleExportMonthly = () => {
@@ -453,7 +453,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       {/* 1. Top Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
         {[
-          { id: 'present', label: 'Presentes', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
+          { id: 'present', label: 'En Horario', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
           { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
           { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
           { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
