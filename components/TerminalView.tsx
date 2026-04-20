@@ -540,9 +540,15 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 <ShieldAlert className="w-20 h-20 text-white" />
               </div>
               <div className="text-center px-6">
-                <p className="text-4xl font-black text-white mb-2 uppercase">LÍMITE ALCANZADO</p>
-                <p className="text-amber-300 font-bold">Máximo de turnos diarios</p>
-                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">Ya ha completado todas las entradas permitidas para hoy.</p>
+                <p className="text-4xl font-black text-white mb-2 uppercase">
+                  {attendanceMsg === 'Ya tenés una entrada abierta' ? 'AVISO' : 'LÍMITE ALCANZADO'}
+                </p>
+                <p className="text-amber-300 font-bold">{attendanceMsg || 'Máximo de turnos diarios'}</p>
+                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
+                  {attendanceMsg === 'Ya tenés una entrada abierta' 
+                    ? 'Ya has registrado tu ingreso previamente hoy.' 
+                    : 'Ya ha completado todas las entradas permitidas para hoy.'}
+                </p>
               </div>
             </div>
           )}

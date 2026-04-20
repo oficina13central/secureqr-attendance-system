@@ -96,7 +96,9 @@ export const attendanceService = {
             }
         }
 
-        const scheduleType = activeSchedule?.type || 'continuous';
+        // Infer split status if type is missing but there are multiple segments
+        const scheduleType = activeSchedule?.type || 
+                           ((activeSchedule?.segments?.length || 0) > 1 ? 'split' : 'continuous');
 
         if (scheduleType === 'off') throw new Error('off_day');
         if (scheduleType === 'vacation') throw new Error('vacation');
@@ -348,7 +350,35 @@ export const attendanceService = {
             // MODO ENFORZADO: ENTRADA
             if (enforcedMode === 'in') {
                 if (openRecord) {
-                    return { type: 'error', record: null, reason: 'already_checked_in' };
+                    // Si es turno cortado y la entrada abierta es "vieja" (más de 3 horas), 
+                    // permitimos una segunda entrada (segundo segmento).
+                    const checkInTime = new Date(openRecord.check_in!).getTime();
+                    const now = new Date().getTime();
+                    const hoursSinceCheckIn = (now - checkInTime) / (1000 * 60 * 60);
+
+                    // Inferimos tipo de turno para decidir si bloqueamos o no
+                    const { data: scheduleData } = await supabase
+                        .from('schedules')
+                        .select('type, segments')
+                        .eq('employee_id', resolvedId)
+                        .eq('date', today)
+                        .maybeSingle();
+                    
+                    let activeSchedule = scheduleData;
+                    if (!activeSchedule) {
+                        const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', resolvedId).maybeSingle();
+                        const base = profile?.default_schedule?.[new Date().getDay().toString()];
+                        if (base) activeSchedule = { type: base.type, segments: base.segments };
+                    }
+
+                    const isSplitShift = activeSchedule?.type === 'split' || (activeSchedule?.segments?.length || 0) > 1;
+
+                    if (isSplitShift && hoursSinceCheckIn > 3) {
+                        // Es una segunda entrada legítima para un turno cortado
+                        console.log(`Permitiendo segunda entrada para ${employeeName} (Turno Cortado detectado)`);
+                    } else {
+                        return { type: 'error', record: null, reason: 'already_checked_in' };
+                    }
                 }
                 const result = await this.recordCheckIn(resolvedId, employeeName);
                 if (result) return { type: 'in', record: result, reason: 'check_in_success' };

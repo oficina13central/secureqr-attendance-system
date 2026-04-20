@@ -385,50 +385,61 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   const filteredRecords = useMemo(() => {
     const today = getLocalDateString();
-    let baseRecs: AttendanceRecord[] = [];
-
+    let allDailyRecs: AttendanceRecord[] = [];
+    
+    // 1. Get all base records for the context (today or history)
     if (activeFilter.startsWith('history')) {
-      // 30 day history mode
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      baseRecs = correctedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
-
-      if (activeFilter === 'history_absent') {
-        baseRecs = baseRecs.filter(r => r.status === 'ausente');
-      } else if (activeFilter === 'history_late') {
-        baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
-      } else if (activeFilter === 'history_all') {
-        baseRecs = baseRecs.filter(r => ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status));
-      }
+      allDailyRecs = correctedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
     } else {
-      // Today mode
       const todayRecs = correctedRecords.filter(r => r.date === today);
-      baseRecs = [...todayRecs, ...realTimeAbsences];
-
-      if (activeFilter === 'working') {
-        baseRecs = workingNowRecords;
-      } else if (activeFilter === 'present') {
-        baseRecs = baseRecs.filter(r => ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status));
-      } else if (activeFilter === 'late') {
-        baseRecs = baseRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
-      } else if (activeFilter === 'absent') {
-        baseRecs = baseRecs.filter(r => r.status === 'ausente');
-      } else if (activeFilter === 'off') {
-        baseRecs = baseRecs.filter(r => r.status === 'descanso');
-      } else if (activeFilter === 'vacation') {
-        baseRecs = baseRecs.filter(r => r.status === 'vacaciones');
-      } else if (activeFilter === 'medical') {
-        baseRecs = baseRecs.filter(r => r.status === 'licencia_medica');
-      }
+      allDailyRecs = [...todayRecs, ...realTimeAbsences];
     }
 
-    return baseRecs.filter(r => {
+    // 2. Identify which employees/dates match the criteria
+    let matchedKeys = new Set<string>();
+
+    if (activeFilter === 'all') {
+      // No status filter, include everyone
+      allDailyRecs.forEach(r => matchedKeys.add(`${r.employee_id?.toLowerCase()}_${r.date}`));
+    } else if (activeFilter === 'working') {
+      workingNowRecords.forEach(r => matchedKeys.add(`${r.employee_id?.toLowerCase()}_${r.date}`));
+    } else {
+      // Standard filters
+      const filtered = allDailyRecs.filter(r => {
+        if (activeFilter === 'history_absent' || activeFilter === 'absent') return r.status === 'ausente';
+        if (activeFilter === 'history_late' || activeFilter === 'late') return r.status === 'tarde' || r.status === 'sin_presentismo';
+        if (activeFilter === 'history_all' || activeFilter === 'present') return ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status);
+        if (activeFilter === 'off') return r.status === 'descanso';
+        if (activeFilter === 'vacation') return r.status === 'vacaciones';
+        if (activeFilter === 'medical') return r.status === 'licencia_medica';
+        return true;
+      });
+      filtered.forEach(r => matchedKeys.add(`${r.employee_id?.toLowerCase()}_${r.date}`));
+    }
+
+    // 3. Filter the full set by these keys
+    let baseRecs = allDailyRecs.filter(r => matchedKeys.has(`${r.employee_id?.toLowerCase()}_${r.date}`));
+
+    // 4. Apply Search Filter at Employee/Group Level
+    if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
-      const empName = r.employee_name || '';
-      const sectorName = getSectorForEmployee(empName).toLowerCase();
-      return empName.toLowerCase().includes(search) || sectorName.includes(search);
-    });
-  }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors, workingNowRecords]);
+      const matchingSearchKeys = new Set<string>();
+      
+      baseRecs.forEach(r => {
+        const empName = r.employee_name || '';
+        const sectorName = getSectorForEmployee(empName).toLowerCase();
+        if (empName.toLowerCase().includes(search) || sectorName.includes(search)) {
+          matchingSearchKeys.add(`${r.employee_id?.toLowerCase()}_${r.date}`);
+        }
+      });
+      
+      baseRecs = baseRecs.filter(r => matchingSearchKeys.has(`${r.employee_id?.toLowerCase()}_${r.date}`));
+    }
+
+    return baseRecs;
+  }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors, workingNowRecords, correctedRecords]);
 
   // ── GROUPING FOR SPLIT SHIFTS ──
   const displayRecords = useMemo(() => {
