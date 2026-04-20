@@ -217,7 +217,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     authorizedEmployees.forEach(emp => {
       if (!emp.id) return;
       const empId = emp.id.toLowerCase();
-      if (recordedEmpIds.has(empId)) return;
+      const empRecords = records.filter(r => r.date === today && r.employee_id?.toLowerCase() === empId);
+      const realEntriesCount = empRecords.filter(r => r.check_in).length;
 
       // Usamos el mismo mapa de búsqueda con IDs normalizados
       let shift = scheduleMap.get(`${empId}_${today}`);
@@ -231,6 +232,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
       if (shift) {
         if (shift.type === 'off') {
+          if (realEntriesCount > 0) return; // Si ya fichó en su franco, no generamos ausencia
           virtualAbsences.push({
             employee_id: emp.id,
             employee_name: emp.full_name,
@@ -241,6 +243,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else if (shift.type === 'vacation' || shift.type === 'medical') {
+          if (realEntriesCount > 0) return;
           virtualAbsences.push({
             employee_id: emp.id,
             employee_name: emp.full_name,
@@ -251,12 +254,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else {
-          if (today <= '2026-04-19') return; // Evitar generar ausencias virtuales antes de la fecha de inicio
+          if (today <= '2026-04-19') return;
 
-          // Es un turno normal (continuous / split)
-          const shiftStartStr = shift.segments?.[0]?.start;
-          if (shiftStartStr) {
-            const [h, m] = shiftStartStr.split(':').map(Number);
+          // Split shift support: generate records for missing segments
+          const segments = shift.segments || [];
+          segments.forEach((seg: any, idx: number) => {
+            // Si ya hay un registro (físico o virtual previo) para este índice, saltar
+            if (idx < realEntriesCount) return;
+
+            const [h, m] = seg.start.split(':').map(Number);
             const shiftStart = new Date(y, mm - 1, dd, h, m);
             const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
             
@@ -271,7 +277,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 minutes_late: 0
               });
             }
-          }
+          });
         }
       }
     });
@@ -412,6 +418,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       return empName.toLowerCase().includes(search) || sectorName.includes(search);
     });
   }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors, workingNowRecords]);
+
+  // ── GROUPING FOR SPLIT SHIFTS ──
+  const displayRecords = useMemo(() => {
+    const groups: Map<string, any> = new Map();
+    
+    filteredRecords.forEach(r => {
+      const key = `${r.employee_id?.toLowerCase()}_${r.date}`;
+      if (!groups.has(key)) {
+        groups.set(key, { ...r, originalRecords: [r] });
+      } else {
+        const existing = groups.get(key);
+        existing.originalRecords.push(r);
+        // We Sort originalRecords by index/time if possible, but they are usually added in order
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [filteredRecords]);
 
   const stats = useMemo(() => {
     const today = getLocalDateString();
@@ -718,39 +742,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400 font-bold text-sm">Cargando datos...</td></tr>
-              ) : filteredRecords.length === 0 ? (
-                <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400 font-bold text-sm">Sin registros que coincidan con la búsqueda.</td></tr>
-              ) : filteredRecords.map((r) => (
-                <tr key={r.id || `${r.employee_id}_${r.date}`} className="hover:bg-slate-50/50 transition-colors group">
+              ) : displayRecords.length === 0 ? (
+                <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold text-sm">Sin registros que coincidan con la búsqueda.</td></tr>
+              ) : displayRecords.map((group) => (
+                <tr key={group.id || `${group.employee_id}_${group.date}`} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-5">
                     <div>
                       {activeFilter.startsWith('history') && (
                         <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter mb-1 block">
-                          {new Date(r.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                          {new Date(group.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
-                      <span className="block font-black text-slate-700">{r.employee_name}</span>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{getSectorForEmployee(r.employee_name)}</span>
+                      <span className="block font-black text-slate-700">{group.employee_name}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{getSectorForEmployee(group.employee_name)}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5">
                     <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-tight">
-                      {getScheduledShiftForRecord(r)}
+                      {getScheduledShiftForRecord(group)}
                     </span>
                   </td>
-                  <td className="px-8 py-5 font-bold text-slate-600 text-sm">{formatTime(r.check_in)}</td>
-                  <td className="px-8 py-5 font-bold text-slate-600 text-sm">{formatTime(r.check_out)}</td>
-                  <td className="px-8 py-5 text-right flex justify-end">
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center shadow-sm border ${
-                      (r.status === 'en_horario' || r.status === 'presente') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                      r.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                      r.status === 'sin_presentismo' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                      'bg-slate-50 text-slate-500 border-slate-200'
-                    }`}>
-                      {r.status === 'en_horario' || r.status === 'presente' ? 'En Horario' :
-                       r.status === 'sin_presentismo' ? 'Llegada Tarde' : 
-                       (r.status || '').replace('_', ' ')}
-                    </span>
+                  <td className="px-8 py-5 font-bold text-slate-600 text-sm">
+                    {group.originalRecords.map((r: any) => formatTime(r.check_in)).join(' / ')}
+                  </td>
+                  <td className="px-8 py-5 font-bold text-slate-600 text-sm">
+                    {group.originalRecords.map((r: any) => formatTime(r.check_out)).join(' / ')}
+                  </td>
+                  <td className="px-8 py-5 text-right flex flex-col items-end gap-1">
+                    {group.originalRecords.map((r: any, idx: number) => (
+                      <span key={idx} className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm border ${
+                        (r.status === 'en_horario' || r.status === 'presente') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                        r.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                        r.status === 'sin_presentismo' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                        'bg-slate-50 text-slate-500 border-slate-200'
+                      }`}>
+                        {r.status === 'en_horario' || r.status === 'presente' ? 'En Horario' :
+                         r.status === 'sin_presentismo' ? 'Llegada Tarde' : 
+                         (r.status || '').replace('_', ' ')}
+                      </span>
+                    ))}
                   </td>
                 </tr>
               ))}
