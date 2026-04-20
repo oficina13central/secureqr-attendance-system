@@ -450,46 +450,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-700 bg-slate-50/50 min-h-screen">
       
-      {/* Dashboard Header & Today's Date */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Panel de Control</h1>
-          <div className="flex items-center mt-1">
-            <span className="relative flex h-2 w-2 mr-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
-              Monitoreo en Tiempo Real • {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
-            </p>
+      {/* 1. Status Section (Header + Cards) */}
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Panel de Control</h1>
+            <div className="flex items-center mt-1">
+              <span className="relative flex h-2 w-2 mr-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                Monitoreo en Tiempo Real • {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 1. Top Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
-        {[
-          { id: 'present', label: 'En Horario', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
-          { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
-          { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
-          { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
-          { id: 'vacation', label: 'Vacaciones/Lic.', value: stats.vacaciones, icon: ShieldCheck, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
-          { id: 'all', label: 'Totales', value: authorizedEmployees.length, icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
-        ].map((stat, i) => (
-          <button 
-            key={i} 
-            onClick={() => setActiveFilter(activeFilter === stat.id ? 'all' : stat.id as any)}
-            className={`bg-white px-3 md:px-4 py-3 md:py-4 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col items-start gap-2 lg:gap-3 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-100 shadow-sm'}`}
-          >
-            <div className={`p-2 lg:p-3 rounded-xl lg:rounded-2xl shrink-0 ${stat.bg}`}>
-              <stat.icon className={`w-4 h-4 lg:w-5 lg:h-5 ${stat.color}`} strokeWidth={2.5} />
-            </div>
-            <div className="flex flex-col">
-              <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              <p className="text-xl md:text-2xl font-black text-slate-800 leading-none mt-1">{stat.value}</p>
-            </div>
-          </button>
-        ))}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+          {[
+            { id: 'present', label: 'En Horario', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
+            { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
+            { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
+            { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
+            { id: 'vacation', label: 'Vacaciones/Lic.', value: stats.vacaciones, icon: ShieldCheck, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
+            { id: 'all', label: 'Totales', value: authorizedEmployees.length, icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
+          ].map((stat, i) => (
+            <button 
+              key={i} 
+              onClick={() => setActiveFilter(activeFilter === stat.id ? 'all' : stat.id as any)}
+              className={`bg-white px-3 md:px-4 py-3 md:py-4 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col items-start gap-2 lg:gap-3 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-50 shadow-sm bg-slate-50/20'}`}
+            >
+              <div className={`p-2 lg:p-3 rounded-xl lg:rounded-2xl shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-4 h-4 lg:w-5 lg:h-5 ${stat.color}`} strokeWidth={2.5} />
+              </div>
+              <div className="flex flex-col">
+                <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                <p className="text-xl md:text-2xl font-black text-slate-800 leading-none mt-1">{stat.value}</p>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 2. Middle Section: Heatmap & 30-Day Summary */}
