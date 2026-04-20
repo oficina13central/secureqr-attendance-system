@@ -222,17 +222,20 @@ export const attendanceService = {
                 .select('employee_id, employee_name')
                 .eq('date', dateStr);
 
-            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id));
-            const recordedNames = new Set((existingToday || []).map(r => r.employee_name));
+            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id?.toLowerCase().trim()));
+            const recordedNames = new Set((existingToday || []).map(r => r.employee_name?.toLowerCase().trim()));
 
             for (const emp of employees) {
-                if (!recordedEmpIds.has(emp.id) && !recordedNames.has(emp.full_name)) {
+                const empIdNormalized = emp.id.toLowerCase().trim();
+                const empNameNormalized = emp.full_name.toLowerCase().trim();
+
+                if (!recordedEmpIds.has(empIdNormalized) && !recordedNames.has(empNameNormalized)) {
                     const { data: schedule } = await supabase
                         .from('schedules')
-                        .select('type, segments')
+                        .select('type, segments, date')
                         .eq('employee_id', emp.id)
                         .eq('date', dateStr)
-                        .single();
+                        .maybeSingle();
 
                     let activeSchedule = schedule;
                     if (!activeSchedule && emp.default_schedule) {
@@ -362,18 +365,11 @@ export const attendanceService = {
             console.error("Network error during scan:", err);
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
-            if (err.message?.includes('fetch') || !navigator.onLine || err.status === 0 || err.code === 'PGRST100') {
-                offlineService.queueScan(employeeId, employeeName);
-                return { type: 'queued', record: null, reason: 'queued_offline' };
-            }
-            return { type: 'error', record: null, reason: 'server_error' };
-        }
-    },
-
     async recalculateAttendance(employeeId: string, startDate: string, endDate: string, managerName: string): Promise<{ updated: number, errors: number }> {
         let updatedCount = 0;
         let errorCount = 0;
         try {
+            // Fetch records to recalculate
             const { data: records, error: recordsError } = await supabase
                 .from('attendance_records')
                 .select('*')
@@ -385,69 +381,118 @@ export const attendanceService = {
             if (recordsError) throw recordsError;
             if (!records || records.length === 0) return { updated: 0, errors: 0 };
 
+            // Fetch profile for data normalization
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, full_name, dni, default_schedule')
+                .eq('id', employeeId)
+                .maybeSingle();
+            
+            if (!profile) return { updated: 0, errors: 0 };
+            
+            const empIdNormalized = profile.id.toLowerCase().trim();
+            const empNameNormalized = (profile.full_name || '').toLowerCase().trim();
+            const empDniNormalized = (profile.dni || '').trim();
+            const defaultSchedule = profile.default_schedule;
+
+            // Fetch records for the period - AGGRESSIVE SEARCH (By UUID, Name or DNI)
+            const { data: records, error: recordsError } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .or(`employee_id.eq.${employeeId},employee_name.ilike.%${profile.full_name}%`)
+                .gte('date', startDate)
+                .lte('date', endDate);
+
+            if (recordsError) throw recordsError;
+            if (!records || records.length === 0) return { updated: 0, errors: 0 };
+
+            // Fetch schedules for the period
             const { data: schedules, error: schedError } = await supabase
                 .from('schedules')
-                .select('date, type, segments')
-                .eq('employee_id', employeeId)
+                .select('date, type, segments, employee_id')
+                .or(`employee_id.eq.${employeeId},employee_id.ilike.%${profile.full_name}%`)
                 .gte('date', startDate)
                 .lte('date', endDate);
 
             if (schedError) throw schedError;
 
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('default_schedule')
-                .eq('id', employeeId)
-                .maybeSingle();
-            const defaultSchedule = profile?.default_schedule;
-
             const rules = await settingsService.getRules();
 
             for (const record of records) {
-                const dateObj = new Date(`${record.date}T12:00:00`);
-                let schedule = schedules?.find(s => s.date === record.date);
-                if (!schedule && defaultSchedule) {
-                    const metadata = defaultSchedule.metadata;
-                    if (!metadata?.valid_from || record.date >= metadata.valid_from) {
-                        const base = defaultSchedule[dateObj.getDay().toString()];
-                        if (base) schedule = { date: record.date, type: base.type, segments: base.segments } as any;
+                const recordDateStr = record.date.split('T')[0];
+                
+                // Buscar con estrategia multi-llave en los schedules cargados
+                let activeSchedule = schedules?.find(s => {
+                    const sId = (s.employee_id || '').toLowerCase().trim();
+                    const sDate = (s.date || '').split('T')[0];
+                    return sDate === recordDateStr && (
+                        sId === empIdNormalized || 
+                        sId === empNameNormalized || 
+                        sId === empDniNormalized
+                    );
+                });
+                
+                if (!activeSchedule && defaultSchedule) {
+                    const dateObj = new Date(`${recordDateStr}T12:00:00`);
+                    const dow = dateObj.getDay().toString();
+                    const base = defaultSchedule[dow];
+                    if (base) {
+                        activeSchedule = {
+                            type: base.type,
+                            segments: base.segments,
+                            date: recordDateStr
+                        } as any;
                     }
                 }
-                
-                if (!schedule) continue;
+
                 let newStatus = record.status;
                 let newMinutesLate = record.minutes_late;
 
-                if (record.check_in && schedule.segments && schedule.segments.length > 0) {
-                    const checkInDate = new Date(record.check_in);
-                    const firstSegment = schedule.segments[0];
-                    const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
-                    const scheduledTime = new Date(checkInDate);
-                    scheduledTime.setHours(schedHours, schedMins, 0, 0);
-                    let diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
-                    
-                    // Lógica para Turnos Nocturnos:
-                    // Si la diferencia es muy negativa (ej. llega a las 00:30 para un turno de las 22:00),
-                    // significa que la fichada pertenece al turno que empezó ayer.
-                    if (diffInMinutes < -600) {
-                        diffInMinutes += 1440; // Sumamos 24 horas para comparar con el inicio de ayer
-                    }
+                if (activeSchedule) {
+                    if (activeSchedule.type === 'off') {
+                        newStatus = 'descanso';
+                        newMinutesLate = 0;
+                    } else if (activeSchedule.type === 'vacation') {
+                        newStatus = 'vacaciones';
+                        newMinutesLate = 0;
+                    } else if (activeSchedule.type === 'medical') {
+                        newStatus = 'licencia_medica';
+                        newMinutesLate = 0;
+                    } else if (record.check_in && activeSchedule.segments?.[0]) {
+                        // Calculate lateness for working shifts
+                        const checkInDate = new Date(record.check_in);
+                        const firstSegment = activeSchedule.segments[0];
+                        const [schedHours, schedMins] = firstSegment.start.split(':').map(Number);
+                        const scheduledTime = new Date(checkInDate);
+                        scheduledTime.setHours(schedHours, schedMins, 0, 0);
+                        
+                        let diffInMinutes = Math.floor((checkInDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+                        
+                        // Nocturnal shift logic: if diff < -10 hours, it's actually for yesterday's shift
+                        if (diffInMinutes < -600) diffInMinutes += 1440;
 
-                    newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
-                    if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
-                    else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
-                    else newStatus = 'en_horario';
-                } else if (!record.check_in) {
-                    newStatus = schedule.type === 'off' ? 'descanso' : 
-                               schedule.type === 'vacation' ? 'vacaciones' : 
-                               schedule.type === 'medical' ? 'licencia_medica' : 'ausente';
+                        newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
+                        if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
+                        else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
+                        else newStatus = 'en_horario';
+                    } else if (!record.check_in) {
+                        // No check-in for a working shift
+                        newStatus = 'ausente';
+                        newMinutesLate = 0;
+                    }
                 }
 
                 if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
                     const { error: updateError } = await supabase
                         .from('attendance_records')
-                        .update({ status: newStatus, minutes_late: newMinutesLate })
+                        .update({ 
+                            status: newStatus, 
+                            minutes_late: newMinutesLate,
+                            recalculated_at: new Date().toISOString(),
+                            recalculated_by: managerName
+                        })
                         .eq('id', record.id);
+                    
                     if (updateError) errorCount++;
                     else updatedCount++;
                 }
@@ -465,7 +510,8 @@ export const attendanceService = {
 
             return { updated: updatedCount, errors: errorCount };
         } catch (err) {
-            return { updated: updatedCount, errors: 1 };
+            console.error('Error in recalculateAttendance:', err);
+            return { updated: updatedCount, errors: errorCount + 1 };
         }
     },
 
