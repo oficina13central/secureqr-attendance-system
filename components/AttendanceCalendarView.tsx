@@ -109,7 +109,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
   const handlePrevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
   const handleNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
 
-  const renderStatusBadge = (records: AttendanceRecord[], shift?: ShiftData, isPast?: boolean) => {
+  const renderStatusBadge = (records: AttendanceRecord[], shift?: ShiftData, isPast?: boolean, isToday?: boolean) => {
     if (records && records.length > 0) {
         // Find the "worst" status or most relevant
         const hasLate = records.some(r => r.status === 'tarde' || r.status === 'sin_presentismo');
@@ -178,8 +178,23 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
             );
         }
 
-        // If it's a work day but no record and it's past
+        // If it's a work day but no record
         if (isPast) {
+            // For today: only show 'Ausente' if shift start + grace period has passed
+            if (isToday && shift.segments && shift.segments[0]?.start) {
+                const now = new Date();
+                const [h, m] = shift.segments[0].start.split(':').map(Number);
+                const shiftStart = new Date();
+                shiftStart.setHours(h, m, 0, 0);
+                const gracePeriodMinutes = 120; // Default grace period
+                const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+                
+                // If the shift hasn't started yet or grace period hasn't elapsed, don't show absent
+                if (minutesSinceStart < gracePeriodMinutes) {
+                    return <span className="text-slate-200 text-[10px]">—</span>;
+                }
+            }
+
             return (
                 <div className="flex flex-col items-center">
                     <span className="bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
@@ -247,16 +262,29 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                   </td>
                   {weekDays.map(d => {
                     const dateKey = formatDate(d);
-                    const now = new Date();
-                    now.setHours(23, 59, 59, 999); // End of today
-                    const isPast = d < now;
+                    const today = new Date();
+                    const todayStr = getLocalDateString(today);
+                    const isToday = dateKey === todayStr;
+                    const isPast = dateKey < todayStr || isToday; // Today counts as "past" but with shift-aware logic
                     const shiftKey = `${emp.id}_${dateKey}`;
                     const records = attendance[shiftKey] || [];
-                    const shift = shifts[shiftKey];
+                    
+                    // Resolve shift: first check overrides, then fallback to default_schedule
+                    let shift = shifts[shiftKey];
+                    if (!shift && emp.default_schedule) {
+                      const dateObj = new Date(dateKey + 'T12:00:00');
+                      if (!isNaN(dateObj.getTime())) {
+                        const dow = dateObj.getDay().toString();
+                        const base = emp.default_schedule[dow];
+                        if (base) {
+                          shift = base as any;
+                        }
+                      }
+                    }
 
                     return (
                       <td key={dateKey} className="px-2 py-6 text-center border-l border-dashed border-slate-100 relative">
-                        {renderStatusBadge(records, shift, isPast)}
+                        {renderStatusBadge(records, shift, isPast, isToday)}
                       </td>
                     );
                   })}
