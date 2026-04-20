@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Activity,
   CalendarCheck,
+  Briefcase,
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { attendanceService } from '../services/attendanceService';
@@ -350,17 +351,74 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   const stats = useMemo(() => {
     const today = getLocalDateString();
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const todayRecs = correctedRecords.filter(r => r.date === today);
     const allTodayRecords = [...todayRecs, ...realTimeAbsences];
+
+    // Count employees currently working (checked in and shift not yet ended)
+    const checkedInToday = todayRecs.filter(r => r.check_in && ['en_horario', 'tarde', 'presente', 'manual', 'sin_presentismo'].includes(r.status));
+    let trabajandoAhora = 0;
+
+    checkedInToday.forEach(r => {
+      const empId = r.employee_id?.toLowerCase();
+      const emp = employees.find(e => e.id.toLowerCase() === empId);
+      
+      // Find shift end time from schedule
+      let shiftEndMinutes = -1;
+      const compositeKey = `${empId}_${today}`;
+      const shift = scheduleMap.get(compositeKey);
+
+      if (shift && shift.segments && shift.segments.length > 0) {
+        const lastSegment = shift.segments[shift.segments.length - 1];
+        if (lastSegment?.end) {
+          const [eh, em] = lastSegment.end.split(':').map(Number);
+          shiftEndMinutes = eh * 60 + em;
+        }
+      } else if (emp?.default_schedule) {
+        const dow = now.getDay().toString();
+        const base = emp.default_schedule[dow];
+        if (base?.segments && base.segments.length > 0) {
+          const lastSegment = base.segments[base.segments.length - 1];
+          if (lastSegment?.end) {
+            const [eh, em] = lastSegment.end.split(':').map(Number);
+            shiftEndMinutes = eh * 60 + em;
+          }
+        }
+      }
+
+      if (shiftEndMinutes >= 0) {
+        // Handle nocturnal shifts: if end < start (e.g. 06:00 < 22:00), 
+        // the shift ends the next day, so they're still working
+        const shiftStart = shift?.segments?.[0]?.start || emp?.default_schedule?.[now.getDay().toString()]?.segments?.[0]?.start;
+        if (shiftStart) {
+          const [sh, sm] = shiftStart.split(':').map(Number);
+          const startMinutes = sh * 60 + sm;
+          if (shiftEndMinutes < startMinutes) {
+            // Nocturnal shift: always still working during the same calendar day
+            trabajandoAhora++;
+            return;
+          }
+        }
+        // Normal shift: check if current time is before shift end
+        if (nowMinutes < shiftEndMinutes) {
+          trabajandoAhora++;
+        }
+      } else {
+        // No schedule found, assume still working if checked in today
+        trabajandoAhora++;
+      }
+    });
 
     return {
       presentes: allTodayRecords.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status)).length,
       tardes: allTodayRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
       ausentes: allTodayRecords.filter(r => r.status === 'ausente').length,
       descansos: allTodayRecords.filter(r => r.status === 'descanso').length,
-      vacaciones: allTodayRecords.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica').length
+      vacaciones: allTodayRecords.filter(r => r.status === 'vacaciones' || r.status === 'licencia_medica').length,
+      trabajandoAhora
     };
-  }, [correctedRecords, realTimeAbsences]);
+  }, [correctedRecords, realTimeAbsences, employees, scheduleMap]);
 
   // Heatmap Data Generation
   const heatmapData = useMemo(() => {
@@ -470,8 +528,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
           {[
+            { id: 'working', label: 'Trabajando Ahora', value: stats.trabajandoAhora, icon: Briefcase, color: 'text-green-600', bg: 'bg-green-50', activeColor: 'ring-green-600 bg-green-100', pulse: true },
             { id: 'present', label: 'En Horario', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
             { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
             { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
@@ -484,8 +543,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               onClick={() => setActiveFilter(activeFilter === stat.id ? 'all' : stat.id as any)}
               className={`bg-white px-3 md:px-4 py-3 md:py-4 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col items-start gap-2 lg:gap-3 hover:shadow-md active:scale-95 ${activeFilter === stat.id ? `ring-2 ${stat.activeColor} border-transparent` : 'border-slate-50 shadow-sm bg-slate-50/20'}`}
             >
-              <div className={`p-2 lg:p-3 rounded-xl lg:rounded-2xl shrink-0 ${stat.bg}`}>
+              <div className={`p-2 lg:p-3 rounded-xl lg:rounded-2xl shrink-0 ${stat.bg} relative`}>
                 <stat.icon className={`w-4 h-4 lg:w-5 lg:h-5 ${stat.color}`} strokeWidth={2.5} />
+                {stat.pulse && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                )}
               </div>
               <div className="flex flex-col">
                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
