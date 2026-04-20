@@ -806,31 +806,6 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                     ))}
                                 </tbody>
                             </table>
-                                        <p className="text-slate-700 bg-white p-2 rounded border border-slate-200">{employees.find(e => e.id === selectedEmployeeId)?.dni || 'N/A'}</p>
-                                    </div>
-                                    <div className="col-span-2 space-y-1">
-                                        <p className="text-slate-400">Default Schedule (Raw):</p>
-                                        <pre className="text-[9px] text-slate-700 bg-white p-2 rounded border border-slate-200 overflow-x-auto">
-                                            {JSON.stringify(employees.find(e => e.id === selectedEmployeeId)?.default_schedule, null, 2)}
-                                        </pre>
-                                    </div>
-                                    <div className="col-span-2 space-y-1">
-                                        <p className="text-slate-400">Schedules para Hoy ({getLocalDateString()}):</p>
-                                        <div className="bg-white p-2 rounded border border-slate-200">
-                                            {(() => {
-                                                const today = getLocalDateString();
-                                                const found = schedules.filter(s => s.employee_id === selectedEmployeeId && s.date.startsWith(today));
-                                                if (found.length === 0) return <span className="text-red-500">NO SE ENCONTRÓ REGISTRO ESPECÍFICO</span>;
-                                                return found.map(s => (
-                                                    <div key={s.id} className="mb-1 text-emerald-600">
-                                                        [{s.type}] {JSON.stringify(s.segments)} (ID: {s.id})
-                                                    </div>
-                                                ));
-                                            })()}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">

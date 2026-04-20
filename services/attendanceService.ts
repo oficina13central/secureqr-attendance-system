@@ -365,6 +365,10 @@ export const attendanceService = {
             console.error("Network error during scan:", err);
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
+            throw err;
+        }
+    },
+
     async recalculateAttendance(employeeId: string, startDate: string, endDate: string, managerName: string): Promise<{ updated: number, errors: number }> {
         let updatedCount = 0;
         let errorCount = 0;
