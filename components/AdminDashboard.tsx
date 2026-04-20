@@ -62,7 +62,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         setRules(fetchedRules);
 
         // Sincronización de ausencias del pasado y hoy (si pasó el período de gracia)
-        if (fetchedEmployees.length > 0) {
+        if (fetchedEmployees.length > 0 && !(window as any).__is_syncing_absences) {
+           (window as any).__is_syncing_absences = true;
            attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
              // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
@@ -71,7 +72,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules) setSchedules(updatedSchedules);
-           }).catch(e => console.error('Error in sync:', e));
+           }).catch(e => console.error('Error in sync:', e))
+           .finally(() => {
+             (window as any).__is_syncing_absences = false;
+           });
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);

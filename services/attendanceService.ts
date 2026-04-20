@@ -186,6 +186,19 @@ export const attendanceService = {
     },
 
     async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones'): Promise<AttendanceRecord | null> {
+        // Verificar si ya existe algún registro para este empleado en esta fecha
+        const { data: existing } = await supabase
+            .from('attendance_records')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('date', date)
+            .maybeSingle();
+
+        if (existing) {
+            console.log(`Record already exists for ${employeeName} on ${date}, skipping recordAbsence.`);
+            return null;
+        }
+
         const { data, error } = await supabase
             .from('attendance_records')
             .insert([{
@@ -207,14 +220,13 @@ export const attendanceService = {
     async syncPastAbsences(employees: Profile[]): Promise<void> {
         const today = new Date();
         const rules = await settingsService.getRules();
+        console.log(`Starting syncPastAbsences for ${employees.length} employees...`);
         
         for (let i = 0; i <= 3; i++) {
             const checkDate = new Date();
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
 
-            // IMPORTANTE: Evitar generar ausencias automáticas de días de prueba/instalación.
-            // El sistema de detección de faltas arranca oficialmente el 20 de Abril de 2026.
             if (dateStr <= '2026-04-19') continue;
 
             const { data: existingToday } = await supabase
@@ -222,8 +234,8 @@ export const attendanceService = {
                 .select('employee_id, employee_name')
                 .eq('date', dateStr);
 
-            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id?.toLowerCase().trim()));
-            const recordedNames = new Set((existingToday || []).map(r => r.employee_name?.toLowerCase().trim()));
+            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id?.toLowerCase().trim()).filter(Boolean));
+            const recordedNames = new Set((existingToday || []).map(r => r.employee_name?.toLowerCase().trim()).filter(Boolean));
 
             for (const emp of employees) {
                 const empIdNormalized = emp.id.toLowerCase().trim();
@@ -248,7 +260,6 @@ export const attendanceService = {
 
                     if (!activeSchedule || activeSchedule.type === 'off') continue;
 
-                    // Si es hoy (i=0), verificar período de gracia
                     if (i === 0) {
                         const shiftStartStr = activeSchedule.segments?.[0]?.start;
                         if (shiftStartStr) {
@@ -259,10 +270,8 @@ export const attendanceService = {
                             const gracePeriod = rules.ausente_gracia || 120;
                             const minutesSinceStart = (today.getTime() - shiftStart.getTime()) / 60000;
                             
-                            // Si aún no pasó el período de gracia, no marcar como ausente todavía
                             if (minutesSinceStart < gracePeriod) continue;
                         } else if (activeSchedule.type !== 'vacation' && activeSchedule.type !== 'medical') {
-                            // Sin horario definido y no es licencia/vacación, esperamos al final del día
                             continue;
                         }
                     }
@@ -271,10 +280,13 @@ export const attendanceService = {
                     status = activeSchedule.type === 'vacation' ? 'vacaciones' : 
                              activeSchedule.type === 'medical' ? 'licencia_medica' : 'ausente';
                     
-                    if (status) await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                    if (status) {
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                    }
                 }
             }
         }
+        console.log(`Finished syncPastAbsences.`);
     },
 
     async resolveEmployeeId(id: string, name: string): Promise<string | null> {
