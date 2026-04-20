@@ -490,9 +490,7 @@ export const attendanceService = {
                         .from('attendance_records')
                         .update({ 
                             status: newStatus, 
-                            minutes_late: newMinutesLate,
-                            recalculated_at: new Date().toISOString(),
-                            recalculated_by: managerName
+                            minutes_late: newMinutesLate
                         })
                         .eq('id', record.id);
                     

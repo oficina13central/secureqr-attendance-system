@@ -208,7 +208,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 currentUser.full_name || 'Admin'
             );
             
-            alert(`Recálculo finalizado: ${result.updated} registros actualizados. (${result.errors} errores)`);
+            if (result.updated > 0) {
+                // Silently refresh if everything went well
+                await loadData(true);
+            } else if (result.errors > 0) {
+                alert(`Hubo un problema al recalcular: ${result.errors} error(es) detectado(s).`);
+            }
             await loadData();
         } catch (error) {
             console.error(error);
@@ -228,10 +233,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             if (!record) return;
 
             const [h, m] = newTime.split(':').map(Number);
-            const checkInDate = new Date(record.date);
-            checkInDate.setHours(h, m, 0, 0);
-            
-            const updatedCheckIn = checkInDate.toISOString();
+            // Create date in LOCAL timezone using YYYY-MM-DDTHH:mm format
+            const datePart = record.date.split('T')[0];
+            const localDate = new Date(`${datePart}T${newTime}:00`);
+            const updatedCheckIn = localDate.toISOString();
 
             const success = await attendanceService.updateRecord(recordId, {
                 check_in: updatedCheckIn,
