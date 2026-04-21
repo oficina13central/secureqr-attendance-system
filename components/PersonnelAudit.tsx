@@ -229,19 +229,44 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         
         setSavingId(recordId);
         try {
-            const record = records.find(r => r.id === recordId);
+            // Buscar el registro (puede ser real de la DB o virtual generado en el Audit)
+            const isVirtual = recordId.startsWith('virtual_');
+            let record = records.find(r => r.id === recordId);
+            
+            if (!record && isVirtual) {
+                record = selectedEmployeeData?.detailedRecords.find(r => r.id === recordId);
+            }
+
             if (!record) return;
 
             const [h, m] = newTime.split(':').map(Number);
-            // Create date in LOCAL timezone using YYYY-MM-DDTHH:mm format
             const datePart = record.date.split('T')[0];
+            
+            // Creamos la fecha en el horario local de Argentina
             const localDate = new Date(`${datePart}T${newTime}:00`);
             const updatedCheckIn = localDate.toISOString();
 
-            const success = await attendanceService.updateRecord(recordId, {
-                check_in: updatedCheckIn,
-                manual_reason: 'Corrección administrativa'
-            });
+            let success = false;
+            
+            if (isVirtual) {
+                // Si es virtual, lo CREAMOS en la base de datos
+                const { error } = await supabase.from('attendance_records').insert([{
+                    id: crypto.randomUUID(),
+                    employee_id: record.employee_id,
+                    employee_name: record.employee_name,
+                    date: record.date,
+                    check_in: updatedCheckIn,
+                    status: 'manual', // El recálculo posterior le pondrá el estado preciso
+                    minutes_late: 0
+                }]);
+                success = !error;
+            } else {
+                // Si es real, solo ACTUALIZAMOS
+                success = await attendanceService.updateRecord(recordId, {
+                    check_in: updatedCheckIn,
+                    manual_reason: 'Corrección administrativa'
+                });
+            }
 
             if (success) {
                 setEditingRecordId(null);
@@ -250,16 +275,17 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 const startDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
                 const endDate = new Date(targetYear, targetMonth + 1, 0).toISOString().split('T')[0];
                 
+                // Recalculamos el periodo para que la tardanza sea exacta
                 await attendanceService.recalculateAttendance(
                     selectedEmployeeId!,
                     startDate,
                     endDate,
-                    currentUser.full_name || 'Admin'
+                    currentUser?.full_name || 'Admin'
                 );
                 
                 await loadData(true);
             } else {
-                alert('Error al actualizar el registro.');
+                alert('Error al guardar el registro.');
             }
         } catch (error) {
             console.error(error);
