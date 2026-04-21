@@ -671,18 +671,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           
           <div className="overflow-x-auto pb-4 custom-scrollbar">
             <div className="flex flex-col min-w-max">
-              {/* Month Labels */}
-              {/* Month Labels - Alineados dinámicamente con las semanas */}
-              <div className="flex text-[10px] font-bold text-slate-400 mb-3 relative h-4">
-                {heatmapMonthLabels.map((m, i) => (
-                  <span 
-                    key={i} 
-                    className="absolute whitespace-nowrap" 
-                    style={{ left: `${m.index * 21}px` }} // 15px de ancho + 6px de gap (gap-1.5)
-                  >
-                    {m.name}
-                  </span>
-                ))}
+              {/* Month Labels - Alineados con el grid del heatmap */}
+              <div className="flex gap-1.5 text-[10px] font-bold text-slate-400 mb-3 h-4">
+                {heatmapData.map((week, index) => {
+                  const label = heatmapMonthLabels.find(l => l.index === index);
+                  return (
+                    <div key={index} className="w-[14px] md:w-[15px] relative shrink-0">
+                      {label && (
+                        <span className="absolute left-0 whitespace-nowrap">
+                          {label.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               
               {/* Heatmap Grid */}
