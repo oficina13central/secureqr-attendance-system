@@ -300,35 +300,40 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             });
 
             if (isCurrentMonth && todayStr >= '2026-04-20') {
-                const hasTodayRecord = monthRecords.some(r => r.date === todayStr);
-                if (!hasTodayRecord) {
-                    const shift = getRobustShift(emp, todayStr);
+                const todayRecords = monthRecords.filter(r => r.date === todayStr);
+                const shift = getRobustShift(emp, todayStr);
 
-                    if (shift && 
-                        shift.type !== 'off' && 
-                        shift.type !== 'vacation' && 
-                        shift.type !== 'medical' && 
-                        shift.segments?.[0]?.start) {
-                        const [h, m] = shift.segments[0].start.split(':').map(Number);
-                        const shiftStart = new Date();
-                        shiftStart.setHours(h, m, 0, 0);
+                if (shift && 
+                    shift.type !== 'off' && 
+                    shift.type !== 'vacation' && 
+                    shift.type !== 'medical' && 
+                    shift.segments?.length > 0) {
+                    
+                    const gracePeriod = rules?.ausente_gracia || 120;
 
-                        const gracePeriod = rules?.ausente_gracia || 120;
-                        const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
+                    shift.segments.forEach((segment: any, idx: number) => {
+                        // Si no hay un registro para este índice de segmento
+                        if (!todayRecords[idx]) {
+                            const [h, m] = segment.start.split(':').map(Number);
+                            const segmentStart = new Date();
+                            segmentStart.setHours(h, m, 0, 0);
 
-                        if (minutesSinceStart > gracePeriod) {
-                            monthRecords.push({
-                                id: `virtual_${emp.id}`,
-                                employee_id: emp.id,
-                                employee_name: emp.full_name,
-                                date: todayStr,
-                                check_in: null,
-                                check_out: null,
-                                status: 'ausente',
-                                minutes_late: 0
-                            });
+                            const minutesSinceStart = (now.getTime() - segmentStart.getTime()) / 60000;
+
+                            if (minutesSinceStart > gracePeriod) {
+                                monthRecords.push({
+                                    id: `virtual_${emp.id}_${idx}`,
+                                    employee_id: emp.id,
+                                    employee_name: emp.full_name,
+                                    date: todayStr,
+                                    check_in: null,
+                                    check_out: null,
+                                    status: 'ausente',
+                                    minutes_late: 0
+                                });
+                            }
                         }
-                    }
+                    });
                 }
             }
 
@@ -357,7 +362,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
-                detailedRecords: monthRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                detailedRecords: monthRecords.sort((a, b) => {
+                    const timeA = a.date + (a.check_in ? 'T' + a.check_in.split('T')[1] : 'T00:00:00');
+                    const timeB = b.date + (b.check_in ? 'T' + b.check_in.split('T')[1] : 'T00:00:00');
+                    return timeA.localeCompare(timeB);
+                })
             };
         });
     }, [employees, records, schedules, rules, selectedDate]);

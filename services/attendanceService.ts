@@ -463,10 +463,21 @@ export const attendanceService = {
 
             const rules = await settingsService.getRules();
 
-            for (const record of allRecords) {
-                const recordDateStr = record.date.split('T')[0];
-                
-                // Buscar con estrategia multi-llave en los schedules cargados
+            // Agrupar registros por fecha para manejar correctamente los turnos cortados
+            const recordsByDate: Record<string, AttendanceRecord[]> = {};
+            allRecords.forEach(r => {
+                const d = r.date.split('T')[0];
+                if (!recordsByDate[d]) recordsByDate[d] = [];
+                recordsByDate[d].push(r);
+            });
+
+            for (const recordDateStr in recordsByDate) {
+                // Ordenar las fichadas del día cronológicamente
+                const dailyRecs = recordsByDate[recordDateStr].sort((a, b) => 
+                    (a.check_in || '').localeCompare(b.check_in || '')
+                );
+
+                // Buscar el schedule para este día (estrategia multi-llave)
                 let activeSchedule = schedules?.find(s => {
                     const sId = (s.employee_id || '').toLowerCase().trim();
                     const sDate = (s.date || '').split('T')[0];
@@ -490,55 +501,59 @@ export const attendanceService = {
                     }
                 }
 
-                let newStatus = record.status;
-                let newMinutesLate = record.minutes_late;
+                // Procesar cada registro del día
+                for (let i = 0; i < dailyRecs.length; i++) {
+                    const record = dailyRecs[i];
+                    let newStatus = record.status;
+                    let newMinutesLate = record.minutes_late;
 
-                if (activeSchedule) {
-                    if (activeSchedule.type === 'off') {
-                        newStatus = 'descanso';
-                        newMinutesLate = 0;
-                    } else if (activeSchedule.type === 'vacation') {
-                        newStatus = 'vacaciones';
-                        newMinutesLate = 0;
-                    } else if (activeSchedule.type === 'medical') {
-                        newStatus = 'licencia_medica';
-                        newMinutesLate = 0;
-                    } else if (record.check_in && activeSchedule.segments?.[0]) {
-                        // Calculate lateness for working shifts
-                        // Calculate lateness using total minutes from midnight (independent of TZs)
-                        const checkInDate = new Date(record.check_in);
-                        const [sh, sm] = activeSchedule.segments[0].start.split(':').map(Number);
-                        
-                        const checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
-                        const schedMins = sh * 60 + sm;
-                        
-                        let diffInMinutes = checkInMins - schedMins;
-                        
-                        // Nocturnal shift logic
-                        if (diffInMinutes < -600) diffInMinutes += 1440;
+                    if (activeSchedule) {
+                        if (activeSchedule.type === 'off') {
+                            newStatus = 'descanso';
+                            newMinutesLate = 0;
+                        } else if (activeSchedule.type === 'vacation') {
+                            newStatus = 'vacaciones';
+                            newMinutesLate = 0;
+                        } else if (activeSchedule.type === 'medical') {
+                            newStatus = 'licencia_medica';
+                            newMinutesLate = 0;
+                        } else if (record.check_in && activeSchedule.segments?.[i]) {
+                            // Turno laboral: Calcular tardanza usando el segmento correspondiente al índice de la fichada
+                            const checkInDate = new Date(record.check_in);
+                            const segment = activeSchedule.segments[i];
+                            const [sh, sm] = segment.start.split(':').map(Number);
+                            
+                            const checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+                            const schedMins = sh * 60 + sm;
+                            
+                            let diffInMinutes = checkInMins - schedMins;
+                            
+                            // Lógica de turnos nocturnos
+                            if (diffInMinutes < -600) diffInMinutes += 1440;
 
-                        newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
-                        if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
-                        else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
-                        else newStatus = 'en_horario';
-                    } else if (!record.check_in) {
-                        // No check-in for a working shift
-                        newStatus = 'ausente';
-                        newMinutesLate = 0;
+                            newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
+                            if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
+                            else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
+                            else newStatus = 'en_horario';
+                        } else if (!record.check_in) {
+                            // Sin fichada registrada
+                            newStatus = 'ausente';
+                            newMinutesLate = 0;
+                        }
                     }
-                }
 
-                if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
-                    const { error: updateError } = await supabase
-                        .from('attendance_records')
-                        .update({ 
-                            status: newStatus, 
-                            minutes_late: newMinutesLate
-                        })
-                        .eq('id', record.id);
-                    
-                    if (updateError) errorCount++;
-                    else updatedCount++;
+                    if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
+                        const { error: updateError } = await supabase
+                            .from('attendance_records')
+                            .update({ 
+                                status: newStatus, 
+                                minutes_late: newMinutesLate
+                            })
+                            .eq('id', record.id);
+                        
+                        if (updateError) errorCount++;
+                        else updatedCount++;
+                    }
                 }
             }
 
