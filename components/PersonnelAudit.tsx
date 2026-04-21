@@ -16,7 +16,8 @@ import {
     ShieldCheck,
     Edit2,
     Check,
-    X
+    X,
+    Trash2
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -292,6 +293,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             alert('Error en la operación.');
         } finally {
             setSavingId(null);
+        }
+    };
+
+    const handleDeleteRecord = async (recordId: string) => {
+        if (!recordId || recordId.startsWith('virtual_')) return;
+        
+        try {
+            const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
+            if (!error) {
+                await loadData(true);
+            } else {
+                alert('Error al eliminar el registro.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error en la operación.');
         }
     };
 
@@ -881,6 +898,17 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                             title="Corregir Hora"
                                                         >
                                                             <Edit2 className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => {
+                                                                if (window.confirm('¿Está seguro de que desea eliminar este registro permanentemente?')) {
+                                                                    handleDeleteRecord(record.id);
+                                                                }
+                                                            }}
+                                                            className="opacity-0 group-hover/time:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
+                                                            title="Eliminar Registro"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
                                                         </button>
                                                     </div>
                                                 )}

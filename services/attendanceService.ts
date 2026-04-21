@@ -537,8 +537,29 @@ export const attendanceService = {
                             else newStatus = 'en_horario';
                         } else if (!record.check_in) {
                             // Sin fichada registrada
-                            newStatus = 'ausente';
-                            newMinutesLate = 0;
+                            let shouldDelete = false;
+                            
+                            // Si es hoy, revisar si la ausencia fue prematura y debe ser borrada
+                            const todayStr = getLocalDateString();
+                            if (record.date === todayStr && activeSchedule.segments?.[0]) {
+                                const [sh, sm] = activeSchedule.segments[0].start.split(':').map(Number);
+                                const shiftStart = new Date();
+                                shiftStart.setHours(sh, sm, 0, 0);
+                                const minutesSinceStart = (Date.now() - shiftStart.getTime()) / 60000;
+                                const gracePeriod = rules.ausente_gracia || 120;
+                                
+                                if (minutesSinceStart < gracePeriod) {
+                                    shouldDelete = true;
+                                }
+                            }
+
+                            if (shouldDelete) {
+                                await supabase.from('attendance_records').delete().eq('id', record.id);
+                                continue;
+                            } else {
+                                newStatus = 'ausente';
+                                newMinutesLate = 0;
+                            }
                         }
                     }
 
