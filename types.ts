@@ -50,6 +50,7 @@ export interface AttendanceRecord {
   status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica' | 'presente';
   minutes_late: number;
   manual_reason?: string;
+  assigned_time?: string;
 }
 
 export interface AuditLog {

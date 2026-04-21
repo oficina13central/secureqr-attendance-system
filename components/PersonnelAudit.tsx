@@ -405,11 +405,31 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
-                detailedRecords: monthRecords.sort((a, b) => {
-                    const timeA = a.date + (a.check_in ? 'T' + a.check_in.split('T')[1] : 'T00:00:00');
-                    const timeB = b.date + (b.check_in ? 'T' + b.check_in.split('T')[1] : 'T00:00:00');
-                    return timeA.localeCompare(timeB);
-                })
+                detailedRecords: (() => {
+                    const sorted = monthRecords.sort((a, b) => {
+                        const timeA = a.date + (a.check_in ? 'T' + a.check_in.split('T')[1] : 'T00:00:00');
+                        const timeB = b.date + (b.check_in ? 'T' + b.check_in.split('T')[1] : 'T00:00:00');
+                        return timeA.localeCompare(timeB);
+                    });
+                    
+                    const dayCounters: Record<string, number> = {};
+                    return sorted.map(r => {
+                        const dateKey = r.date.substring(0, 10);
+                        const shift = getRobustShift(emp, dateKey);
+                        dayCounters[dateKey] = (dayCounters[dateKey] || 0) + 1;
+                        const segmentIdx = dayCounters[dateKey] - 1;
+
+                        let assigned = '--:--';
+                        if (shift) {
+                            if (shift.type === 'off') assigned = 'Descanso';
+                            else if (shift.type === 'vacation') assigned = 'Vacaciones';
+                            else if (shift.type === 'medical') assigned = 'Licencia';
+                            else if (shift.segments?.[segmentIdx]) assigned = shift.segments[segmentIdx].start;
+                            else if (shift.segments?.[0]) assigned = shift.segments[0].start;
+                        }
+                        return { ...r, assigned_time: assigned };
+                    });
+                })()
             };
         });
     }, [employees, records, schedules, rules, selectedDate]);
@@ -482,9 +502,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const handleExportDetailedReport = () => {
         if (!selectedEmployeeData) return;
 
-        const headers = ["Fecha", "Entrada", "Estado", "Retraso (min)"];
+        const headers = ["Fecha", "Horario", "Entrada", "Estado", "Retraso (min)"];
         const rows = selectedEmployeeData.detailedRecords.map(r => [
             r.date,
+            r.assigned_time || '--:--',
             formatTime(r.check_in),
             r.status === 'sin_presentismo' ? 'Perdió el Presentismo' : r.status.replace('_', ' '),
             r.minutes_late > 0 ? r.minutes_late : '-'
@@ -845,6 +866,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <thead>
                                     <tr className="border-b border-slate-100">
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                                        <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Horario</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Retraso</th>
@@ -858,6 +880,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                     ) : selectedEmployeeData.detailedRecords.map((record) => (
                                         <tr key={record.id} className="hover:bg-slate-50 transition-colors group">
                                             <td className="py-4 text-sm font-bold text-slate-600">{record.date}</td>
+                                            <td className="py-4 text-sm font-black text-indigo-600/70">{record.assigned_time || '--:--'}</td>
                                             <td className="py-4">
                                                 {editingRecordId === record.id ? (
                                                     <div className="flex items-center space-x-2">
