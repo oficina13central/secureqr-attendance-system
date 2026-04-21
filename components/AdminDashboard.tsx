@@ -22,6 +22,8 @@ import { supabase } from '../services/supabaseClient';
 import { scheduleService } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 
+const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
 interface AdminDashboardProps {
   currentUser: Profile;
 }
@@ -601,7 +603,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     link.click();
   };
 
-  const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-700 bg-slate-50/50 min-h-screen">
