@@ -275,6 +275,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 status: 'ausente',
                 check_in: null,
                 check_out: null,
+                nominal_start: seg.start,
                 minutes_late: 0
               });
             } else {
@@ -286,6 +287,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 status: 'pendiente',
                 check_in: null,
                 check_out: null,
+                nominal_start: seg.start,
                 minutes_late: 0
               });
             }
@@ -453,7 +455,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       } else {
         const existing = groups.get(key);
         existing.originalRecords.push(r);
-        // We Sort originalRecords by index/time if possible, but they are usually added in order
+        
+        // Ordenar cronológicamente para que la mañana aparezca antes que la tarde
+        existing.originalRecords.sort((a: any, b: any) => {
+          const getTimeKey = (rec: any) => {
+            if (rec.check_in) return rec.check_in.split('T')[1].substring(0, 5);
+            return rec.nominal_start || '00:00';
+          };
+          return getTimeKey(a).localeCompare(getTimeKey(b));
+        });
       }
     });
 
