@@ -537,6 +537,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     return weeks;
   }, [authorizedRecords]);
 
+
+  const heatmapMonthLabels = useMemo(() => {
+    const labels: { name: string; index: number }[] = [];
+    let lastMonth = -1;
+    
+    heatmapData.forEach((week, wIndex) => {
+      // Encontrar el primer día no nulo de la semana para saber de qué mes es
+      const firstDay = week.find(d => d !== null);
+      if (firstDay && firstDay.month !== lastMonth) {
+        labels.push({ name: monthNames[firstDay.month], index: wIndex });
+        lastMonth = firstDay.month;
+      }
+    });
+    
+    return labels;
+  }, [heatmapData]);
+
   const getHeatmapColor = (count: number) => {
     if (count === 0) return 'bg-slate-100 dark:bg-slate-800';
     if (count < 3) return 'bg-indigo-300';
@@ -654,9 +671,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           <div className="overflow-x-auto pb-4 custom-scrollbar">
             <div className="flex flex-col min-w-max">
               {/* Month Labels */}
-              <div className="flex text-[10px] font-bold text-slate-400 mb-3 justify-between pr-4">
-                {monthNames.map((m, i) => (
-                  <span key={i} className="flex-1 min-w-[32px]">{m}</span>
+              {/* Month Labels - Alineados dinámicamente con las semanas */}
+              <div className="flex text-[10px] font-bold text-slate-400 mb-3 relative h-4">
+                {heatmapMonthLabels.map((m, i) => (
+                  <span 
+                    key={i} 
+                    className="absolute whitespace-nowrap" 
+                    style={{ left: `${m.index * 21}px` }} // 15px de ancho + 6px de gap (gap-1.5)
+                  >
+                    {m.name}
+                  </span>
                 ))}
               </div>
               
