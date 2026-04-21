@@ -273,7 +273,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         const targetMonth = selectedDate.getMonth();
         const targetYear = selectedDate.getFullYear();
         const isCurrentMonth = targetMonth === new Date().getMonth() && targetYear === new Date().getFullYear();
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
         const now = new Date();
 
         return employees.map(emp => {
