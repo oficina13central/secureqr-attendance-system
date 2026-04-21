@@ -509,7 +509,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const count = authorizedRecords.filter(r => r.date === dateStr && ['presente', 'tarde', 'en_horario', 'manual'].includes(r.status)).length;
+      const count = authorizedRecords.filter(r => r.date === dateStr && ['ausente', 'tarde', 'sin_presentismo'].includes(r.status)).length;
       days.push({ date: dateStr, count, month: d.getMonth() });
     }
 
@@ -558,10 +558,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
   const getHeatmapColor = (count: number) => {
     if (count === 0) return 'bg-slate-100 dark:bg-slate-800';
-    if (count < 3) return 'bg-indigo-300';
-    if (count < 6) return 'bg-indigo-400';
-    if (count < 10) return 'bg-indigo-500';
-    return 'bg-indigo-600';
+    if (count < 3) return 'bg-rose-300';
+    if (count < 6) return 'bg-rose-400';
+    if (count < 10) return 'bg-rose-500';
+    return 'bg-rose-600';
   };
 
   // 30 Days Stats
@@ -664,8 +664,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               <Activity className="w-5 h-5 text-indigo-500" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">Actividad de Asistencia</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frecuencia de registros en los últimos meses</p>
+              <h3 className="font-bold text-slate-800 text-lg">Mapa de Incidencias</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ausencias y Tardanzas en los últimos meses</p>
             </div>
           </div>
           
@@ -694,8 +694,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                     {week.map((day, dIndex) => (
                       <div 
                         key={dIndex} 
-                        className={`w-[14px] h-[14px] md:w-[15px] md:h-[15px] rounded-sm transition-all hover:ring-2 hover:ring-indigo-300 hover:scale-110 cursor-pointer ${day ? getHeatmapColor(day.count) : 'bg-transparent'}`}
-                        title={day ? `${day.count} asistencias el ${day.date}` : ''}
+                        className={`w-[14px] h-[14px] md:w-[15px] md:h-[15px] rounded-sm transition-all hover:ring-2 hover:ring-rose-300 hover:scale-110 cursor-pointer ${day ? getHeatmapColor(day.count) : 'bg-transparent'}`}
+                        title={day ? `${day.count} incidencias el ${day.date}` : ''}
                       />
                     ))}
                   </div>
@@ -707,12 +707,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 <span>Menos</span>
                 <div className="flex gap-1">
                   <div className="w-3 h-3 rounded-sm bg-slate-100"></div>
-                  <div className="w-3 h-3 rounded-sm bg-indigo-300"></div>
-                  <div className="w-3 h-3 rounded-sm bg-indigo-400"></div>
-                  <div className="w-3 h-3 rounded-sm bg-indigo-500"></div>
-                  <div className="w-3 h-3 rounded-sm bg-indigo-600"></div>
+                  <div className="w-3 h-3 rounded-sm bg-rose-300"></div>
+                  <div className="w-3 h-3 rounded-sm bg-rose-400"></div>
+                  <div className="w-3 h-3 rounded-sm bg-rose-500"></div>
+                  <div className="w-3 h-3 rounded-sm bg-rose-600"></div>
                 </div>
-                <span>Más</span>
+                <span>Más (Alertas)</span>
               </div>
             </div>
           </div>
