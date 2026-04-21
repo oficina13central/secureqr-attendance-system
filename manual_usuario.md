@@ -160,6 +160,11 @@ Muestra un resumen mensual por empleado con:
 *   Cantidad de ausencias.
 *   Veces que perdió el presentismo por exceder la tolerancia técnica.
 
+**Gestión y Corrección de Registros (Detalle Diario):**
+*   **Corregir Hora:** Puede editar la marca de tiempo de un registro haciendo clic en el ícono del lápiz (✏️).
+*   **Eliminar Registro Inválido:** Si un empleado marca por equivocación, puede anular ese registro utilizando el ícono de basura rojo (🗑️). Esto evitará que el registro erróneo bloquee su marcación legítima en el horario correcto.
+*   **Botón "Recalcular":** Vital para mantener la consistencia al modificar cronogramas. Si un empleado fue marcado como "Ausente" por un error en su cronograma, simplemente corrija su horario en el módulo de Cronogramas y use este botón. El sistema ajustará la tardanza y eliminará las inasistencias generadas de forma prematura.
+
 ### 5.3 Auditoría Automática
 Módulo basado en patrones que detecta:
 *   Marcaciones sospechosas (ej: dos fichadas en tiempos imposibles).
