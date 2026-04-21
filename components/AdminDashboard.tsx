@@ -13,6 +13,16 @@ import {
   Briefcase,
   Palmtree,
 } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
 import { AttendanceRecord, Profile } from '../types';
 import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
@@ -501,60 +511,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
   // Heatmap Data Generation
-  const heatmapData = useMemo(() => {
-    const days: { date: string, count: number, month: number }[] = [];
+  }, [authorizedRecords]);
+  
+  const barChartData = useMemo(() => {
+    const data = [];
     const today = new Date();
-    // 365 days ago
-    for (let i = 365; i >= 0; i--) {
+    for (let i = 14; i >= 0; i--) {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const count = authorizedRecords.filter(r => r.date === dateStr && ['ausente', 'tarde', 'sin_presentismo'].includes(r.status)).length;
-      days.push({ date: dateStr, count, month: d.getMonth() });
+      
+      const dayRecs = authorizedRecords.filter(r => r.date === dateStr);
+      const ausencias = dayRecs.filter(r => r.status === 'ausente').length;
+      const tardanzas = dayRecs.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length;
+      
+      data.push({
+        name: d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+        ausencias,
+        tardanzas,
+        fullDate: dateStr
+      });
     }
-
-    const weeks: (typeof days[0] | null)[][] = [];
-    let currentWeek: (typeof days[0] | null)[] = [];
-    
-    // pad to start on correct week day (Sunday = 0 in JS)
-    const firstDayOffset = new Date(days[0].date).getDay();
-    for(let i=0; i<firstDayOffset; i++) {
-       currentWeek.push(null);
-    }
-    
-    days.forEach(day => {
-      currentWeek.push(day);
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    });
-    if (currentWeek.length > 0) {
-      // pad the end to have 7 boxes
-      while(currentWeek.length < 7) {
-        currentWeek.push(null);
-      }
-      weeks.push(currentWeek);
-    }
-    return weeks;
+    return data;
   }, [authorizedRecords]);
 
 
-  const heatmapMonthLabels = useMemo(() => {
-    const labels: { name: string; index: number }[] = [];
-    let lastMonth = -1;
-    
-    heatmapData.forEach((week, wIndex) => {
-      // Encontrar el primer día no nulo de la semana para saber de qué mes es
-      const firstDay = week.find(d => d !== null);
-      if (firstDay && firstDay.month !== lastMonth) {
-        labels.push({ name: monthNames[firstDay.month], index: wIndex });
-        lastMonth = firstDay.month;
-      }
-    });
-    
-    return labels;
-  }, [heatmapData]);
+  const heatmapMonthLabels = []; // Deprecated
 
   const getHeatmapColor = (count: number) => {
     if (count === 0) return 'bg-slate-100 dark:bg-slate-800';
@@ -658,63 +640,84 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Heatmap (Activity Calendar) */}
-        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="p-2 bg-indigo-50 rounded-xl">
-              <Activity className="w-5 h-5 text-indigo-500" />
+        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-indigo-50 rounded-xl">
+                <Activity className="w-5 h-5 text-indigo-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Tendencia de Incidencias</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ausencias y Tardanzas • Últimos 15 días</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Mapa de Incidencias</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ausencias y Tardanzas en los últimos meses</p>
+            <div className="flex items-center space-x-4 text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 mr-2" />
+                <span className="text-slate-500">Ausencias</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 mr-2" />
+                <span className="text-slate-500">Tardanzas</span>
+              </div>
             </div>
           </div>
           
-          <div className="overflow-x-auto pb-4 custom-scrollbar">
-            <div className="flex flex-col min-w-max">
-              {/* Month Labels - Alineados con el grid del heatmap */}
-              <div className="flex gap-1.5 text-[10px] font-bold text-slate-400 mb-3 h-4">
-                {heatmapData.map((week, index) => {
-                  const label = heatmapMonthLabels.find(l => l.index === index);
-                  return (
-                    <div key={index} className="w-[14px] md:w-[15px] relative shrink-0">
-                      {label && (
-                        <span className="absolute left-0 whitespace-nowrap">
-                          {label.name}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              
-              {/* Heatmap Grid */}
-              <div className="flex gap-1.5">
-                {heatmapData.map((week, wIndex) => (
-                  <div key={wIndex} className="flex flex-col gap-1.5">
-                    {week.map((day, dIndex) => (
-                      <div 
-                        key={dIndex} 
-                        className={`w-[14px] h-[14px] md:w-[15px] md:h-[15px] rounded-sm transition-all hover:ring-2 hover:ring-rose-300 hover:scale-110 cursor-pointer ${day ? getHeatmapColor(day.count) : 'bg-transparent'}`}
-                        title={day ? `${day.count} incidencias el ${day.date}` : ''}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-               
-              {/* Heatmap Legend */}
-              <div className="flex items-center justify-end mt-4 space-x-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                <span>Menos</span>
-                <div className="flex gap-1">
-                  <div className="w-3 h-3 rounded-sm bg-slate-100"></div>
-                  <div className="w-3 h-3 rounded-sm bg-rose-300"></div>
-                  <div className="w-3 h-3 rounded-sm bg-rose-400"></div>
-                  <div className="w-3 h-3 rounded-sm bg-rose-500"></div>
-                  <div className="w-3 h-3 rounded-sm bg-rose-600"></div>
-                </div>
-                <span>Más (Alertas)</span>
-              </div>
-            </div>
+          <div className="flex-1 h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }} 
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }} 
+                />
+                <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-8">
+                              <span className="text-xs font-bold text-slate-600">Ausencias:</span>
+                              <span className="text-xs font-black text-rose-500">{payload[0].value}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-8">
+                              <span className="text-xs font-bold text-slate-600">Tardanzas:</span>
+                              <span className="text-xs font-black text-amber-500">{payload[1].value}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar 
+                  dataKey="ausencias" 
+                  stackId="a" 
+                  fill="#f43f5e" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={20}
+                />
+                <Bar 
+                  dataKey="tardanzas" 
+                  stackId="a" 
+                  fill="#fbbf24" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
