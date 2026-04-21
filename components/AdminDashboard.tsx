@@ -219,6 +219,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const empId = emp.id.toLowerCase();
       const empRecords = records.filter(r => r.date === today && r.employee_id?.toLowerCase() === empId);
       const realEntriesCount = empRecords.filter(r => r.check_in).length;
+      const hasStatusRecord = empRecords.some(r => ['vacaciones', 'licencia_medica', 'descanso', 'ausente', 'pendiente'].includes(r.status));
 
       // Usamos el mismo mapa de búsqueda con IDs normalizados
       let shift = scheduleMap.get(`${empId}_${today}`);
@@ -232,7 +233,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
 
       if (shift) {
         if (shift.type === 'off') {
-          if (realEntriesCount > 0) return; // Si ya fichó en su franco, no generamos ausencia
+          if (realEntriesCount > 0 || hasStatusRecord) return; // Si ya fichó o ya tiene registro de franco, no generamos nada
           virtualAbsences.push({
             employee_id: emp.id,
             employee_name: emp.full_name,
@@ -243,7 +244,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else if (shift.type === 'vacation' || shift.type === 'medical') {
-          if (realEntriesCount > 0) return;
+          if (realEntriesCount > 0 || hasStatusRecord) return;
           virtualAbsences.push({
             employee_id: emp.id,
             employee_name: emp.full_name,
@@ -464,14 +465,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const todayRecs = correctedRecords.filter(r => r.date === today);
     const allTodayRecords = [...todayRecs, ...realTimeAbsences];
 
+    // Helper to count unique employees in a specific status
+    const countUniqueByStatus = (statusList: string | string[]) => {
+      const statuses = Array.isArray(statusList) ? statusList : [statusList];
+      const matchingEmpIds = new Set(
+        allTodayRecords
+          .filter(r => statuses.includes(r.status))
+          .map(r => r.employee_id?.toLowerCase())
+          .filter(Boolean)
+      );
+      return matchingEmpIds.size;
+    };
+
     return {
-      presentes: allTodayRecords.filter(r => ['en_horario', 'presente', 'manual'].includes(r.status)).length,
-      tardes: allTodayRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
-      ausentes: allTodayRecords.filter(r => r.status === 'ausente').length,
-      descansos: allTodayRecords.filter(r => r.status === 'descanso').length,
-      vacaciones: allTodayRecords.filter(r => r.status === 'vacaciones').length,
-      licencias: allTodayRecords.filter(r => r.status === 'licencia_medica').length,
-      trabajandoAhora: workingNowRecords.length
+      presentes: countUniqueByStatus(['en_horario', 'presente', 'manual']),
+      tardes: countUniqueByStatus(['tarde', 'sin_presentismo']),
+      ausentes: countUniqueByStatus('ausente'),
+      descansos: countUniqueByStatus('descanso'),
+      vacaciones: countUniqueByStatus('vacaciones'),
+      licencias: countUniqueByStatus('licencia_medica'),
+      trabajandoAhora: new Set(workingNowRecords.map(r => r.employee_id?.toLowerCase())).size
     };
   }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
