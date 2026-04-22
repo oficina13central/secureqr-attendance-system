@@ -510,9 +510,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     };
   }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
-  // Heatmap Data Generation
-  }, [authorizedRecords]);
-  
+  // Heatmap Data Generation (Removed)
+
   const barChartData = useMemo(() => {
     const data = [];
     const today = new Date();
