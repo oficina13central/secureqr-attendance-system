@@ -38,6 +38,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   
   // Robust PIN protection
   const [showPinPad, setShowPinPad] = useState(false);
@@ -91,6 +92,85 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     }
   };
 
+  const ensureAudioContext = async () => {
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) return null;
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextCtor();
+    }
+
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+
+    return audioContextRef.current;
+  };
+
+  const playFeedbackTone = async (
+    notes: Array<{ frequency: number; duration: number; delay?: number; type?: OscillatorType }>,
+    gainValue = 0.045
+  ) => {
+    try {
+      const audioContext = await ensureAudioContext();
+      if (!audioContext) return;
+
+      const startAt = audioContext.currentTime + 0.01;
+      notes.forEach(note => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        const noteStart = startAt + (note.delay || 0);
+        const noteEnd = noteStart + note.duration;
+
+        oscillator.type = note.type || 'sine';
+        oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+
+        gainNode.gain.setValueAtTime(0.0001, noteStart);
+        gainNode.gain.linearRampToValueAtTime(gainValue, noteStart + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(noteStart);
+        oscillator.stop(noteEnd);
+      });
+    } catch (error) {
+      console.error('Audio feedback failed:', error);
+    }
+  };
+
+  const playStatusSound = async (tone: 'success' | 'duplicate' | 'error' | 'offline') => {
+    if (tone === 'success') {
+      await playFeedbackTone([
+        { frequency: 880, duration: 0.08, type: 'sine' },
+        { frequency: 1175, duration: 0.12, delay: 0.09, type: 'sine' }
+      ]);
+      return;
+    }
+
+    if (tone === 'offline') {
+      await playFeedbackTone([
+        { frequency: 740, duration: 0.08, type: 'triangle' },
+        { frequency: 988, duration: 0.12, delay: 0.09, type: 'triangle' }
+      ]);
+      return;
+    }
+
+    if (tone === 'duplicate') {
+      await playFeedbackTone([
+        { frequency: 520, duration: 0.07, type: 'square' },
+        { frequency: 520, duration: 0.07, delay: 0.1, type: 'square' }
+      ]);
+      return;
+    }
+
+    await playFeedbackTone([
+      { frequency: 320, duration: 0.12, type: 'sawtooth' },
+      { frequency: 220, duration: 0.16, delay: 0.13, type: 'sawtooth' }
+    ], 0.04);
+  };
+
   const handlePinInput = (num: string) => {
     setPinError(false);
     if (inputPin.length < 4) {
@@ -110,6 +190,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   };
 
   const startSession = (mode: 'in' | 'out') => {
+    void ensureAudioContext();
     setScanMode(mode);
     setSessionActive(true);
     setScanning(true);
@@ -246,6 +327,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           setScanType(result.type);
           setAttendanceMsg(successPresentation.message);
           setMsgColor(successPresentation.color);
+          void playStatusSound('success');
         } else if (result.reason === 'queued_offline') {
           const offlinePresentation = getFailurePresentation(result.reason);
           setStatus('success');
@@ -254,15 +336,18 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           setAttendanceMsg(offlinePresentation.message);
           setMsgColor('text-amber-400');
           setPendingCount(offlineService.count);
+          void playStatusSound('offline');
         } else {
           const failurePresentation = getFailurePresentation(result.reason);
           setStatus(failurePresentation.status);
           setAttendanceMsg(failurePresentation.message);
+          void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
         }
       } else {
         const invalidQrPresentation = getFailurePresentation(undefined, true);
         setStatus(invalidQrPresentation.status);
         setAttendanceMsg(invalidQrPresentation.message);
+        void playStatusSound('error');
       }
 
       setTimeout(() => {
@@ -274,6 +359,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       const invalidQrPresentation = getFailurePresentation(undefined, true);
       setStatus(invalidQrPresentation.status);
       setAttendanceMsg(invalidQrPresentation.message);
+      void playStatusSound('error');
       setTimeout(() => {
         resetTerminal();
       }, 5000);
@@ -297,6 +383,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     e.preventDefault();
     if (!manualDni.trim() || processingManual) return;
 
+    void ensureAudioContext();
     setProcessingManual(true);
     setScanning(false);
     
@@ -319,18 +406,21 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         setScanType(result.type);
         setAttendanceMsg(successPresentation.message);
         setMsgColor(successPresentation.color);
+        void playStatusSound('success');
         setShowManualModal(false);
         setManualDni('');
       } else {
         const failurePresentation = getFailurePresentation(result.reason);
         setStatus(failurePresentation.status);
         setAttendanceMsg(failurePresentation.message);
+        void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : failurePresentation.message === 'Guardado Offline (Sin Internet)' ? 'offline' : 'error');
         setShowManualModal(false);
       }
     } catch (err) {
       console.error("Manual entry failed:", err);
       setStatus('error');
       setAttendanceMsg('Error al registrar');
+      void playStatusSound('error');
     } finally {
       setProcessingManual(false);
       setTimeout(() => {
