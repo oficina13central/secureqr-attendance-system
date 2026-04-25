@@ -45,6 +45,52 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [pinError, setPinError] = useState(false);
   const TERMINAL_PIN = "0808";
 
+  const getSuccessMessage = (type: 'in' | 'out', recordStatus?: string | null) => {
+    if (type === 'out') {
+      return { message: 'Salida Registrada', color: 'text-blue-300' };
+    }
+
+    if (recordStatus === 'en_horario') {
+      return { message: 'En Horario', color: 'text-emerald-300' };
+    }
+    if (recordStatus === 'tarde') {
+      return { message: 'Llegó Tarde', color: 'text-amber-300' };
+    }
+    if (recordStatus === 'sin_presentismo') {
+      return { message: 'Perdió el Presentismo', color: 'text-red-400' };
+    }
+
+    return { message: 'Entrada Registrada', color: 'text-emerald-300' };
+  };
+
+  const getFailurePresentation = (reason?: string, invalidQr = false) => {
+    if (invalidQr) {
+      return {
+        status: 'error' as const,
+        message: 'QR no válido, revise su tarjeta',
+      };
+    }
+
+    switch (reason) {
+      case 'already_checked_in':
+        return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta' };
+      case 'no_open_record':
+        return { status: 'error' as const, message: 'No tenés entrada registrada' };
+      case 'off_day':
+        return { status: 'error' as const, message: 'Tenés descanso asignado' };
+      case 'vacation':
+        return { status: 'error' as const, message: 'Estás de vacaciones' };
+      case 'daily_limit_reached':
+        return { status: 'duplicate' as const, message: 'Ya completaste los registros permitidos de hoy' };
+      case 'user_not_found':
+        return { status: 'error' as const, message: 'No se encontró un empleado válido' };
+      case 'queued_offline':
+        return { status: 'success' as const, message: 'Guardado Offline (Sin Internet)' };
+      default:
+        return { status: 'error' as const, message: 'Error al registrar' };
+    }
+  };
+
   const handlePinInput = (num: string) => {
     setPinError(false);
     if (inputPin.length < 4) {
@@ -194,53 +240,29 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined);
 
         if (result.type === 'in' || result.type === 'out') {
+          const successPresentation = getSuccessMessage(result.type, result.record?.status);
           setStatus('success');
           setLastUser(employeeName);
           setScanType(result.type);
-
-          if (result.type === 'in') {
-            const status = result.record?.status;
-            if (status === 'en_horario') {
-              setAttendanceMsg('En Horario');
-              setMsgColor('text-emerald-300');
-            } else if (status === 'tarde') {
-              setAttendanceMsg('Llegó Tarde');
-              setMsgColor('text-amber-300');
-            } else if (status === 'sin_presentismo') {
-              setAttendanceMsg('Perdió el Presentismo');
-              setMsgColor('text-red-400');
-            }
-          } else {
-            setAttendanceMsg('Salida Registrada');
-            setMsgColor('text-blue-300');
-          }
-        } else if (result.reason === 'already_checked_in') {
-          setStatus('duplicate');
-          setAttendanceMsg('Ya tenés una entrada abierta');
-        } else if (result.reason === 'no_open_record') {
-          setStatus('error');
-          setAttendanceMsg('No tenés entrada registrada');
-        } else if (result.reason === 'off_day') {
-          setStatus('error');
-          setAttendanceMsg('Tenés descanso asignado');
-        } else if (result.reason === 'vacation') {
-          setStatus('error');
-          setAttendanceMsg('Estás de vacaciones');
+          setAttendanceMsg(successPresentation.message);
+          setMsgColor(successPresentation.color);
         } else if (result.reason === 'queued_offline') {
+          const offlinePresentation = getFailurePresentation(result.reason);
           setStatus('success');
           setLastUser(employeeName);
           setScanType(scanMode || 'in'); 
-          setAttendanceMsg('Guardado Offline (Sin Internet)');
+          setAttendanceMsg(offlinePresentation.message);
           setMsgColor('text-amber-400');
           setPendingCount(offlineService.count);
-        } else if (result.reason === 'daily_limit_reached') {
-          setStatus('duplicate');
         } else {
-          setStatus('error');
+          const failurePresentation = getFailurePresentation(result.reason);
+          setStatus(failurePresentation.status);
+          setAttendanceMsg(failurePresentation.message);
         }
       } else {
-        setStatus('success'); // Fallback for demo if ID is pending
-        setLastUser(employeeName || "Usuario");
+        const invalidQrPresentation = getFailurePresentation(undefined, true);
+        setStatus(invalidQrPresentation.status);
+        setAttendanceMsg(invalidQrPresentation.message);
       }
 
       setTimeout(() => {
@@ -249,7 +271,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         setScanning(false);
       }, 6000);
     } else {
-      setStatus('error');
+      const invalidQrPresentation = getFailurePresentation(undefined, true);
+      setStatus(invalidQrPresentation.status);
+      setAttendanceMsg(invalidQrPresentation.message);
       setTimeout(() => {
         resetTerminal();
       }, 5000);
@@ -289,37 +313,24 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       const result = await attendanceService.processScan(manualDni.trim(), employeeName, scanMode || undefined);
 
       if (result.type === 'in' || result.type === 'out') {
+        const successPresentation = getSuccessMessage(result.type, result.record?.status);
         setStatus('success');
         setLastUser(employeeName);
         setScanType(result.type);
-        setAttendanceMsg(result.type === 'in' ? 'Entrada Registrada' : 'Salida Registrada');
-        setMsgColor(result.type === 'in' ? 'text-emerald-300' : 'text-blue-300');
+        setAttendanceMsg(successPresentation.message);
+        setMsgColor(successPresentation.color);
         setShowManualModal(false);
         setManualDni('');
-      } else if (result.reason === 'already_checked_in') {
-        setStatus('duplicate');
-        setAttendanceMsg('Ya Marcó Entrada');
-        setShowManualModal(false);
-      } else if (result.reason === 'no_open_record') {
-        setStatus('error');
-        setAttendanceMsg('No Marcó Entrada');
-        setShowManualModal(false);
-      } else if (result.reason === 'off_day') {
-        setStatus('error');
-        setAttendanceMsg('Tenés descanso asignado');
-        setShowManualModal(false);
-      } else if (result.reason === 'vacation') {
-        setStatus('error');
-        setAttendanceMsg('Estás de vacaciones');
-        setShowManualModal(false);
       } else {
-        setStatus('error');
-        setAttendanceMsg('Error al registrar');
+        const failurePresentation = getFailurePresentation(result.reason);
+        setStatus(failurePresentation.status);
+        setAttendanceMsg(failurePresentation.message);
         setShowManualModal(false);
       }
     } catch (err) {
       console.error("Manual entry failed:", err);
       setStatus('error');
+      setAttendanceMsg('Error al registrar');
     } finally {
       setProcessingManual(false);
       setTimeout(() => {
@@ -523,12 +534,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
               </div>
               <div className="text-center px-6">
                 <p className="text-4xl font-black text-white mb-2">DENEGADO</p>
-                <p className="text-red-300 font-bold">{attendanceMsg || 'Token no reconocido'}</p>
+                <p className="text-red-300 font-bold">{attendanceMsg || 'QR no válido, revise su tarjeta'}</p>
                 <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
-                  {attendanceMsg === 'No tenés entrada registrada' || attendanceMsg === 'No Marcó Entrada'
+                  {attendanceMsg === 'No tenés entrada registrada'
                     ? 'Debe registrar su ingreso antes de poder marcar la salida.'
                     : attendanceMsg === 'Tenés descanso asignado' || attendanceMsg === 'Estás de vacaciones'
                     ? 'No podés registrar asistencia en tus días libres asignados.'
+                    : attendanceMsg === 'QR no válido, revise su tarjeta'
+                    ? 'El código leído no es válido o no corresponde a una credencial activa.'
                     : 'El código QR no pertenece a un empleado activo o ha expirado.'}
                 </p>
               </div>
@@ -543,11 +556,11 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 <p className="text-4xl font-black text-white mb-2 uppercase">
                   {attendanceMsg === 'Ya tenés una entrada abierta' ? 'AVISO' : 'LÍMITE ALCANZADO'}
                 </p>
-                <p className="text-amber-300 font-bold">{attendanceMsg || 'Máximo de turnos diarios'}</p>
+                <p className="text-amber-300 font-bold">{attendanceMsg || 'Ya completaste los registros permitidos de hoy'}</p>
                 <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
                   {attendanceMsg === 'Ya tenés una entrada abierta' 
                     ? 'Ya has registrado tu ingreso previamente hoy.' 
-                    : 'Ya ha completado todas las entradas permitidas para hoy.'}
+                    : 'Ya completaste todas las entradas permitidas para hoy.'}
                 </p>
               </div>
             </div>
