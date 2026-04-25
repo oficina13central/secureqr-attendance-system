@@ -16,6 +16,7 @@ import { Profile, AttendanceRecord } from '../types';
 import { scheduleService, ShiftData } from '../services/scheduleService';
 import { attendanceService } from '../services/attendanceService';
 import { sectorService } from '../services/sectorService';
+import { settingsService } from '../services/settingsService';
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface AttendanceCalendarViewProps {
@@ -51,6 +52,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord[]>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
+  const [absenceGraceMinutes, setAbsenceGraceMinutes] = useState(120);
   const [loading, setLoading] = useState(true);
 
   // Modal State
@@ -62,10 +64,11 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
       const startDate = formatDate(currentWeekStart);
       const endDate = formatDate(addDays(currentWeekStart, 6));
 
-      const [shiftsData, attendanceData, sectorsData] = await Promise.all([
+      const [shiftsData, attendanceData, sectorsData, rulesData] = await Promise.all([
         scheduleService.getByWeek(startDate, endDate),
         attendanceService.getByDateRange(startDate, endDate),
-        sectorService.getAll()
+        sectorService.getAll(),
+        settingsService.getRules()
       ]);
 
       const shiftMap = shiftsData.reduce((acc, shift) => {
@@ -86,6 +89,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
       setShifts(shiftMap);
       setAttendance(attendanceMap);
       setSectorMap(sMap);
+      setAbsenceGraceMinutes(rulesData.ausente_gracia || 120);
       setLoading(false);
     };
     fetchData();
@@ -186,7 +190,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                 const [h, m] = shift.segments[0].start.split(':').map(Number);
                 const shiftStart = new Date();
                 shiftStart.setHours(h, m, 0, 0);
-                const gracePeriodMinutes = 120; // Default grace period
+                const gracePeriodMinutes = absenceGraceMinutes;
                 const minutesSinceStart = (now.getTime() - shiftStart.getTime()) / 60000;
                 
                 // If the shift hasn't started yet or grace period hasn't elapsed, don't show absent
@@ -274,10 +278,13 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                     if (!shift && emp.default_schedule) {
                       const dateObj = new Date(dateKey + 'T12:00:00');
                       if (!isNaN(dateObj.getTime())) {
-                        const dow = dateObj.getDay().toString();
-                        const base = emp.default_schedule[dow];
-                        if (base) {
-                          shift = base as any;
+                        const metadata = emp.default_schedule.metadata;
+                        if (!metadata?.valid_from || dateKey >= metadata.valid_from) {
+                          const dow = dateObj.getDay().toString();
+                          const base = emp.default_schedule[dow];
+                          if (base) {
+                            shift = base as any;
+                          }
                         }
                       }
                     }

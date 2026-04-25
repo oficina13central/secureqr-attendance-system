@@ -187,20 +187,8 @@ export const attendanceService = {
         return data;
     },
 
-    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones'): Promise<AttendanceRecord | null> {
+    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones' | 'licencia_medica'): Promise<AttendanceRecord | null> {
         // Verificar si ya existe algún registro para este empleado en esta fecha
-        const { data: existing } = await supabase
-            .from('attendance_records')
-            .select('id')
-            .eq('employee_id', employeeId)
-            .eq('date', date)
-            .maybeSingle();
-
-        if (existing) {
-            console.log(`Record already exists for ${employeeName} on ${date}, skipping recordAbsence.`);
-            return null;
-        }
-
         const { data, error } = await supabase
             .from('attendance_records')
             .insert([{
@@ -233,58 +221,71 @@ export const attendanceService = {
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
-                .select('employee_id, employee_name')
+                .select('employee_id, employee_name, check_in')
                 .eq('date', dateStr);
 
-            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id?.toLowerCase().trim()).filter(Boolean));
-            const recordedNames = new Set((existingToday || []).map(r => r.employee_name?.toLowerCase().trim()).filter(Boolean));
-
             for (const emp of employees) {
-                const empIdNormalized = emp.id.toLowerCase().trim();
-                const empNameNormalized = emp.full_name.toLowerCase().trim();
+                const employeeRecords = (existingToday || []).filter(r => {
+                    const recordEmployeeId = r.employee_id?.toLowerCase().trim();
+                    const recordEmployeeName = r.employee_name?.toLowerCase().trim();
+                    return recordEmployeeId === emp.id.toLowerCase().trim() || recordEmployeeName === emp.full_name.toLowerCase().trim();
+                });
+                const completedEntries = employeeRecords.filter(r => r.check_in !== null).length;
 
-                if (!recordedEmpIds.has(empIdNormalized) && !recordedNames.has(empNameNormalized)) {
-                    const { data: schedule } = await supabase
-                        .from('schedules')
-                        .select('type, segments, date')
-                        .eq('employee_id', emp.id)
-                        .eq('date', dateStr)
-                        .maybeSingle();
+                const { data: schedule } = await supabase
+                    .from('schedules')
+                    .select('type, segments, date')
+                    .eq('employee_id', emp.id)
+                    .eq('date', dateStr)
+                    .maybeSingle();
 
-                    let activeSchedule = schedule;
-                    if (!activeSchedule && emp.default_schedule) {
-                        const metadata = emp.default_schedule.metadata;
-                        if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
-                            const base = emp.default_schedule[checkDate.getDay().toString()];
-                            if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
-                        }
+                let activeSchedule = schedule;
+                if (!activeSchedule && emp.default_schedule) {
+                    const metadata = emp.default_schedule.metadata;
+                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                        const base = emp.default_schedule[checkDate.getDay().toString()];
+                        if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                     }
+                }
 
-                    if (!activeSchedule || activeSchedule.type === 'off') continue;
+                if (!activeSchedule || activeSchedule.type === 'off') continue;
 
-                    if (i === 0) {
-                        const shiftStartStr = activeSchedule.segments?.[0]?.start;
-                        if (shiftStartStr) {
-                            const [h, m] = shiftStartStr.split(':').map(Number);
-                            const shiftStart = new Date(today);
-                            shiftStart.setHours(h, m, 0, 0);
-                            
-                            const gracePeriod = rules.ausente_gracia || 120;
-                            const minutesSinceStart = (today.getTime() - shiftStart.getTime()) / 60000;
-                            
-                            if (minutesSinceStart < gracePeriod) continue;
-                        } else if (activeSchedule.type !== 'vacation' && activeSchedule.type !== 'medical') {
-                            continue;
-                        }
+                if (i === 0) {
+                    const shiftStartStr = activeSchedule.segments?.[0]?.start;
+                    if (shiftStartStr) {
+                        const [h, m] = shiftStartStr.split(':').map(Number);
+                        const shiftStart = new Date(today);
+                        shiftStart.setHours(h, m, 0, 0);
+                        
+                        const gracePeriod = rules.ausente_gracia || 120;
+                        const minutesSinceStart = (today.getTime() - shiftStart.getTime()) / 60000;
+                        
+                        if (minutesSinceStart < gracePeriod) continue;
+                    } else if (activeSchedule.type !== 'vacation' && activeSchedule.type !== 'medical') {
+                        continue;
                     }
+                }
 
-                    let status: 'ausente' | 'descanso' | 'vacaciones' | 'licencia_medica' | null = null;
-                    status = activeSchedule.type === 'vacation' ? 'vacaciones' : 
-                             activeSchedule.type === 'medical' ? 'licencia_medica' : 'ausente';
-                    
-                    if (status) {
-                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                let status: 'ausente' | 'descanso' | 'vacaciones' | 'licencia_medica' | null = null;
+                status = activeSchedule.type === 'vacation' ? 'vacaciones' : 
+                         activeSchedule.type === 'medical' ? 'licencia_medica' : 'ausente';
+
+                if (!status) continue;
+
+                if (status !== 'ausente') {
+                    if (employeeRecords.length === 0) {
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status);
                     }
+                    continue;
+                }
+
+                const requiredEntries = Math.max(activeSchedule.segments?.length || 0, 1);
+                const missingEntries = requiredEntries - employeeRecords.length;
+
+                if (completedEntries >= requiredEntries || missingEntries <= 0) continue;
+
+                for (let missingIndex = 0; missingIndex < missingEntries; missingIndex++) {
+                    await this.recordAbsence(emp.id, emp.full_name, dateStr, status);
                 }
             }
         }

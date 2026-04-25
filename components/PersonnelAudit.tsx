@@ -168,9 +168,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         if (!shift && emp.default_schedule) {
             const dateObj = new Date(dateStr + 'T12:00:00');
             if (!isNaN(dateObj.getTime())) {
-                const dow = dateObj.getDay().toString();
-                const base = emp.default_schedule[dow];
-                if (base) shift = base;
+                const metadata = emp.default_schedule.metadata;
+                if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                    const dow = dateObj.getDay().toString();
+                    const base = emp.default_schedule[dow];
+                    if (base) shift = base;
+                }
             }
         }
 
