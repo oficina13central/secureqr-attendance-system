@@ -4,6 +4,7 @@ import { settingsService } from './settingsService';
 import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { offlineService } from './offlineService';
+import { classifyCheckIn, getDueRecordCount, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
@@ -128,17 +129,9 @@ export const attendanceService = {
         if (activeSchedule && activeSchedule.segments && activeSchedule.segments.length > 0) {
             const segmentIndex = validEntriesCount;
             const targetSegment = activeSchedule.segments[segmentIndex] || activeSchedule.segments[0];
-            const scheduledStart = targetSegment.start;
-            const [schedHours, schedMins] = scheduledStart.split(':').map(Number);
-            const scheduledTime = new Date(now);
-            scheduledTime.setHours(schedHours, schedMins, 0, 0);
-
-            const diffInMinutes = Math.floor((now.getTime() - scheduledTime.getTime()) / (1000 * 60));
-            minutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
-
-            if (minutesLate > rules.llego_tarde) status = 'sin_presentismo';
-            else if (minutesLate > rules.en_horario) status = 'tarde';
-            else status = 'en_horario';
+            const classified = classifyCheckIn(nowIso, targetSegment.start, rules);
+            minutesLate = classified.minutesLate;
+            status = classified.status;
         }
 
         if (placeholderRecord) {
@@ -256,56 +249,65 @@ export const attendanceService = {
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
-                .select('employee_id, employee_name')
+                .select('employee_id, employee_name, check_in, status')
                 .eq('date', dateStr);
 
-            const recordedEmpIds = new Set((existingToday || []).map(r => r.employee_id?.toLowerCase().trim()).filter(Boolean));
-            const recordedNames = new Set((existingToday || []).map(r => r.employee_name?.toLowerCase().trim()).filter(Boolean));
+            const recordsByEmployeeKey = new Map<string, any[]>();
+            (existingToday || []).forEach(record => {
+                const keys = [
+                    record.employee_id?.toLowerCase().trim(),
+                    record.employee_name?.toLowerCase().trim()
+                ].filter(Boolean);
+                keys.forEach(key => {
+                    const bucket = recordsByEmployeeKey.get(key) || [];
+                    bucket.push(record);
+                    recordsByEmployeeKey.set(key, bucket);
+                });
+            });
 
             for (const emp of employees) {
                 const empIdNormalized = emp.id.toLowerCase().trim();
                 const empNameNormalized = emp.full_name.toLowerCase().trim();
 
-                if (!recordedEmpIds.has(empIdNormalized) && !recordedNames.has(empNameNormalized)) {
-                    const { data: schedule } = await supabase
-                        .from('schedules')
-                        .select('type, segments, date')
-                        .eq('employee_id', emp.id)
-                        .eq('date', dateStr)
-                        .maybeSingle();
+                const existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
 
-                    let activeSchedule = schedule;
-                    if (!activeSchedule && emp.default_schedule) {
-                        const metadata = emp.default_schedule.metadata;
-                        if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
-                            const base = emp.default_schedule[checkDate.getDay().toString()];
-                            if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
-                        }
+                const { data: schedule } = await supabase
+                    .from('schedules')
+                    .select('type, segments, date')
+                    .eq('employee_id', emp.id)
+                    .eq('date', dateStr)
+                    .maybeSingle();
+
+                let activeSchedule = schedule;
+                if (!activeSchedule && emp.default_schedule) {
+                    const metadata = emp.default_schedule.metadata;
+                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                        const base = emp.default_schedule[checkDate.getDay().toString()];
+                        if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                     }
+                }
 
-                    if (!activeSchedule || activeSchedule.type === 'off') continue;
+                if (!activeSchedule || activeSchedule.type === 'off') continue;
 
-                    if (i === 0) {
-                        const shiftStartStr = activeSchedule.segments?.[0]?.start;
-                        if (shiftStartStr) {
-                            const [h, m] = shiftStartStr.split(':').map(Number);
-                            const shiftStart = new Date(today);
-                            shiftStart.setHours(h, m, 0, 0);
-                            
-                            const gracePeriod = rules.ausente_gracia || 120;
-                            const minutesSinceStart = (today.getTime() - shiftStart.getTime()) / 60000;
-                            
-                            if (minutesSinceStart < gracePeriod) continue;
-                        } else if (activeSchedule.type !== 'vacation' && activeSchedule.type !== 'medical') {
-                            continue;
-                        }
-                    }
+                const dueCount = getDueRecordCount(
+                    activeSchedule,
+                    dateStr,
+                    getLocalDateString(today),
+                    today,
+                    rules.ausente_gracia || 120
+                );
+                const missingCount = Math.max(0, dueCount - existingEmpRecords.length);
+                if (missingCount === 0) continue;
 
-                    let status: 'ausente' | 'descanso' | 'vacaciones' | 'licencia_medica' | null = null;
-                    status = activeSchedule.type === 'vacation' ? 'vacaciones' : 
-                             activeSchedule.type === 'medical' ? 'licencia_medica' : 'ausente';
-                    
-                    if (status) {
+                const status: 'ausente' | 'vacaciones' | 'licencia_medica' =
+                    activeSchedule.type === 'vacation' ? 'vacaciones' :
+                    activeSchedule.type === 'medical' ? 'licencia_medica' :
+                    'ausente';
+
+                for (let j = 0; j < missingCount; j++) {
+                    if (status === 'ausente') {
+                        await this.createPlaceholderRecord(emp.id, emp.full_name, dateStr);
+                    } else {
                         await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
                     }
                 }
@@ -373,13 +375,7 @@ export const attendanceService = {
             // MODO ENFORZADO: ENTRADA
             if (enforcedMode === 'in') {
                 if (openRecord) {
-                    // Si es turno cortado y la entrada abierta es "vieja" (más de 3 horas), 
-                    // permitimos una segunda entrada (segundo segmento).
-                    const checkInTime = new Date(openRecord.check_in!).getTime();
-                    const now = new Date().getTime();
-                    const hoursSinceCheckIn = (now - checkInTime) / (1000 * 60 * 60);
-
-                    // Inferimos tipo de turno para decidir si bloqueamos o no
+                    // Validamos la segunda entrada usando el horario real del segundo segmento.
                     const { data: scheduleData } = await supabase
                         .from('schedules')
                         .select('type, segments')
@@ -394,11 +390,9 @@ export const attendanceService = {
                         if (base) activeSchedule = { type: base.type, segments: base.segments };
                     }
 
-                    const isSplitShift = activeSchedule?.type === 'split' || (activeSchedule?.segments?.length || 0) > 1;
-
-                    if (isSplitShift && hoursSinceCheckIn > 3) {
+                    if (shouldAllowSplitSecondCheckIn(activeSchedule, new Date(), 60)) {
                         // Es una segunda entrada legítima para un turno cortado
-                        console.log(`Permitiendo segunda entrada para ${employeeName} (Turno Cortado detectado)`);
+                        console.log(`Permitiendo segunda entrada para ${employeeName} (segundo segmento habilitado)`);
                     } else {
                         return { type: 'error', record: null, reason: 'already_checked_in' };
                     }
@@ -527,64 +521,20 @@ export const attendanceService = {
                 // Procesar cada registro del día
                 for (let i = 0; i < dailyRecs.length; i++) {
                     const record = dailyRecs[i];
-                    let newStatus = record.status;
-                    let newMinutesLate = record.minutes_late;
+                    const resolution = resolveRecalculatedRecord(
+                        record,
+                        activeSchedule,
+                        i,
+                        rules,
+                        getLocalDateString(),
+                        new Date()
+                    );
+                    const newStatus = resolution.status;
+                    const newMinutesLate = resolution.minutesLate;
 
-                    if (activeSchedule) {
-                        if (activeSchedule.type === 'off') {
-                            newStatus = 'descanso';
-                            newMinutesLate = 0;
-                        } else if (activeSchedule.type === 'vacation') {
-                            newStatus = 'vacaciones';
-                            newMinutesLate = 0;
-                        } else if (activeSchedule.type === 'medical') {
-                            newStatus = 'licencia_medica';
-                            newMinutesLate = 0;
-                        } else if (record.check_in && activeSchedule.segments?.[i]) {
-                            // Turno laboral: Calcular tardanza usando el segmento correspondiente al índice de la fichada
-                            const checkInDate = new Date(record.check_in);
-                            const segment = activeSchedule.segments[i];
-                            const [sh, sm] = segment.start.split(':').map(Number);
-                            
-                            const checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
-                            const schedMins = sh * 60 + sm;
-                            
-                            let diffInMinutes = checkInMins - schedMins;
-                            
-                            // Lógica de turnos nocturnos
-                            if (diffInMinutes < -600) diffInMinutes += 1440;
-
-                            newMinutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
-                            if (newMinutesLate > rules.llego_tarde) newStatus = 'sin_presentismo';
-                            else if (newMinutesLate > rules.en_horario) newStatus = 'tarde';
-                            else newStatus = 'en_horario';
-                        } else if (!record.check_in) {
-                            // Sin fichada registrada
-                            let shouldDelete = false;
-                            
-                            // Si es hoy, revisar si la ausencia fue prematura y debe ser borrada
-                            const todayStr = getLocalDateString();
-                            const scheduledSegment = activeSchedule.segments?.[i] || activeSchedule.segments?.[0];
-                            if (record.date === todayStr && scheduledSegment) {
-                                const [sh, sm] = scheduledSegment.start.split(':').map(Number);
-                                const shiftStart = new Date();
-                                shiftStart.setHours(sh, sm, 0, 0);
-                                const minutesSinceStart = (Date.now() - shiftStart.getTime()) / 60000;
-                                const gracePeriod = rules.ausente_gracia || 120;
-                                
-                                if (minutesSinceStart < gracePeriod) {
-                                    shouldDelete = true;
-                                }
-                            }
-
-                            if (shouldDelete) {
-                                await supabase.from('attendance_records').delete().eq('id', record.id);
-                                continue;
-                            } else {
-                                newStatus = 'ausente';
-                                newMinutesLate = 0;
-                            }
-                        }
+                    if (resolution.shouldDelete) {
+                        await supabase.from('attendance_records').delete().eq('id', record.id);
+                        continue;
                     }
 
                     if (newStatus !== record.status || newMinutesLate !== record.minutes_late) {
