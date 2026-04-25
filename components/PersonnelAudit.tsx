@@ -147,6 +147,94 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         });
     };
 
+    const getLocalTimeMinutes = (isoString: string) => {
+        const date = new Date(isoString);
+        return date.getHours() * 60 + date.getMinutes();
+    };
+
+    const getSegmentStartMinutes = (start: string) => {
+        const [hours, minutes] = start.split(':').map(Number);
+        return (hours * 60) + minutes;
+    };
+
+    const getCircularMinuteDistance = (a: number, b: number) => {
+        let diff = a - b;
+        if (diff < -720) diff += 1440;
+        if (diff > 720) diff -= 1440;
+        return Math.abs(diff);
+    };
+
+    const buildAssignedTimesByRecordId = (emp: Profile, monthRecords: AttendanceRecord[]) => {
+        const assignedById = new Map<string, string>();
+        const recordsByDate = new Map<string, AttendanceRecord[]>();
+
+        monthRecords.forEach(record => {
+            const dateKey = record.date.substring(0, 10);
+            const bucket = recordsByDate.get(dateKey) || [];
+            bucket.push(record);
+            recordsByDate.set(dateKey, bucket);
+        });
+
+        recordsByDate.forEach((dayRecords, dateKey) => {
+            const shift = getRobustShift(emp, dateKey);
+            if (!shift) {
+                dayRecords.forEach(record => assignedById.set(record.id, '--:--'));
+                return;
+            }
+
+            if (shift.type === 'off') {
+                dayRecords.forEach(record => assignedById.set(record.id, 'Descanso'));
+                return;
+            }
+            if (shift.type === 'vacation') {
+                dayRecords.forEach(record => assignedById.set(record.id, 'Vacaciones'));
+                return;
+            }
+            if (shift.type === 'medical') {
+                dayRecords.forEach(record => assignedById.set(record.id, 'Licencia'));
+                return;
+            }
+
+            const availableSegments = (shift.segments || []).map((segment: any, index: number) => ({ segment, index }));
+            const matchedSegments = new Set<number>();
+            const recordsWithCheckIn = dayRecords
+                .filter(record => !!record.check_in)
+                .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+            const recordsWithoutCheckIn = dayRecords
+                .filter(record => !record.check_in)
+                .sort((a, b) => a.id.localeCompare(b.id));
+
+            recordsWithCheckIn.forEach(record => {
+                const checkInMinutes = getLocalTimeMinutes(record.check_in!);
+                let bestMatch = -1;
+                let bestDistance = Number.POSITIVE_INFINITY;
+
+                availableSegments.forEach(({ segment, index }) => {
+                    if (matchedSegments.has(index)) return;
+                    const distance = getCircularMinuteDistance(checkInMinutes, getSegmentStartMinutes(segment.start));
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestMatch = index;
+                    }
+                });
+
+                if (bestMatch >= 0) {
+                    matchedSegments.add(bestMatch);
+                    assignedById.set(record.id, availableSegments[bestMatch].segment.start);
+                } else {
+                    assignedById.set(record.id, availableSegments[0]?.segment.start || '--:--');
+                }
+            });
+
+            const remainingSegments = availableSegments.filter(({ index }) => !matchedSegments.has(index));
+            recordsWithoutCheckIn.forEach((record, idx) => {
+                assignedById.set(record.id, remainingSegments[idx]?.segment.start || availableSegments[0]?.segment.start || '--:--');
+            });
+        });
+
+        return assignedById;
+    };
+
     // ── HELPER: GET ROBUST SHIFT ──
     const getRobustShift = (emp: Profile, dateStr: string) => {
         const empIdLow = emp.id.toLowerCase().trim();
@@ -300,8 +388,34 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         if (!recordId || recordId.startsWith('virtual_')) return;
         
         try {
+            const record = records.find(r => r.id === recordId) || selectedEmployeeData?.detailedRecords.find(r => r.id === recordId);
+            if (!record) return;
+
+            const employee = employees.find(emp => emp.id === record.employee_id || emp.full_name === record.employee_name);
+            const dateKey = record.date.substring(0, 10);
+            const shift = employee ? getRobustShift(employee, dateKey) : null;
+            const sameDayRecordCount = records.filter(r =>
+                r.date.substring(0, 10) === dateKey &&
+                (r.employee_id === record.employee_id || r.employee_name === record.employee_name)
+            ).length;
+            const remainingRecordCount = Math.max(0, sameDayRecordCount - 1);
+            const shouldRestorePlaceholder = !!shift &&
+                shift.type !== 'off' &&
+                shift.type !== 'vacation' &&
+                shift.type !== 'medical' &&
+                (shift.segments?.length || 0) > remainingRecordCount;
+
             const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
             if (!error) {
+                if (shouldRestorePlaceholder) {
+                    await attendanceService.createPlaceholderRecord(record.employee_id, record.employee_name, dateKey);
+                    await attendanceService.recalculateAttendance(
+                        record.employee_id,
+                        dateKey,
+                        dateKey,
+                        currentUser?.full_name || 'Admin'
+                    );
+                }
                 await loadData(true);
             } else {
                 alert('Error al eliminar el registro.');
@@ -406,29 +520,17 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
                 detailedRecords: (() => {
-                    const sorted = monthRecords.sort((a, b) => {
+                    const assignedTimes = buildAssignedTimesByRecordId(emp, monthRecords);
+                    const sorted = [...monthRecords].sort((a, b) => {
                         const timeA = a.date + (a.check_in ? 'T' + a.check_in.split('T')[1] : 'T00:00:00');
                         const timeB = b.date + (b.check_in ? 'T' + b.check_in.split('T')[1] : 'T00:00:00');
                         return timeA.localeCompare(timeB);
                     });
                     
-                    const dayCounters: Record<string, number> = {};
-                    return sorted.map(r => {
-                        const dateKey = r.date.substring(0, 10);
-                        const shift = getRobustShift(emp, dateKey);
-                        dayCounters[dateKey] = (dayCounters[dateKey] || 0) + 1;
-                        const segmentIdx = dayCounters[dateKey] - 1;
-
-                        let assigned = '--:--';
-                        if (shift) {
-                            if (shift.type === 'off') assigned = 'Descanso';
-                            else if (shift.type === 'vacation') assigned = 'Vacaciones';
-                            else if (shift.type === 'medical') assigned = 'Licencia';
-                            else if (shift.segments?.[segmentIdx]) assigned = shift.segments[segmentIdx].start;
-                            else if (shift.segments?.[0]) assigned = shift.segments[0].start;
-                        }
-                        return { ...r, assigned_time: assigned };
-                    });
+                    return sorted.map(r => ({
+                        ...r,
+                        assigned_time: assignedTimes.get(r.id) || '--:--'
+                    }));
                 })()
             };
         });
@@ -875,7 +977,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <tbody className="divide-y divide-slate-50">
                                     {selectedEmployeeData.detailedRecords.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="py-8 text-center text-slate-400 italic">No hay registros detallados para este mes.</td>
+                                            <td colSpan={5} className="py-8 text-center text-slate-400 italic">No hay registros detallados para este mes.</td>
                                         </tr>
                                     ) : selectedEmployeeData.detailedRecords.map((record) => (
                                         <tr key={record.id} className="hover:bg-slate-50 transition-colors group">

@@ -510,8 +510,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     };
   }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
-  // Heatmap Data Generation
-  }, [authorizedRecords]);
+  // Trend chart data
   
   const barChartData = useMemo(() => {
     const data = [];

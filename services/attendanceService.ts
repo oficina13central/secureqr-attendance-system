@@ -219,6 +219,29 @@ export const attendanceService = {
         return data;
     },
 
+    async createPlaceholderRecord(employeeId: string, employeeName: string, date: string): Promise<AttendanceRecord | null> {
+        const { data, error } = await supabase
+            .from('attendance_records')
+            .insert([{
+                id: crypto.randomUUID(),
+                employee_id: employeeId,
+                employee_name: employeeName,
+                date,
+                check_in: null,
+                check_out: null,
+                status: 'ausente',
+                minutes_late: 0
+            }])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating placeholder attendance record:', error);
+            return null;
+        }
+        return data;
+    },
+
     async syncPastAbsences(employees: Profile[]): Promise<void> {
         const today = new Date();
         const rules = await settingsService.getRules();
@@ -541,8 +564,9 @@ export const attendanceService = {
                             
                             // Si es hoy, revisar si la ausencia fue prematura y debe ser borrada
                             const todayStr = getLocalDateString();
-                            if (record.date === todayStr && activeSchedule.segments?.[0]) {
-                                const [sh, sm] = activeSchedule.segments[0].start.split(':').map(Number);
+                            const scheduledSegment = activeSchedule.segments?.[i] || activeSchedule.segments?.[0];
+                            if (record.date === todayStr && scheduledSegment) {
+                                const [sh, sm] = scheduledSegment.start.split(':').map(Number);
                                 const shiftStart = new Date();
                                 shiftStart.setHours(sh, sm, 0, 0);
                                 const minutesSinceStart = (Date.now() - shiftStart.getTime()) / 60000;
