@@ -39,6 +39,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioUnlockedRef = useRef(false);
   
   // Robust PIN protection
   const [showPinPad, setShowPinPad] = useState(false);
@@ -107,9 +108,37 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     return audioContextRef.current;
   };
 
+  const unlockAudioFeedback = async () => {
+    try {
+      const audioContext = await ensureAudioContext();
+      if (!audioContext || audioUnlockedRef.current) return;
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const startAt = audioContext.currentTime + 0.01;
+      const endAt = startAt + 0.03;
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, startAt);
+
+      gainNode.gain.setValueAtTime(0.0001, startAt);
+      gainNode.gain.linearRampToValueAtTime(0.001, startAt + 0.005);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start(startAt);
+      oscillator.stop(endAt);
+
+      audioUnlockedRef.current = true;
+    } catch (error) {
+      console.error('Audio unlock failed:', error);
+    }
+  };
+
   const playFeedbackTone = async (
     notes: Array<{ frequency: number; duration: number; delay?: number; type?: OscillatorType }>,
-    gainValue = 0.045
+    gainValue = 0.085
   ) => {
     try {
       const audioContext = await ensureAudioContext();
@@ -168,7 +197,25 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     await playFeedbackTone([
       { frequency: 320, duration: 0.12, type: 'sawtooth' },
       { frequency: 220, duration: 0.16, delay: 0.13, type: 'sawtooth' }
-    ], 0.04);
+    ], 0.07);
+  };
+
+  const playStatusHaptic = (tone: 'success' | 'duplicate' | 'error' | 'offline') => {
+    if (!('vibrate' in navigator)) return;
+
+    if (tone === 'success') {
+      navigator.vibrate(40);
+      return;
+    }
+    if (tone === 'offline') {
+      navigator.vibrate([35, 25, 35]);
+      return;
+    }
+    if (tone === 'duplicate') {
+      navigator.vibrate([25, 30, 25]);
+      return;
+    }
+    navigator.vibrate([60, 35, 60]);
   };
 
   const handlePinInput = (num: string) => {
@@ -190,7 +237,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   };
 
   const startSession = (mode: 'in' | 'out') => {
-    void ensureAudioContext();
+    void unlockAudioFeedback();
     setScanMode(mode);
     setSessionActive(true);
     setScanning(true);
@@ -328,6 +375,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           setAttendanceMsg(successPresentation.message);
           setMsgColor(successPresentation.color);
           void playStatusSound('success');
+          playStatusHaptic('success');
         } else if (result.reason === 'queued_offline') {
           const offlinePresentation = getFailurePresentation(result.reason);
           setStatus('success');
@@ -337,17 +385,20 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           setMsgColor('text-amber-400');
           setPendingCount(offlineService.count);
           void playStatusSound('offline');
+          playStatusHaptic('offline');
         } else {
           const failurePresentation = getFailurePresentation(result.reason);
           setStatus(failurePresentation.status);
           setAttendanceMsg(failurePresentation.message);
           void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
+          playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
         }
       } else {
         const invalidQrPresentation = getFailurePresentation(undefined, true);
         setStatus(invalidQrPresentation.status);
         setAttendanceMsg(invalidQrPresentation.message);
         void playStatusSound('error');
+        playStatusHaptic('error');
       }
 
       setTimeout(() => {
@@ -360,6 +411,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       setStatus(invalidQrPresentation.status);
       setAttendanceMsg(invalidQrPresentation.message);
       void playStatusSound('error');
+      playStatusHaptic('error');
       setTimeout(() => {
         resetTerminal();
       }, 5000);
@@ -383,7 +435,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     e.preventDefault();
     if (!manualDni.trim() || processingManual) return;
 
-    void ensureAudioContext();
+    void unlockAudioFeedback();
     setProcessingManual(true);
     setScanning(false);
     
@@ -407,6 +459,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         setAttendanceMsg(successPresentation.message);
         setMsgColor(successPresentation.color);
         void playStatusSound('success');
+        playStatusHaptic('success');
         setShowManualModal(false);
         setManualDni('');
       } else {
@@ -414,6 +467,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         setStatus(failurePresentation.status);
         setAttendanceMsg(failurePresentation.message);
         void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : failurePresentation.message === 'Guardado Offline (Sin Internet)' ? 'offline' : 'error');
+        playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : failurePresentation.message === 'Guardado Offline (Sin Internet)' ? 'offline' : 'error');
         setShowManualModal(false);
       }
     } catch (err) {
@@ -421,6 +475,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       setStatus('error');
       setAttendanceMsg('Error al registrar');
       void playStatusSound('error');
+      playStatusHaptic('error');
     } finally {
       setProcessingManual(false);
       setTimeout(() => {
