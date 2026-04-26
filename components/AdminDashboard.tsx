@@ -511,7 +511,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   }, [correctedRecords, realTimeAbsences, workingNowRecords]);
 
   // Trend chart data
-  
   const barChartData = useMemo(() => {
     const data = [];
     const today = new Date();
@@ -561,6 +560,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const puntualidad = totalIngresos > 0 ? Math.round((enHorario / totalIngresos) * 100) : 0;
 
     return { presentes: enHorario, tardanzas, ausencias, puntualidad };
+  }, [authorizedRecords]);
+
+  const wordCloudData = useMemo(() => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    const recentRecords = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
+    const tardanzas = recentRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
+    
+    const countMap: Record<string, number> = {};
+    tardanzas.forEach(r => {
+      const name = r.employee_name || 'Desconocido';
+      countMap[name] = (countMap[name] || 0) + 1;
+    });
+    
+    return Object.entries(countMap)
+      .map(([text, value]) => ({ text, value }))
+      .sort((a, b) => b.value - a.value);
   }, [authorizedRecords]);
 
   const handleExportMonthly = () => {
@@ -768,6 +786,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               ></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Nube de Palabras */}
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-2 bg-amber-50 rounded-xl">
+            <UserX className="w-5 h-5 text-amber-500" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">Nube de Tardanzas</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personal con llegadas tarde • Últimos 30 días</p>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-4 p-8 min-h-[200px] bg-slate-50/50 rounded-3xl border border-slate-50 overflow-hidden">
+          {wordCloudData.length === 0 ? (
+            <span className="text-slate-400 font-bold text-sm">No hay tardanzas registradas en este período. ¡Excelente!</span>
+          ) : (
+            wordCloudData.map((word, i) => {
+              const maxVal = Math.max(...wordCloudData.map(w => w.value));
+              const minVal = Math.min(...wordCloudData.map(w => w.value));
+              const size = minVal === maxVal ? 24 : 14 + ((word.value - minVal) / (maxVal - minVal)) * 34;
+              
+              const colors = ['text-rose-500', 'text-amber-500', 'text-indigo-500', 'text-emerald-500', 'text-sky-500', 'text-fuchsia-500'];
+              const color = colors[i % colors.length];
+              
+              return (
+                <span 
+                  key={word.text} 
+                  style={{ fontSize: `${size}px` }} 
+                  className={`font-black ${color} leading-none transition-all duration-300 hover:scale-110 cursor-default opacity-90 hover:opacity-100 drop-shadow-sm select-none text-center`}
+                  title={`${word.value} tardanza${word.value > 1 ? 's' : ''}`}
+                >
+                  {word.text}
+                </span>
+              );
+            })
+          )}
         </div>
       </div>
 
