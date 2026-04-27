@@ -590,7 +590,7 @@ export const attendanceService = {
             .lte('date', endDate);
 
         let finalScore = 999;
-        if (error || !records || records.length === 0) return { score: 999, category: 1, label: 'Clase 1 (Normal)', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+        if (error || !records || records.length === 0) return { score: 999, category: 0, label: 'Clase 0 (Altamente Puntual)', color: 'bg-purple-100 text-purple-700 border-purple-200' };
 
         let totalPenalty = 0;
         let medicalPenalty = 0;
@@ -627,12 +627,39 @@ export const attendanceService = {
         totalPenalty += medicalPenalty;
 
         finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
+        
         let category = 1, label = '', color = '';
-        if (finalScore >= 950) { category = 1; label = 'Clase 1 (Normal)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
-        else if (finalScore >= 750) { category = 2; label = 'Clase 2 (Estable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
-        else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Regular)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }
-        else if (finalScore >= 250) { category = 4; label = 'Clase 4 (Alerta)'; color = 'bg-rose-100 text-rose-700 border-rose-300'; }
-        else { category = 5; label = 'Clase 5 (Crónica)'; color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; }
+        
+        if (finalScore >= 990) { 
+            category = 0; 
+            label = 'Clase 0 (Altamente Puntual)'; 
+            color = 'bg-purple-100 text-purple-700 border-purple-200'; 
+        }
+        else if (finalScore >= 950) { 
+            category = 1; 
+            label = 'Clase 1 (Excelente)'; 
+            color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; 
+        }
+        else if (finalScore >= 750) { 
+            category = 2; 
+            label = 'Clase 2 (Estable)'; 
+            color = 'bg-amber-100 text-amber-700 border-amber-300'; 
+        }
+        else if (finalScore >= 500) { 
+            category = 3; 
+            label = 'Clase 3 (Regular)'; 
+            color = 'bg-orange-100 text-orange-700 border-orange-300'; 
+        }
+        else if (finalScore >= 250) { 
+            category = 4; 
+            label = 'Clase 4 (Alerta)'; 
+            color = 'bg-rose-100 text-rose-700 border-rose-300'; 
+        }
+        else { 
+            category = 5; 
+            label = 'Clase 5 (Crónica)'; 
+            color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; 
+        }
 
         return { score: finalScore, category, label, color };
     }

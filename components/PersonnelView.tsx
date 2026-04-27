@@ -105,7 +105,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 sectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (emp.dni && emp.dni.includes(searchTerm));
             
-            const scoreCategory = scoringData[emp.id]?.category?.toString() || '1';
+            const scoreCategory = scoringData[emp.id]?.category?.toString() || '0';
             const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
             const matchesSector = selectedSector === 'all' || emp.sector_id === selectedSector;
             
