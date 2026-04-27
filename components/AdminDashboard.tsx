@@ -423,9 +423,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     } else {
       // Standard filters
       const filtered = allDailyRecs.filter(r => {
-        if (activeFilter === 'history_absent' || activeFilter === 'absent') return r.status === 'ausente';
-        if (activeFilter === 'history_late' || activeFilter === 'late') return r.status === 'tarde' || r.status === 'sin_presentismo';
-        if (activeFilter === 'history_all' || activeFilter === 'present') return ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status);
+        if (activeFilter === 'absent' || activeFilter === 'history_absent') return r.status === 'ausente';
+        if (activeFilter === 'late' || activeFilter === 'history_late') return r.status === 'tarde' || r.status === 'sin_presentismo';
+        if (activeFilter === 'present') return ['en_horario', 'presente', 'manual'].includes(r.status);
+        if (activeFilter === 'history_all') return ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status);
         if (activeFilter === 'off') return r.status === 'descanso';
         if (activeFilter === 'vacation') return r.status === 'vacaciones';
         if (activeFilter === 'medical') return r.status === 'licencia_medica';
