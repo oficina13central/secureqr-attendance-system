@@ -77,6 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         // Sincronización de ausencias del pasado y hoy (si pasó el período de gracia)
         if (fetchedEmployees.length > 0 && !(window as any).__is_syncing_absences) {
            (window as any).__is_syncing_absences = true;
+           await attendanceService.syncOfflineRecords();
            attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
              // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([

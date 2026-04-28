@@ -70,8 +70,8 @@ export const attendanceService = {
         return stats;
     },
 
-    async recordCheckIn(employeeId: string, employeeName: string): Promise<AttendanceRecord | null> {
-        const now = new Date();
+    async recordCheckIn(employeeId: string, employeeName: string, effectiveNow: Date = new Date()): Promise<AttendanceRecord | null> {
+        const now = effectiveNow;
         const nowIso = now.toISOString();
         const date = getLocalDateString(now);
 
@@ -168,8 +168,8 @@ export const attendanceService = {
         }
     },
 
-    async recordCheckOut(recordId: string): Promise<AttendanceRecord | null> {
-        const now = new Date().toISOString();
+    async recordCheckOut(recordId: string, effectiveNow: Date = new Date()): Promise<AttendanceRecord | null> {
+        const now = effectiveNow.toISOString();
         const { data, error } = await supabase
             .from('attendance_records')
             .update({ check_out: now })
@@ -182,14 +182,14 @@ export const attendanceService = {
 
     async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones'): Promise<AttendanceRecord | null> {
         // Verificar si ya existe algún registro para este empleado en esta fecha
-        const { data: existing } = await supabase
+        const { data: existingRecords } = await supabase
             .from('attendance_records')
             .select('id')
             .eq('employee_id', employeeId)
             .eq('date', date)
-            .maybeSingle();
+            .limit(1);
 
-        if (existing) {
+        if ((existingRecords || []).length > 0) {
             console.log(`Record already exists for ${employeeName} on ${date}, skipping recordAbsence.`);
             return null;
         }
@@ -213,6 +213,20 @@ export const attendanceService = {
     },
 
     async createPlaceholderRecord(employeeId: string, employeeName: string, date: string): Promise<AttendanceRecord | null> {
+        const { data: existingPlaceholders } = await supabase
+            .from('attendance_records')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('date', date)
+            .is('check_in', null)
+            .eq('status', 'ausente')
+            .limit(1);
+
+        if ((existingPlaceholders || []).length > 0) {
+            console.log(`Placeholder absence already exists for ${employeeName} on ${date}, skipping.`);
+            return null;
+        }
+
         const { data, error } = await supabase
             .from('attendance_records')
             .insert([{
@@ -331,14 +345,17 @@ export const attendanceService = {
     },
 
     async syncOfflineRecords(): Promise<{ success: number, failed: number }> {
-        const queue = offlineService.getQueue();
+        const queue = offlineService.getQueue().sort((a, b) => a.timestamp.localeCompare(b.timestamp));
         if (queue.length === 0) return { success: 0, failed: 0 };
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return { success: 0, failed: queue.length };
         let successCount = 0;
         let failedCount = 0;
         for (const scan of queue) {
             try {
                 // Pasamos el modo guardado (in/out) para reproducir la intención original del operador
-                const result = await this.processScan(scan.employeeId, scan.employeeName, scan.mode);
+                const scanTime = new Date(scan.timestamp);
+                const effectiveTime = Number.isNaN(scanTime.getTime()) ? new Date() : scanTime;
+                const result = await this.processScan(scan.employeeId, scan.employeeName, scan.mode, effectiveTime, false);
                 if (result.type === 'in' || result.type === 'out') {
                     offlineService.removeScan(scan.id);
                     successCount++;
@@ -357,12 +374,13 @@ export const attendanceService = {
         return { success: successCount, failed: failedCount };
     },
 
-    async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out'): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
+    async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out', effectiveNow: Date = new Date(), queueOnNetworkError = true): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
         try {
             const resolvedId = await this.resolveEmployeeId(employeeId, employeeName);
             if (!resolvedId) return { type: 'error', record: null, reason: 'user_not_found' };
 
-            const today = getLocalDateString();
+            const now = effectiveNow;
+            const today = getLocalDateString(now);
             
             // 1. Buscar si hay un registro abierto hoy
             const { data: openRecord, error: fetchError } = await supabase
@@ -392,18 +410,18 @@ export const attendanceService = {
                     let activeSchedule = scheduleData;
                     if (!activeSchedule) {
                         const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', resolvedId).maybeSingle();
-                        const base = profile?.default_schedule?.[new Date().getDay().toString()];
+                        const base = profile?.default_schedule?.[now.getDay().toString()];
                         if (base) activeSchedule = { type: base.type, segments: base.segments };
                     }
 
-                    if (shouldAllowSplitSecondCheckIn(activeSchedule, new Date(), 60)) {
+                    if (shouldAllowSplitSecondCheckIn(activeSchedule, now, 60)) {
                         // Es una segunda entrada legítima para un turno cortado
                         console.log(`Permitiendo segunda entrada para ${employeeName} (segundo segmento habilitado)`);
                     } else {
                         return { type: 'error', record: null, reason: 'already_checked_in' };
                     }
                 }
-                const result = await this.recordCheckIn(resolvedId, employeeName);
+                const result = await this.recordCheckIn(resolvedId, employeeName, now);
                 if (result) return { type: 'in', record: result, reason: 'check_in_success' };
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
@@ -413,16 +431,16 @@ export const attendanceService = {
                 if (!openRecord) {
                     return { type: 'error', record: null, reason: 'no_open_record' };
                 }
-                const result = await this.recordCheckOut(openRecord.id);
+                const result = await this.recordCheckOut(openRecord.id, now);
                 return { type: 'out', record: result, reason: 'check_out_success' };
             }
 
             // MODO AUTOMÁTICO (Fallback o Legacy)
             if (openRecord) {
-                const result = await this.recordCheckOut(openRecord.id);
+                const result = await this.recordCheckOut(openRecord.id, now);
                 return { type: 'out', record: result, reason: 'check_out_success' };
             } else {
-                const result = await this.recordCheckIn(resolvedId, employeeName);
+                const result = await this.recordCheckIn(resolvedId, employeeName, now);
                 if (result) return { type: 'in', record: result, reason: 'check_in_success' };
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
@@ -444,6 +462,7 @@ export const attendanceService = {
                      err.message.toLowerCase().includes('networkerror')));
 
             if (isNetworkError) {
+                if (!queueOnNetworkError) return { type: 'queued', record: null, reason: 'queued_offline' };
                 console.warn('Sin conexión detectada — guardando fichada en cola offline.');
                 offlineService.queueScan(employeeId, employeeName, enforcedMode);
                 return { type: 'queued', record: null, reason: 'queued_offline' };
