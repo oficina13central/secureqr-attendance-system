@@ -74,7 +74,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         setSchedules(fetchedSchedules);
         setRules(fetchedRules);
 
-        // Sincronización de ausencias del pasado y hoy (si pasó el período de gracia)
+        // Sincronización conservadora: primero vacía cola offline y solo persiste estados justificados.
+        // Las ausencias laborales se muestran como cálculo visual, no se escriben automáticamente.
         if (fetchedEmployees.length > 0 && !(window as any).__is_syncing_absences) {
            (window as any).__is_syncing_absences = true;
            await attendanceService.syncOfflineRecords();

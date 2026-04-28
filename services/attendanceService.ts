@@ -313,18 +313,17 @@ export const attendanceService = {
                 const missingCount = Math.max(0, dueCount - existingEmpRecords.length);
                 if (missingCount === 0) continue;
 
-                const status: 'ausente' | 'vacaciones' | 'licencia_medica' =
+                const status: 'vacaciones' | 'licencia_medica' | null =
                     activeSchedule.type === 'vacation' ? 'vacaciones' :
                     activeSchedule.type === 'medical' ? 'licencia_medica' :
-                    'ausente';
+                    null;
 
-                for (let j = 0; j < missingCount; j++) {
-                    if (status === 'ausente') {
-                        await this.createPlaceholderRecord(emp.id, emp.full_name, dateStr);
-                    } else {
-                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
-                    }
-                }
+                // Nunca persistimos ausencias laborales automáticas. El dashboard puede
+                // mostrarlas como cálculo visual, pero el historial real requiere fichada
+                // o intervención humana para evitar sanciones inventadas.
+                if (!status) continue;
+
+                await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
             }
         }
         console.log(`Finished syncPastAbsences.`);
