@@ -4,7 +4,7 @@ import { settingsService } from './settingsService';
 import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { offlineService } from './offlineService';
-import { classifyCheckIn, getDueRecordCount, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
+import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
@@ -212,7 +212,7 @@ export const attendanceService = {
         return data;
     },
 
-    async createPlaceholderRecord(employeeId: string, employeeName: string, date: string): Promise<AttendanceRecord | null> {
+    async createPlaceholderRecord(employeeId: string, employeeName: string, date: string, maxPlaceholdersForDate = 1): Promise<AttendanceRecord | null> {
         const { data: existingPlaceholders } = await supabase
             .from('attendance_records')
             .select('id')
@@ -220,9 +220,9 @@ export const attendanceService = {
             .eq('date', date)
             .is('check_in', null)
             .eq('status', 'ausente')
-            .limit(1);
+            .limit(maxPlaceholdersForDate);
 
-        if ((existingPlaceholders || []).length > 0) {
+        if ((existingPlaceholders || []).length >= maxPlaceholdersForDate) {
             console.log(`Placeholder absence already exists for ${employeeName} on ${date}, skipping.`);
             return null;
         }
@@ -263,7 +263,7 @@ export const attendanceService = {
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
-                .select('employee_id, employee_name, check_in, status')
+                .select('employee_id, employee_name, check_in, status, manual_reason')
                 .eq('date', dateStr);
 
             const recordsByEmployeeKey = new Map<string, any[]>();
@@ -303,27 +303,50 @@ export const attendanceService = {
 
                 if (!activeSchedule || activeSchedule.type === 'off') continue;
 
-                const dueCount = getDueRecordCount(
+                const visualDueCount = getDueRecordCount(
                     activeSchedule,
                     dateStr,
                     getLocalDateString(today),
                     today,
                     rules.ausente_gracia || 120
                 );
-                const missingCount = Math.max(0, dueCount - existingEmpRecords.length);
-                if (missingCount === 0) continue;
+                const closedSegmentCount = getClosedSegmentCount(
+                    activeSchedule,
+                    dateStr,
+                    getLocalDateString(today),
+                    today
+                );
 
                 const status: 'vacaciones' | 'licencia_medica' | null =
                     activeSchedule.type === 'vacation' ? 'vacaciones' :
                     activeSchedule.type === 'medical' ? 'licencia_medica' :
                     null;
 
-                // Nunca persistimos ausencias laborales automáticas. El dashboard puede
-                // mostrarlas como cálculo visual, pero el historial real requiere fichada
-                // o intervención humana para evitar sanciones inventadas.
-                if (!status) continue;
+                if (status) {
+                    const missingJustifiedCount = Math.max(0, visualDueCount - existingEmpRecords.length);
+                    if (missingJustifiedCount > 0) {
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                    }
+                    continue;
+                }
 
-                await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
+                const existingAutoAbsences = existingEmpRecords.filter(r =>
+                    !r.check_in &&
+                    r.status === 'ausente' &&
+                    (r.manual_reason === 'Ausencia automática por turno finalizado' || !r.manual_reason)
+                ).length;
+                const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
+
+                for (let j = 0; j < missingClosedAbsences; j++) {
+                    const record = await this.createPlaceholderRecord(emp.id, emp.full_name, dateStr, closedSegmentCount);
+                    if (record) {
+                        await supabase
+                            .from('attendance_records')
+                            .update({ manual_reason: 'Ausencia automática por turno finalizado' })
+                            .eq('id', record.id);
+                    }
+                }
             }
         }
         console.log(`Finished syncPastAbsences.`);

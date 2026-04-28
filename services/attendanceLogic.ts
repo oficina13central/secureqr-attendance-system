@@ -100,6 +100,32 @@ export const getDueRecordCount = (
     }, 0);
 };
 
+export const getClosedSegmentCount = (
+    schedule: ScheduleLike | null | undefined,
+    dateStr: string,
+    todayStr: string,
+    now: Date
+) => {
+    if (!schedule || schedule.type === 'off') return 0;
+    if (schedule.type === 'vacation' || schedule.type === 'medical') return 1;
+
+    const segments = schedule.segments || [];
+    if (segments.length === 0) return 0;
+
+    if (dateStr !== todayStr) return segments.length;
+
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return segments.reduce((count, segment) => {
+        if (!segment.end) return count;
+
+        const startMinutes = getMinutesFromTimeString(segment.start);
+        let endMinutes = getMinutesFromTimeString(segment.end);
+        if (endMinutes <= startMinutes) endMinutes += 1440;
+
+        return count + (currentMinutes >= endMinutes ? 1 : 0);
+    }, 0);
+};
+
 export const resolveRecalculatedRecord = (
     record: AttendanceRecordLike,
     schedule: ScheduleLike | null | undefined,

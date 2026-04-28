@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
     classifyCheckIn,
+    getClosedSegmentCount,
     getDueRecordCount,
     resolveRecalculatedRecord,
     shouldAllowSplitSecondCheckIn
@@ -93,6 +94,42 @@ const cases: Array<{ name: string; run: () => void }> = [
                 ),
                 2
             );
+        }
+    },
+    {
+        name: 'continuous shift is not closed before its end time',
+        run: () => {
+            assert.equal(
+                getClosedSegmentCount(
+                    { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+                    '2026-04-25',
+                    '2026-04-25',
+                    new Date('2026-04-25T15:59:00')
+                ),
+                0
+            );
+        }
+    },
+    {
+        name: 'continuous shift closes after its end time',
+        run: () => {
+            assert.equal(
+                getClosedSegmentCount(
+                    { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
+                    '2026-04-25',
+                    '2026-04-25',
+                    new Date('2026-04-25T16:00:00')
+                ),
+                1
+            );
+        }
+    },
+    {
+        name: 'split shift closes segments independently by end time',
+        run: () => {
+            const schedule = { type: 'split' as const, segments: [{ start: '08:00', end: '12:00' }, { start: '14:00', end: '18:00' }] };
+            assert.equal(getClosedSegmentCount(schedule, '2026-04-25', '2026-04-25', new Date('2026-04-25T12:30:00')), 1);
+            assert.equal(getClosedSegmentCount(schedule, '2026-04-25', '2026-04-25', new Date('2026-04-25T18:30:00')), 2);
         }
     },
     {
