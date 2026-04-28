@@ -440,14 +440,18 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     setScanning(false);
     
     try {
-      // Intentar obtener el nombre del empleado para la UI
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('dni', manualDni.trim())
-        .maybeSingle();
-      
-      const employeeName = data?.full_name || "Usuario";
+      // Intentar obtener el nombre del empleado — protegido por si no hay red
+      let employeeName = "Usuario";
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('dni', manualDni.trim())
+          .maybeSingle();
+        employeeName = data?.full_name || "Usuario";
+      } catch {
+        // Sin red: continuamos con nombre genérico
+      }
       
       const result = await attendanceService.processScan(manualDni.trim(), employeeName, scanMode || undefined);
 
@@ -462,12 +466,24 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         playStatusHaptic('success');
         setShowManualModal(false);
         setManualDni('');
+      } else if (result.reason === 'queued_offline') {
+        // Sin internet: fichada guardada en cola local
+        setStatus('success');
+        setLastUser(employeeName);
+        setScanType(scanMode || 'in');
+        setAttendanceMsg('Guardado Offline (Sin Internet)');
+        setMsgColor('text-amber-400');
+        setPendingCount(offlineService.count);
+        void playStatusSound('offline');
+        playStatusHaptic('offline');
+        setShowManualModal(false);
+        setManualDni('');
       } else {
         const failurePresentation = getFailurePresentation(result.reason);
         setStatus(failurePresentation.status);
         setAttendanceMsg(failurePresentation.message);
-        void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : failurePresentation.message === 'Guardado Offline (Sin Internet)' ? 'offline' : 'error');
-        playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : failurePresentation.message === 'Guardado Offline (Sin Internet)' ? 'offline' : 'error');
+        void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
+        playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
         setShowManualModal(false);
       }
     } catch (err) {

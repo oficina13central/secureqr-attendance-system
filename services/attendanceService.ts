@@ -337,11 +337,17 @@ export const attendanceService = {
         let failedCount = 0;
         for (const scan of queue) {
             try {
-                const result = await this.processScan(scan.employeeId, scan.employeeName);
-                if (result.type !== 'error') {
+                // Pasamos el modo guardado (in/out) para reproducir la intención original del operador
+                const result = await this.processScan(scan.employeeId, scan.employeeName, scan.mode);
+                if (result.type === 'in' || result.type === 'out') {
                     offlineService.removeScan(scan.id);
                     successCount++;
+                } else if (result.type === 'queued') {
+                    // Sigue sin red, dejamos en la cola
+                    failedCount++;
                 } else {
+                    // Error lógico (ej: ya fichado), también removemos para no repetir
+                    offlineService.removeScan(scan.id);
                     failedCount++;
                 }
             } catch (err) {
@@ -421,9 +427,28 @@ export const attendanceService = {
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
         } catch (err: any) {
-            console.error("Network error during scan:", err);
+            console.error("Error durante el escaneo:", err);
+
+            // Errores de lógica de negocio: retornar sin encolar
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
+
+            // Detectar errores de red: sin internet o fallo de fetch
+            const isNetworkError =
+                !navigator.onLine ||
+                err instanceof TypeError ||
+                (typeof err.message === 'string' &&
+                    (err.message.toLowerCase().includes('fetch') ||
+                     err.message.toLowerCase().includes('network') ||
+                     err.message.toLowerCase().includes('failed to') ||
+                     err.message.toLowerCase().includes('networkerror')));
+
+            if (isNetworkError) {
+                console.warn('Sin conexión detectada — guardando fichada en cola offline.');
+                offlineService.queueScan(employeeId, employeeName, enforcedMode);
+                return { type: 'queued', record: null, reason: 'queued_offline' };
+            }
+
             throw err;
         }
     },
