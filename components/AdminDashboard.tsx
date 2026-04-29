@@ -12,6 +12,11 @@ import {
   CalendarCheck,
   Briefcase,
   Palmtree,
+  CloudSun,
+  CloudRain,
+  Sun,
+  Cloud,
+  Wind,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -38,6 +43,23 @@ interface AdminDashboardProps {
   currentUser: Profile;
 }
 
+type WeatherState = {
+  temperature: number;
+  apparentTemperature: number;
+  windSpeed: number;
+  precipitation: number;
+  weatherCode: number;
+};
+
+type DailyWeatherContext = {
+  date: string;
+  label: string;
+  impact: string;
+  precipitation: number;
+  maxTemperature: number;
+  maxWindSpeed: number;
+};
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Profile[]>([]);
@@ -46,6 +68,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [schedules, setSchedules] = useState<any[]>([]); // Today's schedules
   const [rules, setRules] = useState<AttendanceRules | null>(null);
+  const [weather, setWeather] = useState<WeatherState | null>(null);
+  const [dailyWeather, setDailyWeather] = useState<Record<string, DailyWeatherContext>>({});
+  const [weatherError, setWeatherError] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
 
   useEffect(() => {
@@ -101,6 +126,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    const loadWeather = async () => {
+      try {
+        setWeatherError(false);
+        const params = new URLSearchParams({
+          latitude: '-26.8241',
+          longitude: '-65.2226',
+          current: 'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m',
+          daily: 'weather_code,precipitation_sum,temperature_2m_max,wind_speed_10m_max',
+          past_days: '14',
+          forecast_days: '1',
+          timezone: 'America/Argentina/Tucuman'
+        });
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
+        if (!response.ok) throw new Error('Weather request failed');
+        const data = await response.json();
+        setWeather({
+          temperature: Math.round(data.current.temperature_2m),
+          apparentTemperature: Math.round(data.current.apparent_temperature),
+          windSpeed: Math.round(data.current.wind_speed_10m),
+          precipitation: data.current.precipitation || 0,
+          weatherCode: data.current.weather_code
+        });
+
+        const dailyMap: Record<string, DailyWeatherContext> = {};
+        (data.daily?.time || []).forEach((date: string, index: number) => {
+          const precipitation = data.daily.precipitation_sum?.[index] || 0;
+          const weatherCode = data.daily.weather_code?.[index] || 0;
+          const maxWindSpeed = Math.round(data.daily.wind_speed_10m_max?.[index] || 0);
+          const maxTemperature = Math.round(data.daily.temperature_2m_max?.[index] || 0);
+          const isRainy = precipitation > 0 || (weatherCode >= 51 && weatherCode <= 99);
+          const isWindy = maxWindSpeed >= 35;
+          const isHot = maxTemperature >= 35;
+
+          dailyMap[date] = {
+            date,
+            label: isRainy ? 'Lluvia' : weatherCode === 0 ? 'Despejado' : weatherCode <= 3 ? 'Nublado' : 'Variable',
+            impact: isRainy || isWindy ? 'Riesgo de demoras' : isHot ? 'Calor intenso' : 'Normal',
+            precipitation,
+            maxTemperature,
+            maxWindSpeed
+          };
+        });
+        setDailyWeather(dailyMap);
+      } catch (error) {
+        console.error('Error loading weather:', error);
+        setWeatherError(true);
+      }
+    };
+
+    loadWeather();
+  }, []);
+
   // ── OPTIMIZED LOOKUP: SCHEDULE MAP ──
   // Creamos un mapa indexado por employeeId_date para búsqueda O(1) ultra rápida y fiable
   // IMPORTANTE: Normalizamos los IDs a minúsculas para evitar discrepancias de formato
@@ -121,6 +199,60 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     if (!emp) return 'Sin Sector';
     return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
   };
+
+  const weatherDisplay = useMemo(() => {
+    if (!weather) return null;
+
+    const impact = weather.precipitation > 0 || weather.weatherCode >= 51
+      ? 'Riesgo de demoras'
+      : weather.apparentTemperature >= 35
+        ? 'Calor intenso'
+        : weather.windSpeed >= 35
+          ? 'Viento fuerte'
+          : 'Normal';
+
+    if (weather.precipitation > 0 || (weather.weatherCode >= 51 && weather.weatherCode <= 99)) {
+      return {
+        label: 'Lluvia',
+        detail: weather.precipitation > 0 ? `${weather.precipitation} mm` : 'Inestable',
+        impact,
+        icon: CloudRain,
+        color: 'text-sky-600',
+        bg: 'bg-sky-50'
+      };
+    }
+
+    if (weather.weatherCode === 0) {
+      return {
+        label: 'Despejado',
+        detail: `ST ${weather.apparentTemperature}°`,
+        impact,
+        icon: Sun,
+        color: 'text-amber-500',
+        bg: 'bg-amber-50'
+      };
+    }
+
+    if (weather.weatherCode <= 3) {
+      return {
+        label: 'Nublado',
+        detail: `ST ${weather.apparentTemperature}°`,
+        impact,
+        icon: Cloud,
+        color: 'text-slate-500',
+        bg: 'bg-slate-50'
+      };
+    }
+
+    return {
+      label: 'Clima',
+      detail: `ST ${weather.apparentTemperature}°`,
+      impact,
+      icon: CloudSun,
+      color: 'text-indigo-500',
+      bg: 'bg-indigo-50'
+    };
+  }, [weather]);
 
   // Determine authorized sectors based on role and permissions
   const authorizedSectors = useMemo(() => {
@@ -611,7 +743,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       
       {/* 1. Status Section (Header + Cards) */}
       <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">Panel de Control</h1>
             <div className="flex items-center mt-1">
@@ -619,6 +751,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 Monitoreo en Tiempo Real • <span className="text-indigo-500">{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
               </p>
             </div>
+          </div>
+
+          <div className="w-full lg:w-auto">
+            {weather && weatherDisplay ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className={`p-2.5 rounded-xl ${weatherDisplay.bg}`}>
+                  <weatherDisplay.icon className={`w-5 h-5 ${weatherDisplay.color}`} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clima Operativo</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-black text-slate-800">{weather.temperature}°</span>
+                    <span className="text-xs font-black text-slate-500">{weatherDisplay.label}</span>
+                  </div>
+                  <p className={`mt-0.5 text-[10px] font-black uppercase tracking-widest ${weatherDisplay.impact === 'Normal' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {weatherDisplay.impact}
+                  </p>
+                </div>
+                <div className="hidden sm:flex items-center gap-1 border-l border-slate-200 pl-3 text-slate-400">
+                  <Wind className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black">{weather.windSpeed} km/h</span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clima Operativo</p>
+                <p className="text-sm font-black text-slate-500">{weatherError ? 'No disponible' : 'Cargando...'}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -703,6 +864,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   cursor={{ fill: '#f8fafc' }}
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
+                      const dayWeather = dailyWeather[payload[0]?.payload?.fullDate];
                       return (
                         <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
@@ -715,6 +877,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                               <span className="text-xs font-bold text-slate-600">Tardanzas:</span>
                               <span className="text-xs font-black text-amber-500">{payload[1].value}</span>
                             </div>
+                            {dayWeather && (
+                              <div className="mt-2 pt-2 border-t border-slate-100">
+                                <div className="flex items-center justify-between gap-8">
+                                  <span className="text-xs font-bold text-slate-600">Clima:</span>
+                                  <span className="text-xs font-black text-sky-600">{dayWeather.label}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-8">
+                                  <span className="text-[10px] font-bold text-slate-400">{dayWeather.impact}</span>
+                                  <span className="text-[10px] font-black text-slate-400">{dayWeather.precipitation} mm</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
