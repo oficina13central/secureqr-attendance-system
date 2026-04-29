@@ -134,7 +134,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
         return (
             <div className="flex flex-col items-center opacity-60">
                 <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
-                    Franco
+                    Descanso
                 </span>
             </div>
         );
