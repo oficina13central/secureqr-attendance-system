@@ -573,13 +573,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const recentRecords = authorizedRecords.filter(r => new Date(r.date) >= thirtyDaysAgo);
     const tardanzas = recentRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo');
     
-    const countMap: Record<string, number> = {};
+    const minutesMap: Record<string, number> = {};
     tardanzas.forEach(r => {
       const name = r.employee_name || 'Desconocido';
-      countMap[name] = (countMap[name] || 0) + 1;
+      minutesMap[name] = (minutesMap[name] || 0) + (r.minutes_late || 0);
     });
     
-    return Object.entries(countMap)
+    return Object.entries(minutesMap)
       .map(([text, value]) => ({ text, value }))
       .sort((a, b) => b.value - a.value);
   }, [authorizedRecords]);
@@ -821,7 +821,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   key={word.text} 
                   style={{ fontSize: `${size}px` }} 
                   className={`font-black ${color} leading-none transition-all duration-300 hover:scale-110 cursor-default opacity-90 hover:opacity-100 drop-shadow-sm select-none text-center`}
-                  title={`${word.value} tardanza${word.value > 1 ? 's' : ''}`}
+                  title={`${word.value} min tarde acumulados`}
                 >
                   {word.text}
                 </span>
