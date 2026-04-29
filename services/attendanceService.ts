@@ -6,6 +6,14 @@ import { getLocalDateString } from '../utils/dateUtils';
 import { offlineService } from './offlineService';
 import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, getSegmentAssignmentsForCheckIns, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
+const AUTO_ABSENCE_REASON = 'Ausencia automatica por turno finalizado';
+
+const isAutomaticAbsenceReason = (reason?: string | null) => {
+    if (!reason) return true;
+    const normalized = reason.toLowerCase();
+    return normalized.includes('ausencia') && normalized.includes('turno finalizado');
+};
+
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
         const { data, error } = await supabase
@@ -340,7 +348,7 @@ export const attendanceService = {
                 for (const record of existingEmpRecords.filter(r =>
                     !r.check_in &&
                     r.status === 'ausente' &&
-                    (r.manual_reason === 'Ausencia automÃ¡tica por turno finalizado' || !r.manual_reason)
+                    isAutomaticAbsenceReason(r.manual_reason)
                 )) {
                     const assignedSegmentIndex = pendingAbsenceSegmentIndexes[absenceCursor++] ?? (activeSchedule.segments?.length || 0);
                     const isDuplicateForRealCheckIn = coveredSegmentIndexes.has(assignedSegmentIndex);
@@ -356,7 +364,7 @@ export const attendanceService = {
                 const existingAutoAbsences = existingEmpRecords.filter(r =>
                     !r.check_in &&
                     r.status === 'ausente' &&
-                    (r.manual_reason === 'Ausencia automática por turno finalizado' || !r.manual_reason)
+                    isAutomaticAbsenceReason(r.manual_reason)
                 ).length;
                 const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
 
@@ -365,7 +373,7 @@ export const attendanceService = {
                     if (record) {
                         await supabase
                             .from('attendance_records')
-                            .update({ manual_reason: 'Ausencia automática por turno finalizado' })
+                            .update({ manual_reason: AUTO_ABSENCE_REASON })
                             .eq('id', record.id);
                     }
                 }
@@ -618,7 +626,7 @@ export const attendanceService = {
                     const record = dailyRecs[i];
                     const isAutoAbsence = !record.check_in &&
                         record.status === 'ausente' &&
-                        ((record as any).manual_reason === 'Ausencia automÃ¡tica por turno finalizado' || !(record as any).manual_reason);
+                        isAutomaticAbsenceReason((record as any).manual_reason);
                     const assignedSegmentIndex = record.check_in
                         ? (checkInSegmentAssignments.get(record.id) ?? i)
                         : (pendingAbsenceSegmentIndexes[absenceCursor++] ?? i);
