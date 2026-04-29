@@ -235,6 +235,44 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         return assignedById;
     };
 
+    const removeDuplicateAbsencesCoveredByCheckIns = (emp: Profile, monthRecords: AttendanceRecord[]) => {
+        const assignedTimes = buildAssignedTimesByRecordId(emp, monthRecords);
+        const recordsByDate = new Map<string, AttendanceRecord[]>();
+
+        monthRecords.forEach(record => {
+            const dateKey = record.date.substring(0, 10);
+            const bucket = recordsByDate.get(dateKey) || [];
+            bucket.push(record);
+            recordsByDate.set(dateKey, bucket);
+        });
+
+        const duplicateAbsenceIds = new Set<string>();
+
+        recordsByDate.forEach((dayRecords, dateKey) => {
+            const shift = getRobustShift(emp, dateKey);
+            const segmentCount = shift?.segments?.length || 0;
+            if (segmentCount === 0) return;
+
+            const coveredTimes = new Set(
+                dayRecords
+                    .filter(record => !!record.check_in)
+                    .map(record => assignedTimes.get(record.id))
+                    .filter(Boolean)
+            );
+
+            if (coveredTimes.size === 0) return;
+
+            dayRecords.forEach(record => {
+                if (record.check_in || record.status !== 'ausente') return;
+                const assignedTime = assignedTimes.get(record.id);
+                if ((assignedTime && coveredTimes.has(assignedTime)) || coveredTimes.size >= segmentCount) {
+                    duplicateAbsenceIds.add(record.id);
+                }
+            });
+        });
+
+        return monthRecords.filter(record => !duplicateAbsenceIds.has(record.id));
+    };
     // ── HELPER: GET ROBUST SHIFT ──
     const getRobustShift = (emp: Profile, dateStr: string) => {
         const empIdLow = emp.id.toLowerCase().trim();
@@ -435,7 +473,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
         return employees.map(emp => {
             const empId = emp.id.toLowerCase();
-            const monthRecords = records.filter(r => {
+            let monthRecords = records.filter(r => {
                 const d = new Date(r.date);
                 if (r.status === 'ausente' && r.date <= '2026-04-19') return false;
                 
@@ -455,6 +493,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 }
                 return r;
             });
+
+            monthRecords = removeDuplicateAbsencesCoveredByCheckIns(emp, monthRecords);
 
             if (isCurrentMonth && todayStr >= '2026-04-20') {
                 const todayRecords = monthRecords.filter(r => r.date === todayStr);
