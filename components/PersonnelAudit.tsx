@@ -599,9 +599,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 employee?.sector_id === selectedSectorId ||
                 sectors.find(s => s.id === selectedSectorId)?.name === employee?.sector_id;
 
-            const matchesIssue = (!showOnlyLate || data.totalLateMinutes > 0) &&
-                (!showOnlyAbsences || data.absences > 0) &&
-                (!showOnlyNoPresentismo || data.lostPresentismo > 0);
+            const hasIssueFilter = showOnlyLate || showOnlyAbsences || showOnlyNoPresentismo;
+            const matchesIssue = !hasIssueFilter ||
+                (showOnlyLate && data.totalLateMinutes > 0) ||
+                (showOnlyAbsences && data.absences > 0) ||
+                (showOnlyNoPresentismo && data.lostPresentismo > 0);
 
             return matchesSearch && hasAccess && matchesSector && matchesIssue;
         });
