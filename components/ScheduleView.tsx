@@ -426,9 +426,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
           )}
 
-          <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
             <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-            <span className="px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
+            <span className="px-3 sm:px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
               {currentWeekStart.toLocaleDateString()} - {addDays(currentWeekStart, 6).toLocaleDateString()}
             </span>
             <button onClick={handleNextWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
@@ -583,13 +583,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       {/* ── TABLE ── */}
       <div className="schedule-table-wrapper bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[920px] text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-6 py-6 text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 sticky left-0 bg-slate-50 z-10">Empleado</th>
+                <th className="w-[190px] min-w-[190px] sm:w-[260px] sm:min-w-[260px] px-4 sm:px-6 py-5 sm:py-6 text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 sticky left-0 bg-slate-50 z-10">Empleado</th>
                 {weekDays.map(d => (
-                  <th key={d.toISOString()} className="px-2 py-6 text-center border-b border-slate-100 min-w-[100px]">
+                  <th key={d.toISOString()} className="px-2 py-5 sm:py-6 text-center border-b border-slate-100 min-w-[104px]">
                     <div className="flex flex-col items-center">
                       <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
                       <span className="text-xl font-black text-slate-700">{d.getDate()}</span>
@@ -601,14 +601,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <tbody className="divide-y divide-slate-50">
               {filteredEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50/50 transition-colors border-r border-slate-50">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print">
+                  <td className="w-[190px] min-w-[190px] sm:w-[260px] sm:min-w-[260px] px-4 sm:px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50/50 transition-colors border-r border-slate-50">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print shrink-0">
                         {emp.full_name.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-700 text-sm">{emp.full_name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">
+                        <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
+                        <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
                           {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
                         </p>
                       </div>

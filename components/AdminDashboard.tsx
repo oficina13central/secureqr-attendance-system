@@ -822,7 +822,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         
         {/* Heatmap (Activity Calendar) */}
         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-indigo-50 rounded-xl">
                 <Activity className="w-5 h-5 text-indigo-500" />
@@ -832,7 +832,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ausencias y Tardanzas • Últimos 15 días</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4 text-[10px] font-black uppercase tracking-widest">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-widest">
               <div className="flex items-center">
                 <div className="w-2.5 h-2.5 rounded-full bg-rose-500 mr-2" />
                 <span className="text-slate-500">Ausencias</span>
@@ -844,7 +844,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             </div>
           </div>
           
-          <div className="flex-1 h-[250px] w-full">
+          <div className="flex-1 w-full overflow-x-auto pb-2">
+            <div className="h-[240px] md:h-[250px] min-w-[560px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -912,6 +913,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
