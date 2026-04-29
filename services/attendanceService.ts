@@ -4,7 +4,7 @@ import { settingsService } from './settingsService';
 import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { offlineService } from './offlineService';
-import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
+import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, getSegmentAssignmentsForCheckIns, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
@@ -263,7 +263,7 @@ export const attendanceService = {
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
-                .select('employee_id, employee_name, check_in, status, manual_reason')
+                .select('id, employee_id, employee_name, check_in, status, manual_reason')
                 .eq('date', dateStr);
 
             const recordsByEmployeeKey = new Map<string, any[]>();
@@ -283,7 +283,7 @@ export const attendanceService = {
                 const empIdNormalized = emp.id.toLowerCase().trim();
                 const empNameNormalized = emp.full_name.toLowerCase().trim();
 
-                const existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
+                let existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
 
                 const { data: schedule } = await supabase
                     .from('schedules')
@@ -328,6 +328,28 @@ export const attendanceService = {
                         await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
                     }
                     continue;
+                }
+
+                const checkInSegmentAssignments = getSegmentAssignmentsForCheckIns(existingEmpRecords, activeSchedule);
+                const coveredSegmentIndexes = new Set(checkInSegmentAssignments.values());
+                const pendingAbsenceSegmentIndexes = (activeSchedule.segments || [])
+                    .map((_: any, index: number) => index)
+                    .filter((index: number) => !coveredSegmentIndexes.has(index));
+                let absenceCursor = 0;
+
+                for (const record of existingEmpRecords.filter(r =>
+                    !r.check_in &&
+                    r.status === 'ausente' &&
+                    (r.manual_reason === 'Ausencia automÃ¡tica por turno finalizado' || !r.manual_reason)
+                )) {
+                    const assignedSegmentIndex = pendingAbsenceSegmentIndexes[absenceCursor++] ?? (activeSchedule.segments?.length || 0);
+                    const isDuplicateForRealCheckIn = coveredSegmentIndexes.has(assignedSegmentIndex);
+                    const isExtraAutoAbsence = assignedSegmentIndex >= (activeSchedule.segments?.length || 1);
+
+                    if (isDuplicateForRealCheckIn || isExtraAutoAbsence) {
+                        await supabase.from('attendance_records').delete().eq('id', record.id);
+                        existingEmpRecords = existingEmpRecords.filter(r => r.id !== record.id);
+                    }
                 }
 
                 const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
@@ -585,12 +607,37 @@ export const attendanceService = {
                 }
 
                 // Procesar cada registro del día
+                const checkInSegmentAssignments = getSegmentAssignmentsForCheckIns(dailyRecs, activeSchedule);
+                const coveredSegmentIndexes = new Set(checkInSegmentAssignments.values());
+                const pendingAbsenceSegmentIndexes = (activeSchedule?.segments || [])
+                    .map((_: any, index: number) => index)
+                    .filter((index: number) => !coveredSegmentIndexes.has(index));
+                let absenceCursor = 0;
+
                 for (let i = 0; i < dailyRecs.length; i++) {
                     const record = dailyRecs[i];
+                    const isAutoAbsence = !record.check_in &&
+                        record.status === 'ausente' &&
+                        ((record as any).manual_reason === 'Ausencia automÃ¡tica por turno finalizado' || !(record as any).manual_reason);
+                    const assignedSegmentIndex = record.check_in
+                        ? (checkInSegmentAssignments.get(record.id) ?? i)
+                        : (pendingAbsenceSegmentIndexes[absenceCursor++] ?? i);
+
+                    if (isAutoAbsence && coveredSegmentIndexes.has(assignedSegmentIndex)) {
+                        await supabase.from('attendance_records').delete().eq('id', record.id);
+                        updatedCount++;
+                        continue;
+                    }
+
+                    if (isAutoAbsence && assignedSegmentIndex >= (activeSchedule?.segments?.length || 1)) {
+                        await supabase.from('attendance_records').delete().eq('id', record.id);
+                        updatedCount++;
+                        continue;
+                    }
                     const resolution = resolveRecalculatedRecord(
                         record,
                         activeSchedule,
-                        i,
+                        assignedSegmentIndex,
                         rules,
                         getLocalDateString(),
                         new Date()

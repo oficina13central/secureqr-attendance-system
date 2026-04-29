@@ -4,6 +4,7 @@ import {
     classifyCheckIn,
     getClosedSegmentCount,
     getDueRecordCount,
+    getSegmentAssignmentsForCheckIns,
     resolveRecalculatedRecord,
     shouldAllowSplitSecondCheckIn
 } from './attendanceLogic.ts';
@@ -238,6 +239,35 @@ const cases: Array<{ name: string; run: () => void }> = [
                 ),
                 { shouldDelete: false, status: 'tarde', minutesLate: 15 }
             );
+        }
+    },
+    {
+        name: 'real check-in claims the matching segment even when an absence sorts first',
+        run: () => {
+            const assignments = getSegmentAssignmentsForCheckIns(
+                [
+                    { id: 'auto_absence', date: '2026-04-28', check_in: null, status: 'ausente', minutes_late: 0 },
+                    { id: 'real_check_in', date: '2026-04-28', check_in: '2026-04-28T12:22:00', status: 'en_horario', minutes_late: 0 }
+                ],
+                { type: 'continuous', segments: [{ start: '13:00', end: '21:30' }] }
+            );
+
+            assert.equal(assignments.get('real_check_in'), 0);
+        }
+    },
+    {
+        name: 'split check-ins are assigned to their nearest unmatched segments',
+        run: () => {
+            const assignments = getSegmentAssignmentsForCheckIns(
+                [
+                    { id: 'second', date: '2026-04-28', check_in: '2026-04-28T17:58:00', status: 'en_horario', minutes_late: 0 },
+                    { id: 'first', date: '2026-04-28', check_in: '2026-04-28T07:56:00', status: 'en_horario', minutes_late: 0 }
+                ],
+                { type: 'split', segments: [{ start: '08:00', end: '12:00' }, { start: '18:00', end: '22:00' }] }
+            );
+
+            assert.equal(assignments.get('first'), 0);
+            assert.equal(assignments.get('second'), 1);
         }
     },
     {

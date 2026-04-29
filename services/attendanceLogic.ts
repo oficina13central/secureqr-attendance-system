@@ -15,6 +15,7 @@ export type ScheduleLike = {
 };
 
 export type AttendanceRecordLike = {
+    id?: string;
     date: string;
     check_in: string | null;
     status: string;
@@ -60,6 +61,52 @@ export const classifyCheckIn = (
         return { status: 'tarde', minutesLate };
     }
     return { status: 'en_horario', minutesLate };
+};
+
+export const getSegmentAssignmentsForCheckIns = (
+    records: AttendanceRecordLike[],
+    schedule: ScheduleLike | null | undefined
+) => {
+    const assignments = new Map<string, number>();
+    const segments = schedule?.segments || [];
+    if (segments.length === 0) return assignments;
+
+    const matchedSegments = new Set<number>();
+    const checkInRecords = records
+        .filter(record => !!record.check_in)
+        .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+
+    checkInRecords.forEach((record, recordIndex) => {
+        const checkInDate = new Date(record.check_in!);
+        const checkInMinutes = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+        let bestSegmentIndex = -1;
+        let bestDistance = Number.POSITIVE_INFINITY;
+
+        segments.forEach((segment, segmentIndex) => {
+            if (matchedSegments.has(segmentIndex)) return;
+
+            const segmentMinutes = getMinutesFromTimeString(segment.start);
+            let distance = checkInMinutes - segmentMinutes;
+            if (distance < -720) distance += 1440;
+            if (distance > 720) distance -= 1440;
+            const absoluteDistance = Math.abs(distance);
+
+            if (absoluteDistance < bestDistance) {
+                bestDistance = absoluteDistance;
+                bestSegmentIndex = segmentIndex;
+            }
+        });
+
+        const fallbackSegmentIndex = Math.min(recordIndex, segments.length - 1);
+        const assignedSegmentIndex = bestSegmentIndex >= 0 ? bestSegmentIndex : fallbackSegmentIndex;
+        matchedSegments.add(assignedSegmentIndex);
+
+        if (record.id) {
+            assignments.set(record.id, assignedSegmentIndex);
+        }
+    });
+
+    return assignments;
 };
 
 export const shouldDeletePrematureAbsence = (

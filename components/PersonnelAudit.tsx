@@ -468,9 +468,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     
                     const gracePeriod = rules?.ausente_gracia || 120;
 
+                    const todayAssignedTimes = buildAssignedTimesByRecordId(emp, todayRecords);
+
                     shift.segments.forEach((segment: any, idx: number) => {
+                        const hasRecordForSegment = todayRecords.some(record => todayAssignedTimes.get(record.id) === segment.start);
                         // Si no hay un registro para este índice de segmento
-                        if (!todayRecords[idx]) {
+                        if (!hasRecordForSegment) {
                             const [h, m] = segment.start.split(':').map(Number);
                             const segmentStart = new Date();
                             segmentStart.setHours(h, m, 0, 0);
