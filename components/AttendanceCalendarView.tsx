@@ -110,6 +110,36 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
   const handleNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
 
   const renderStatusBadge = (records: AttendanceRecord[], shift?: ShiftData, isPast?: boolean, isToday?: boolean) => {
+    if (shift?.type === 'medical') {
+        return (
+            <div className="flex flex-col items-center">
+                <span className="bg-sky-100 text-sky-700 border border-sky-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                    Licencia Medica
+                </span>
+            </div>
+        );
+    }
+
+    if (shift?.type === 'vacation') {
+        return (
+            <div className="flex flex-col items-center">
+                <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                    Vacaciones
+                </span>
+            </div>
+        );
+    }
+
+    if (shift?.type === 'off') {
+        return (
+            <div className="flex flex-col items-center opacity-60">
+                <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
+                    Franco
+                </span>
+            </div>
+        );
+    }
+
     if (records && records.length > 0) {
         // Find the "worst" status or most relevant
         const hasLate = records.some(r => r.status === 'tarde' || r.status === 'sin_presentismo');
@@ -159,25 +189,6 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
     }
 
     if (shift) {
-        if (shift.type === 'off') {
-            return (
-                <div className="flex flex-col items-center opacity-60">
-                    <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
-                        Franco
-                    </span>
-                </div>
-            );
-        }
-        if (shift.type === 'vacation') {
-            return (
-                <div className="flex flex-col items-center">
-                    <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
-                        Vacaciones
-                    </span>
-                </div>
-            );
-        }
-
         // If it's a work day but no record
         if (isPast) {
             // For today: only show 'Ausente' if shift start + grace period has passed
