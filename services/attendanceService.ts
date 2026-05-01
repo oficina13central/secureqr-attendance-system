@@ -363,7 +363,7 @@ export const attendanceService = {
                 const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
                 const existingAutoAbsences = existingEmpRecords.filter(r =>
                     !r.check_in &&
-                    r.status === 'ausente' &&
+                    r.status === 'ausence' &&
                     isAutomaticAbsenceReason(r.manual_reason)
                 ).length;
                 const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
@@ -411,12 +411,7 @@ export const attendanceService = {
                 if (result.type === 'in' || result.type === 'out') {
                     offlineService.removeScan(scan.id);
                     successCount++;
-                } else if (result.type === 'queued') {
-                    // Sigue sin red, dejamos en la cola
-                    failedCount++;
                 } else {
-                    // Error lógico (ej: ya fichado), también removemos para no repetir
-                    offlineService.removeScan(scan.id);
                     failedCount++;
                 }
             } catch (err) {
@@ -497,9 +492,7 @@ export const attendanceService = {
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
         } catch (err: any) {
-            console.error("Error durante el escaneo:", err);
-
-            // Errores de lógica de negocio: retornar sin encolar
+            console.error("Network error during scan:", err);
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
 

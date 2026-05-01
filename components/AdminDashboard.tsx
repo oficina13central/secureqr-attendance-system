@@ -195,7 +195,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   }, [schedules]);
 
   const getSectorForEmployee = (employeeName: string) => {
-    const emp = employees.find(e => e.full_name === employeeName);
+    const searchName = (employeeName || '').trim().toLowerCase();
+    const emp = employees.find(e => (e.full_name || '').trim().toLowerCase() === searchName);
     if (!emp) return 'Sin Sector';
     return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
   };
@@ -280,7 +281,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     let recs = records;
     if (authorizedSectors) {
       recs = recs.filter(record => {
-        const emp = employees.find(e => e.full_name === record.employee_name);
+        const rName = (record.employee_name || '').trim().toLowerCase();
+        const rId = record.employee_id?.toLowerCase().trim();
+        
+        const emp = employees.find(e => 
+          (rId && e.id.toLowerCase().trim() === rId) || 
+          (rName && e.full_name?.trim().toLowerCase() === rName)
+        );
         return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
       });
     }

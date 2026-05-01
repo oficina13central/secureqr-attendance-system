@@ -477,9 +477,14 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 const d = new Date(r.date);
                 if (r.status === 'ausente' && r.date <= '2026-04-19') return false;
                 
+                const rEmpId = r.employee_id?.toLowerCase().trim();
+                const rEmpName = r.employee_name?.toLowerCase().trim();
+                const empId = emp.id.toLowerCase().trim();
+                const empName = (emp.full_name || '').toLowerCase().trim();
+
                 return d.getMonth() === targetMonth &&
                     d.getFullYear() === targetYear &&
-                    (r.employee_id === emp.id || r.employee_name === emp.full_name);
+                    (rEmpId === empId || rEmpName === empName);
             }).map(r => {
                 if (r.check_in || r.status !== 'ausente') return r;
                 
