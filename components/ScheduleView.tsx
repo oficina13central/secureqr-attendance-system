@@ -56,6 +56,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
+
+  const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
   useEffect(() => {
     const fetchSectors = async () => {
@@ -107,12 +110,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (selectedSector !== 'all') {
       list = list.filter(e => (e.sector_id || 'General') === selectedSector);
     }
+
+    if (selectedEmploymentType !== 'all') {
+      list = list.filter(e => (e.employment_type || 'efectivo') === selectedEmploymentType);
+    }
     
     // Filtro por nombre
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       list = list.filter(e => 
         e.full_name.toLowerCase().includes(term) ||
+        getEmploymentTypeLabel(e.employment_type).toLowerCase().includes(term) ||
         (e.dni && e.dni.includes(term))
       );
     }
@@ -127,7 +135,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return list.filter(e => mySectorIds.has(e.sector_id || 'General'));
     }
     return [];
-  }, [employees, currentUser, selectedSector, searchTerm]);
+  }, [employees, currentUser, selectedSector, selectedEmploymentType, searchTerm]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -395,7 +403,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por nombre..."
+              placeholder="Buscar por nombre o tipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-white border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all w-full sm:w-[250px]"
@@ -425,6 +433,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               </select>
             </div>
           )}
+
+          <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tipo:</span>
+            <select
+              value={selectedEmploymentType}
+              onChange={(e) => setSelectedEmploymentType(e.target.value as 'all' | 'efectivo' | 'jornalero')}
+              className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
+            >
+              <option value="all">Todo el Personal</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="jornalero">Jornalero</option>
+            </select>
+          </div>
 
           <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
             <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
@@ -610,6 +631,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                         <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
                         <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
                           {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
+                        </p>
+                        <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
+                          {getEmploymentTypeLabel(emp.employment_type)}
                         </p>
                       </div>
                     </div>

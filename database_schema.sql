@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   email TEXT NOT NULL UNIQUE,
   dni TEXT UNIQUE,
   role TEXT REFERENCES roles(id),
+  employment_type TEXT CHECK (employment_type IN ('efectivo', 'jornalero')) DEFAULT 'efectivo',
   sector_id TEXT REFERENCES sectors(id),
   photo_url TEXT,
   qr_token TEXT,
