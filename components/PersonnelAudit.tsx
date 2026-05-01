@@ -474,16 +474,21 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         return employees.map(emp => {
             const empId = emp.id.toLowerCase();
             let monthRecords = records.filter(r => {
-                const d = new Date(r.date);
+                if (!r.date) return false;
                 if (r.status === 'ausente' && r.date <= '2026-04-19') return false;
                 
+                // Safe parsing of YYYY-MM-DD to avoid timezone shifts
+                const [y, m] = r.date.split('-').map(Number);
+                const rMonth = m - 1; // 0-indexed
+                const rYear = y;
+
                 const rEmpId = r.employee_id?.toLowerCase().trim();
                 const rEmpName = r.employee_name?.toLowerCase().trim();
                 const empId = emp.id.toLowerCase().trim();
                 const empName = (emp.full_name || '').toLowerCase().trim();
 
-                return d.getMonth() === targetMonth &&
-                    d.getFullYear() === targetYear &&
+                return rMonth === targetMonth &&
+                    rYear === targetYear &&
                     (rEmpId === empId || rEmpName === empName);
             }).map(r => {
                 if (r.check_in || r.status !== 'ausente') return r;
