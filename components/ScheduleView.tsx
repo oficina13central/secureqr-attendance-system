@@ -14,6 +14,7 @@ import {
   Download,
   Search
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
@@ -182,6 +183,120 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const escapeXml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+
+  const getShiftText = (emp: Profile, date: Date) => {
+    const dateKey = formatDate(date);
+    const explicitShift = shifts[`${emp.id}_${dateKey}`];
+    const isSunday = date.getDay() === 0;
+
+    let activeShift = explicitShift;
+    if (!activeShift && emp.default_schedule) {
+      const base = emp.default_schedule[date.getDay().toString()];
+      if (base) activeShift = { type: base.type, segments: base.segments } as any;
+    }
+
+    if (!activeShift) return isSunday ? 'Descanso' : '';
+    if (activeShift.type === 'off') return 'Descanso';
+    if (activeShift.type === 'vacation') return 'Vacaciones';
+    if (activeShift.type === 'medical') return 'Licencia Medica';
+    if (activeShift.type === 'continuous') {
+      return `${activeShift.segments?.[0]?.start || ''}-${activeShift.segments?.[0]?.end || ''}`;
+    }
+    if (activeShift.type === 'split') {
+      return (activeShift.segments || []).map((s: any) => `${s.start}-${s.end}`).join(' / ');
+    }
+    return '';
+  };
+
+  const handleExportExcel = async () => {
+    const headers = [
+      'Empleado',
+      'Tipo',
+      'Sector',
+      ...weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }))
+    ];
+
+    const rows = filteredEmployees.map(emp => [
+      emp.full_name,
+      getEmploymentTypeLabel(emp.employment_type),
+      sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
+      ...weekDays.map(d => getShiftText(emp, d))
+    ]);
+
+    const allRows = [
+      ['Cronograma Semanal', weekLabel],
+      ['Sector', sectorLabel],
+      [],
+      headers,
+      ...rows
+    ];
+
+    const colName = (index: number) => {
+      let name = '';
+      let n = index + 1;
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        name = String.fromCharCode(65 + rem) + name;
+        n = Math.floor((n - 1) / 26);
+      }
+      return name;
+    };
+
+    const sheetData = allRows.map((row, rowIndex) => {
+      const cells = row.map((value, colIndex) => {
+        const ref = `${colName(colIndex)}${rowIndex + 1}`;
+        return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>`;
+      }).join('');
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    }).join('');
+
+    const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <cols>
+    <col min="1" max="1" width="32" customWidth="1"/>
+    <col min="2" max="2" width="14" customWidth="1"/>
+    <col min="3" max="3" width="22" customWidth="1"/>
+    <col min="4" max="10" width="18" customWidth="1"/>
+  </cols>
+  <sheetData>${sheetData}</sheetData>
+</worksheet>`;
+
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`);
+    zip.folder('_rels')?.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`);
+    zip.folder('xl')?.file('workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Cronograma" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`);
+    zip.folder('xl')?.folder('_rels')?.file('workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`);
+    zip.folder('xl')?.folder('worksheets')?.file('sheet1.xml', worksheet);
+
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const handleSave = async () => {
@@ -461,6 +576,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir / PDF</span>
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center space-x-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-lg no-print"
+          >
+            <Download className="w-4 h-4" />
+            <span>Excel</span>
           </button>
         </div>
       </header>
