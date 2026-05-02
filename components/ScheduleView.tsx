@@ -192,16 +192,22 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-  const getShiftText = (emp: Profile, date: Date) => {
+  const getActiveShift = (emp: Profile, date: Date) => {
     const dateKey = formatDate(date);
     const explicitShift = shifts[`${emp.id}_${dateKey}`];
-    const isSunday = date.getDay() === 0;
 
     let activeShift = explicitShift;
     if (!activeShift && emp.default_schedule) {
       const base = emp.default_schedule[date.getDay().toString()];
       if (base) activeShift = { type: base.type, segments: base.segments } as any;
     }
+
+    return activeShift;
+  };
+
+  const getShiftText = (emp: Profile, date: Date) => {
+    const activeShift = getActiveShift(emp, date);
+    const isSunday = date.getDay() === 0;
 
     if (!activeShift) return isSunday ? 'Descanso' : '';
     if (activeShift.type === 'off') return 'Descanso';
@@ -216,29 +222,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return '';
   };
 
-  const handleExportExcel = async () => {
-    const headers = [
-      'Empleado',
-      'Tipo',
-      'Sector',
-      ...weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }))
-    ];
-
-    const rows = filteredEmployees.map(emp => [
-      emp.full_name,
-      getEmploymentTypeLabel(emp.employment_type),
-      sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
-      ...weekDays.map(d => getShiftText(emp, d))
-    ]);
-
-    const allRows = [
-      ['Cronograma Semanal', weekLabel],
-      ['Sector', sectorLabel],
-      [],
-      headers,
-      ...rows
-    ];
-
+  const downloadXlsx = async (fileName: string, sheetName: string, rows: unknown[][], columnWidths: number[]) => {
     const colName = (index: number) => {
       let name = '';
       let n = index + 1;
@@ -250,7 +234,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return name;
     };
 
-    const sheetData = allRows.map((row, rowIndex) => {
+    const sheetData = rows.map((row, rowIndex) => {
       const cells = row.map((value, colIndex) => {
         const ref = `${colName(colIndex)}${rowIndex + 1}`;
         return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>`;
@@ -258,14 +242,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return `<row r="${rowIndex + 1}">${cells}</row>`;
     }).join('');
 
+    const cols = columnWidths.map((width, index) =>
+      `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`
+    ).join('');
+
     const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <cols>
-    <col min="1" max="1" width="32" customWidth="1"/>
-    <col min="2" max="2" width="14" customWidth="1"/>
-    <col min="3" max="3" width="22" customWidth="1"/>
-    <col min="4" max="10" width="18" customWidth="1"/>
-  </cols>
+  <cols>${cols}</cols>
   <sheetData>${sheetData}</sheetData>
 </worksheet>`;
 
@@ -283,7 +266,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 </Relationships>`);
     zip.folder('xl')?.file('workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Cronograma" sheetId="1" r:id="rId1"/></sheets>
+  <sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
 </workbook>`);
     zip.folder('xl')?.folder('_rels')?.file('workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -294,9 +277,110 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`;
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const handleExportExcel = async () => {
+    const headers = [
+      'Empleado',
+      'Tipo',
+      'Sector',
+      ...weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }))
+    ];
+
+    const rows = filteredEmployees.map(emp => [
+      emp.full_name,
+      getEmploymentTypeLabel(emp.employment_type),
+      sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
+      ...weekDays.map(d => getShiftText(emp, d))
+    ]);
+
+    await downloadXlsx(
+      `Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`,
+      'Cronograma',
+      [
+        ['Cronograma Semanal', weekLabel],
+        ['Sector', sectorLabel],
+        [],
+        headers,
+        ...rows
+      ],
+      [32, 14, 22, 18, 18, 18, 18, 18, 18, 18]
+    );
+  };
+
+  const getSegmentHours = (segment: { start?: string; end?: string }) => {
+    if (!segment.start || !segment.end) return 0;
+    const [startHours, startMinutes] = segment.start.split(':').map(Number);
+    const [endHours, endMinutes] = segment.end.split(':').map(Number);
+    if ([startHours, startMinutes, endHours, endMinutes].some(Number.isNaN)) return 0;
+
+    const startTotal = (startHours * 60) + startMinutes;
+    let endTotal = (endHours * 60) + endMinutes;
+    if (endTotal <= startTotal) endTotal += 24 * 60;
+    return (endTotal - startTotal) / 60;
+  };
+
+  const getScheduledWorkSummary = (emp: Profile) => {
+    let workedDays = 0;
+    let weeklyHours = 0;
+
+    const daily = weekDays.map(date => {
+      const activeShift = getActiveShift(emp, date);
+      const isWorkingShift = activeShift &&
+        activeShift.type !== 'off' &&
+        activeShift.type !== 'vacation' &&
+        activeShift.type !== 'medical' &&
+        (activeShift.segments || []).length > 0;
+
+      if (!isWorkingShift) return '';
+
+      const hours = (activeShift.segments || []).reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
+      workedDays += 1;
+      weeklyHours += hours;
+      return hours.toFixed(2).replace('.', ',');
+    });
+
+    return { workedDays, weeklyHours, daily };
+  };
+
+  const handleExportWeeklySummaryExcel = async () => {
+    const dayHeaders = weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }));
+    const headers = [
+      'Empleado',
+      'Tipo',
+      'Sector',
+      'Dias trabajados',
+      'Horas semanales',
+      ...dayHeaders
+    ];
+
+    const rows = filteredEmployees.map(emp => {
+      const summary = getScheduledWorkSummary(emp);
+      return [
+        emp.full_name,
+        getEmploymentTypeLabel(emp.employment_type),
+        sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
+        summary.workedDays,
+        summary.weeklyHours.toFixed(2).replace('.', ','),
+        ...summary.daily
+      ];
+    });
+
+    await downloadXlsx(
+      `Resumen_Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`,
+      'Resumen semanal',
+      [
+        ['Resumen semanal de cronograma', weekLabel],
+        ['Sector', sectorLabel],
+        [],
+        headers,
+        ...rows
+      ],
+      [32, 14, 22, 16, 18, 14, 14, 14, 14, 14, 14, 14]
+    );
   };
 
   const handleSave = async () => {
@@ -583,6 +667,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           >
             <Download className="w-4 h-4" />
             <span>Excel</span>
+          </button>
+          <button
+            onClick={handleExportWeeklySummaryExcel}
+            className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg no-print"
+          >
+            <Download className="w-4 h-4" />
+            <span>Resumen Excel</span>
           </button>
         </div>
       </header>
