@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Clock, ShieldAlert, CheckCircle2, AlertCircle, Layers, Shield } from 'lucide-react';
+import { Settings, Save, Clock, ShieldAlert, CheckCircle2, AlertCircle, Layers, Shield, CalendarDays } from 'lucide-react';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { auditService } from '../services/auditService';
 import RoleManager from './RoleManager';
 import HolidayManager from './HolidayManager';
+import SectorManager from './SectorManager';
 import { Profile } from '../types';
 
 interface SettingsViewProps {
