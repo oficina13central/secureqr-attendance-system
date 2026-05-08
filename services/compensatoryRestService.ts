@@ -70,6 +70,10 @@ export const compensatoryRestService = {
   ): Promise<void> {
     if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension') return;
 
+    // JORNALEROS EXCEPTION: They don't accumulate rest days as they are paid daily
+    const { data: emp } = await supabase.from('profiles').select('employment_type').eq('id', employeeId).single();
+    if (emp?.employment_type === 'jornalero') return;
+
     const holidays = await this.getHolidays();
     const holidayDates = holidays.map(h => h.date);
     
