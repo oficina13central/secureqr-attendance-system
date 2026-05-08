@@ -63,6 +63,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
@@ -189,6 +191,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       });
     }
     setIsModalOpen(true);
+    setMessage(null);
   };
 
   const handlePrint = () => {
@@ -394,7 +397,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const handleSave = async () => {
-    if (!selectedTarget) return;
+    if (!selectedTarget || saving) return;
+    setSaving(true);
+    setMessage(null);
 
     const now = new Date();
     const targetDateStr = formatDate(selectedTarget.date);
@@ -515,9 +520,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const startStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.startDate || targetDateStr) : targetDateStr;
       const endStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.endDate || targetDateStr) : targetDateStr;
       await attendanceService.recalculateAttendance(selectedTarget.empId, startStr, endStr, currentUser.full_name || 'Admin');
+      
+      setMessage({ text: 'Cronograma guardado con éxito', type: 'success' });
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setMessage(null);
+      }, 1500);
+    } else {
+      setMessage({ text: 'Error al intentar guardar los cambios', type: 'error' });
     }
 
-    setIsModalOpen(false);
+    setSaving(false);
   };
 
   const renderCellContent = (empId: string, date: Date) => {
@@ -1061,10 +1074,27 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 </div>
               )}
 
+              {message && (
+                <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                  {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                  <span className="font-bold text-sm">{message.text}</span>
+                </div>
+              )}
+
               <div className="pt-4 border-t border-slate-100">
-                <button onClick={handleSave} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center space-x-2">
-                  <Save className="w-5 h-5" />
-                  <span>Guardar Cronograma</span>
+                <button 
+                  onClick={handleSave} 
+                  disabled={saving}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center space-x-2"
+                >
+                  {saving ? (
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>Guardar Cronograma</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

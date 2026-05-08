@@ -11,6 +11,7 @@ const RoleManager: React.FC = () => {
     const [saving, setSaving] = useState<string | null>(null); // Role ID being saved
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [isAdding, setIsAdding] = useState(false);
+    const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
         loadData();
@@ -72,14 +73,19 @@ const RoleManager: React.FC = () => {
 
     const handleSaveRole = async (role: Role) => {
         setSaving(role.id);
+        setMessage(null);
         try {
             await roleService.updateRole(role.id, { name: role.name, description: role.description });
             if (role.permissions) {
                 await roleService.updateRolePermissions(role.id, role.permissions);
             }
             await loadData();
+            setMessage({ text: `Rol "${role.name}" guardado correctamente`, type: 'success' });
+            setTimeout(() => setMessage(null), 3000);
         } catch (err) {
             console.error('Error saving role:', err);
+            setMessage({ text: 'Error al guardar los cambios', type: 'error' });
+            setTimeout(() => setMessage(null), 3000);
         } finally {
             setSaving(null);
         }
@@ -138,6 +144,13 @@ const RoleManager: React.FC = () => {
                     <span>Nuevo Rol</span>
                 </button>
             </header>
+
+            {message && (
+                <div className={`p-4 rounded-[2rem] flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {message.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                    <span className="font-bold text-sm">{message.text}</span>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {roles.map(role => {

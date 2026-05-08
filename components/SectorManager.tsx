@@ -8,6 +8,7 @@ const SectorManager: React.FC = () => {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({ name: '', description: '' });
+    const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
         fetchSectors();
@@ -26,17 +27,27 @@ const SectorManager: React.FC = () => {
 
         const success = await sectorService.create(formData);
         if (success) {
+            setMessage({ text: 'Sector creado correctamente', type: 'success' });
             fetchSectors();
             setFormData({ name: '', description: '' });
             setIsAdding(false);
+            setTimeout(() => setMessage(null), 3000);
+        } else {
+            setMessage({ text: 'Error al crear el sector', type: 'error' });
+            setTimeout(() => setMessage(null), 3000);
         }
     };
 
     const handleUpdate = async (id: string) => {
         const success = await sectorService.update(id, formData);
         if (success) {
+            setMessage({ text: 'Sector actualizado', type: 'success' });
             setEditingId(null);
             fetchSectors();
+            setTimeout(() => setMessage(null), 3000);
+        } else {
+            setMessage({ text: 'Error al actualizar', type: 'error' });
+            setTimeout(() => setMessage(null), 3000);
         }
     };
 
@@ -69,6 +80,13 @@ const SectorManager: React.FC = () => {
                     </button>
                 )}
             </div>
+
+            {message && (
+                <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {message.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                    <span className="font-bold text-sm">{message.text}</span>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4">
                 {isAdding && (

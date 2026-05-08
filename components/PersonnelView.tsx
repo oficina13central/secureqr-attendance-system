@@ -182,6 +182,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const handleSaveSchedule = async () => {
         if (!showScheduleModal) return;
+        setError(null);
+        setSuccess(false);
         try {
             const today = new Date().toISOString().split('T')[0];
             const updatedSchedule = { 
@@ -191,7 +193,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const result = await personnelService.update(showScheduleModal.id, { default_schedule: updatedSchedule });
             if (result) {
                 setEmployees(employees.map(emp => emp.id === showScheduleModal.id ? result : emp));
-                setShowScheduleModal(null);
+                setSuccess(true);
+                
                 await auditService.logAction({
                     manager_name: currentUser.full_name,
                     employee_name: showScheduleModal.full_name,
@@ -200,10 +203,16 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     new_value: 'Plantilla Modificada',
                     reason: 'Actualización de plantilla semanal'
                 });
+
+                setTimeout(() => {
+                    setShowScheduleModal(null);
+                    setSuccess(false);
+                }, 1500);
             } else {
-                alert('Error al guardar horario base');
+                setError('Error al guardar horario base. Intente nuevamente.');
             }
-        } catch (e) {
+        } catch (e: any) {
+            setError(`Error: ${e.message || 'No se pudo guardar el horario'}`);
             console.error(e);
         }
     };
@@ -269,7 +278,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             setTimeout(() => {
                 setShowModal(false);
                 setSuccess(false);
-            }, 1000);
+            }, 1500);
         } catch (err: any) {
             console.error(err);
             setError(`Error Supabase: ${err.message || 'Error de comunicación con el servidor'}`);
@@ -980,6 +989,24 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             </button>
                         </div>
                         <div className="overflow-y-auto flex-1 px-8 py-5 space-y-4">
+                            {error && (
+                                <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
+                                    <div className="flex items-center space-x-2">
+                                        <X className="w-5 h-5" />
+                                        <span>{error}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {success && (
+                                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
+                                    <div className="flex items-center space-x-2">
+                                        <Check className="w-5 h-5" />
+                                        <span>Plantilla guardada con éxito</span>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-start gap-3">
                                 <CalendarDays className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                                 <p className="text-sm text-indigo-800">
