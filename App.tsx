@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   Database,
   CreditCard,
-  BookOpen
+  BookOpen,
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -35,6 +37,38 @@ import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
 type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal' | 'manual';
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
+const FloatingAppActions: React.FC<{
+  canInstall: boolean;
+  onInstall: () => void;
+}> = ({ canInstall, onInstall }) => (
+  <div className="fixed right-4 bottom-4 z-[90] flex flex-col gap-2">
+    {canInstall && (
+      <button
+        type="button"
+        onClick={onInstall}
+        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-900/20 border border-white/20 hover:bg-emerald-700 active:scale-95 transition-all"
+        title="Instalar app"
+        aria-label="Instalar app"
+      >
+        <Download className="w-5 h-5" />
+      </button>
+    )}
+    <button
+      type="button"
+      onClick={() => window.location.reload()}
+      className="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 border border-white/20 hover:bg-slate-800 active:scale-95 transition-all"
+      title="Recargar"
+      aria-label="Recargar"
+    >
+      <RefreshCw className="w-5 h-5" />
+    </button>
+  </div>
+);
 
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
@@ -48,6 +82,30 @@ const App: React.FC = () => {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => setInstallPrompt(null);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   React.useEffect(() => {
     // Initial session check
@@ -237,22 +295,31 @@ const App: React.FC = () => {
 
   if (loadingAuth) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-bold text-sm animate-pulse">Cargando sistema...</p>
+      <>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500 font-bold text-sm animate-pulse">Cargando sistema...</p>
+          </div>
         </div>
-      </div>
+        <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
     );
   }
 
   if (!session) {
-    return <Login onLoginSuccess={setSession} />;
+    return (
+      <>
+        <Login onLoginSuccess={setSession} />
+        <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
+    );
   }
 
   // Check for suspension
   if (currentUser?.is_suspended) {
     return (
+      <>
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white">
         <div className="max-w-md w-full bg-slate-800 rounded-[3rem] p-10 shadow-2xl border border-slate-700 text-center space-y-8 animate-in zoom-in-95 duration-500">
           <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto border border-red-500/30">
@@ -284,12 +351,15 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+      <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
     );
   }
 
   // Check for approval - ONLY isaacgomez78@gmail.com can bypass if state is messy
   if (currentUser?.is_approved === false && currentUser?.email !== 'isaacgomez78@gmail.com') {
     return (
+      <>
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-800">
         <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl border border-slate-100 text-center space-y-8 animate-in zoom-in-95 duration-500">
           <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto border border-amber-500/20">
@@ -318,6 +388,8 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+      <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
     );
   }
 
@@ -531,6 +603,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
     </div>
   );
 };
