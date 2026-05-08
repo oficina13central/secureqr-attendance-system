@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.91.1",
     "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "jsqr": "1.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "0.460.0",

@@ -16,7 +16,8 @@ import {
   User,
   Search,
   UploadCloud,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 import { compensatoryRestService } from '../services/compensatoryRestService';
 import { attendanceService } from '../services/attendanceService';
@@ -49,6 +50,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
   // Data states
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, lateMinutes: 0, medical: 0, suspension: 0 });
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
+  const [selectedStat, setSelectedStat] = useState<string | null>(null);
   const [restLogs, setRestLogs] = useState<CompensatoryRestLog[]>([]);
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [scoring, setScoring] = useState<{score: number, label: string, color: string} | null>(null);
@@ -93,6 +96,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       r.date >= dateRange.start && 
       r.date <= dateRange.end
     );
+    setAllRecords(empRecords);
 
     const s = {
       present: empRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
@@ -158,6 +162,117 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     setUploading(false);
   };
 
+  const handleExportPDF = async () => {
+    if (!employee) return;
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = 210;
+    const margin = 18;
+    let y = margin;
+
+    // Header gradient block
+    doc.setFillColor(79, 70, 229);
+    doc.roundedRect(margin, y, pageW - margin * 2, 38, 5, 5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text('LEGAJO DIGITAL • SECUREQR HR MANAGEMENT', margin + 4, y + 7);
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+    doc.text(employee.full_name.toUpperCase(), margin + 4, y + 18);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text(`DNI: ${employee.dni || 'N/A'}  •  Rol: ${employee.role?.toUpperCase() || 'N/A'}`, margin + 4, y + 27);
+    doc.text(`Fecha de exportación: ${new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, margin + 4, y + 33);
+    if (scoring) {
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      doc.text(`SCORING: ${scoring.score}/999  |  ${scoring.label}`, pageW - margin - 4, y + 18, { align: 'right' });
+    }
+    doc.text(`FRANCOS: ${employee.compensatory_rest_balance || 0} días`, pageW - margin - 4, y + 27, { align: 'right' });
+    y += 48;
+
+    // Stats section
+    doc.setTextColor(30, 30, 60);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text(`• ESTADÍSTICAS (${dateRange.start} al ${dateRange.end})`, margin, y); y += 7;
+    const statData = [
+      ['Asistencias', stats.present, 'Ausencias', stats.absent],
+      ['Tardanzas', stats.late, 'Minutos Tarde', stats.lateMinutes],
+      ['Licencias Médicas', stats.medical, 'Suspensiones', stats.suspension],
+    ];
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    statData.forEach(([l1, v1, l2, v2]) => {
+      doc.setFillColor(245, 245, 255); doc.roundedRect(margin, y, 82, 10, 2, 2, 'F');
+      doc.setTextColor(80,80,120); doc.text(String(l1), margin + 3, y + 4);
+      doc.setTextColor(30,30,60); doc.setFont('helvetica','bold'); doc.text(String(v1), margin + 78, y + 4, { align: 'right' }); doc.setFont('helvetica','normal');
+      doc.setFillColor(245, 245, 255); doc.roundedRect(margin + 88, y, 82, 10, 2, 2, 'F');
+      doc.setTextColor(80,80,120); doc.text(String(l2), margin + 91, y + 4);
+      doc.setTextColor(30,30,60); doc.setFont('helvetica','bold'); doc.text(String(v2), margin + 166, y + 4, { align: 'right' }); doc.setFont('helvetica','normal');
+      y += 12;
+    });
+    y += 4;
+
+    // Absence dates
+    const absences = allRecords.filter(r => r.status === 'ausente').sort((a,b) => b.date.localeCompare(a.date));
+    if (absences.length > 0) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
+      doc.text(`• DETALLE DE AUSENCIAS (${absences.length})`, margin, y); y += 7;
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      absences.slice(0, 20).forEach((r, i) => {
+        const dateStr = new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        doc.setFillColor(i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 245 : 245, i % 2 === 0 ? 245 : 255);
+        doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
+        doc.setTextColor(60,30,30); doc.text(dateStr, margin + 3, y + 4.5);
+        doc.setTextColor(150,30,30); doc.text('AUSENTE', pageW - margin - 3, y + 4.5, { align: 'right' });
+        y += 8;
+        if (y > 270) { doc.addPage(); y = margin; }
+      });
+      if (absences.length > 20) { doc.setTextColor(100,100,100); doc.text(`... y ${absences.length - 20} registros más`, margin, y); y += 6; }
+      y += 4;
+    }
+
+    // Late dates
+    const lates = allRecords.filter(r => ['tarde','sin_presentismo'].includes(r.status)).sort((a,b) => b.date.localeCompare(a.date));
+    if (lates.length > 0) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
+      doc.text(`• DETALLE DE TARDANZAS (${lates.length})`, margin, y); y += 7;
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      lates.slice(0, 15).forEach((r, i) => {
+        const dateStr = new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        doc.setFillColor(i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 251 : 248, i % 2 === 0 ? 235 : 230);
+        doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
+        doc.setTextColor(60,50,10); doc.text(dateStr, margin + 3, y + 4.5);
+        doc.setTextColor(150,100,10); doc.text(`${r.minutes_late || 0} min tarde`, pageW - margin - 3, y + 4.5, { align: 'right' });
+        y += 8;
+        if (y > 270) { doc.addPage(); y = margin; }
+      });
+      y += 4;
+    }
+
+    // Compensatory rest log
+    if (restLogs.length > 0) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
+      doc.text(`• BANCO DE FRANCOS COMPENSATORIOS`, margin, y); y += 7;
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      restLogs.slice(0, 15).forEach((log, i) => {
+        doc.setFillColor(i % 2 === 0 ? 245 : 240, i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 255 : 250);
+        doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
+        doc.setTextColor(30,30,80); doc.text(log.reason || 'Sin motivo', margin + 3, y + 4.5);
+        const sign = log.amount > 0 ? '+' : '';
+        doc.setTextColor(log.amount > 0 ? 20 : 150, log.amount > 0 ? 120 : 20, 20);
+        doc.text(`${sign}${log.amount} días`, pageW - margin - 3, y + 4.5, { align: 'right' });
+        y += 8;
+        if (y > 270) { doc.addPage(); y = margin; }
+      });
+      y += 4;
+    }
+
+    // Footer
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 287, 210, 10, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text('SECUREQR HR MANAGEMENT • DOCUMENTO CONFIDENCIAL', 105, 293, { align: 'center' });
+
+    doc.save(`Legajo_${employee.full_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   if (!employee) return null;
 
   return (
@@ -189,10 +304,21 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
               </div>
             </div>
             
-            <div className="flex flex-col items-end gap-4">
-              <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-all">
-                <X className="w-8 h-8 text-white" />
-              </button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                {!isRestricted && (
+                  <button
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/20"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar PDF
+                  </button>
+                )}
+                <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-all">
+                  <X className="w-8 h-8 text-white" />
+                </button>
+              </div>
             <div className="flex items-center gap-3">
               {scoring && managerRole !== 'encargado' && (
                 <div className={`backdrop-blur-xl p-4 rounded-3xl border text-right min-w-[140px] shadow-xl ${scoring.color}`}>
@@ -245,22 +371,73 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                 </div>
               </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Asistencias', val: stats.present, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Ausencias', val: stats.absent, color: 'text-rose-600', bg: 'bg-rose-50' },
-                  { label: 'Tardanzas', val: stats.late, color: 'text-amber-600', bg: 'bg-amber-50' },
-                  { label: 'Minutos Tarde', val: stats.lateMinutes, color: 'text-orange-600', bg: 'bg-orange-50' },
-                  { label: 'L. Médicas', val: stats.medical, color: 'text-sky-600', bg: 'bg-sky-50' },
-                  { label: 'Suspensiones', val: stats.suspension, color: 'text-slate-700', bg: 'bg-slate-100' },
-                ].map(s => (
-                  <div key={s.label} className={`p-6 rounded-[2rem] border border-slate-100 ${s.bg} flex flex-col items-center justify-center text-center`}>
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{s.label}</p>
-                    <p className={`text-3xl font-black ${s.color}`}>{s.val}</p>
-                  </div>
-                ))}
-              </div>
+              {/* Stats Grid - Interactive */}
+              {(() => {
+                const statCards = [
+                  { key: 'present', label: 'Asistencias', val: stats.present, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-400', statuses: ['presente','en_horario','manual'] },
+                  { key: 'absent', label: 'Ausencias', val: stats.absent, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', ring: 'ring-rose-400', statuses: ['ausente'] },
+                  { key: 'late', label: 'Tardanzas', val: stats.late, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', ring: 'ring-amber-400', statuses: ['tarde','sin_presentismo'] },
+                  { key: 'lateMinutes', label: 'Min. Tarde', val: stats.lateMinutes, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', ring: 'ring-orange-400', statuses: ['tarde','sin_presentismo'] },
+                  { key: 'medical', label: 'L. Médicas', val: stats.medical, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-200', ring: 'ring-sky-400', statuses: ['licencia_medica'] },
+                  { key: 'suspension', label: 'Suspensiones', val: stats.suspension, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-300', ring: 'ring-slate-400', statuses: ['suspendido'] },
+                ];
+                const activeCard = statCards.find(c => c.key === selectedStat);
+                const detailRecords = activeCard
+                  ? allRecords.filter(r => activeCard.statuses.includes(r.status)).sort((a,b) => b.date.localeCompare(a.date))
+                  : [];
+                return (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {statCards.map(s => (
+                        <button
+                          key={s.key}
+                          onClick={() => setSelectedStat(selectedStat === s.key ? null : s.key)}
+                          className={`p-6 rounded-[2rem] border-2 transition-all text-center cursor-pointer hover:scale-[1.03] active:scale-[0.98] ${
+                            selectedStat === s.key
+                              ? `${s.bg} ${s.border} ring-2 ${s.ring} shadow-lg`
+                              : `${s.bg} border-slate-100 hover:${s.border}`
+                          }`}
+                        >
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{s.label}</p>
+                          <p className={`text-3xl font-black ${s.color}`}>{s.val}</p>
+                          {s.val > 0 && <p className="text-[9px] font-bold text-slate-400 mt-1">Ver detalle ↓</p>}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Detail drill-down panel */}
+                    {selectedStat && activeCard && detailRecords.length > 0 && (
+                      <div className={`rounded-[2rem] border-2 ${activeCard.border} ${activeCard.bg} overflow-hidden animate-in slide-in-from-top-2 duration-200`}>
+                        <div className={`px-6 py-4 flex items-center justify-between border-b ${activeCard.border}`}>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-sm font-black uppercase tracking-widest ${activeCard.color}`}>
+                              {activeCard.label} — {detailRecords.length} registro{detailRecords.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <button onClick={() => setSelectedStat(null)} className="text-slate-400 hover:text-slate-600 font-black text-lg leading-none">×</button>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto divide-y divide-white/50">
+                          {detailRecords.map(r => (
+                            <div key={r.id} className="flex items-center justify-between px-6 py-3">
+                              <div>
+                                <p className={`text-sm font-black ${activeCard.color}`}>
+                                  {new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                </p>
+                                {r.minutes_late > 0 && (
+                                  <p className="text-xs font-bold text-slate-500">{r.minutes_late} minutos tarde</p>
+                                )}
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${activeCard.bg} ${activeCard.color} border ${activeCard.border}`}>
+                                {r.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
