@@ -1,10 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0f172a"/>
-  <rect x="118" y="118" width="276" height="276" rx="56" fill="#ffffff"/>
-  <path d="M172 188a32 32 0 0 1 32-32h104a32 32 0 0 1 32 32v48c0 79-48 118-84 132-36-14-84-53-84-132v-48Z" fill="#4f46e5"/>
-  <path d="M221 255l25 25 55-64" fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="88" y="88" width="62" height="62" rx="18" fill="#22c55e"/>
-  <rect x="362" y="88" width="62" height="62" rx="18" fill="#22c55e"/>
-  <rect x="88" y="362" width="62" height="62" rx="18" fill="#22c55e"/>
-  <rect x="362" y="362" width="62" height="62" rx="18" fill="#22c55e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Secure QR">
+  <defs>
+    <linearGradient id="bg" x1="92" y1="70" x2="420" y2="454" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="0.55" stop-color="#16a34a"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="150" y1="148" x2="374" y2="356" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <linearGradient id="check" x1="352" y1="314" x2="430" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#064e3b" flood-opacity="0.28"/>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#064e3b" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="168" width="272" height="206" rx="34" fill="url(#badge)"/>
+    <rect x="220" y="124" width="72" height="78" rx="22" fill="url(#badge)"/>
+    <circle cx="256" cy="163" r="16" fill="#0f172a"/>
+  </g>
+
+  <circle cx="194" cy="259" r="34" fill="#0f172a"/>
+  <path d="M136 329c7-38 31-56 58-56s51 18 58 56c2 11-6 21-18 21h-80c-12 0-20-10-18-21Z" fill="#0f172a"/>
+
+  <rect x="296" y="232" width="86" height="18" rx="9" fill="#15803d"/>
+  <rect x="296" y="278" width="86" height="18" rx="9" fill="#15803d"/>
+  <rect x="296" y="324" width="62" height="18" rx="9" fill="#15803d"/>
+
+  <g filter="url(#softShadow)">
+    <circle cx="378" cy="360" r="66" fill="url(#check)"/>
+    <path d="M345 359l22 22 45-52" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
