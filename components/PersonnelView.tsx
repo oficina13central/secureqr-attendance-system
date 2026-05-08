@@ -1139,6 +1139,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 <EmployeeFileModal
                     employeeId={selectedFileEmployeeId}
                     managerName={currentUser.full_name || 'Admin'}
+                    managerRole={currentUser.role}
                     onClose={() => setSelectedFileEmployeeId(null)}
                 />
             )}
