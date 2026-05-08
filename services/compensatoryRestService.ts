@@ -1,5 +1,8 @@
 import { supabase } from './supabaseClient';
 import { CompensatoryRestLog, Holiday } from '../types';
+import { getLocalDateString } from '../utils/dateUtils';
+
+const hasDatePassed = (date: string): boolean => date < getLocalDateString();
 
 export const compensatoryRestService = {
   async getBalance(employeeId: string): Promise<number> {
@@ -89,6 +92,8 @@ export const compensatoryRestService = {
       const isNextDayRestricted = nextDay.getDay() === 0 || holidayDates.includes(nextDayStr);
 
       if (isNextDayRestricted && segments && segments.length > 0) {
+        if (!hasDatePassed(nextDayStr)) return;
+
         const lastSegment = segments[segments.length - 1];
         if (lastSegment.end) {
           const [h, m] = lastSegment.end.split(':').map(Number);
@@ -112,6 +117,8 @@ export const compensatoryRestService = {
     }
 
     // It IS a Restricted Day (Sunday or Holiday)
+    if (!hasDatePassed(date)) return;
+
     if (segments && segments.length > 0) {
       const firstSegment = segments[0];
       const [sh] = firstSegment.start.split(':').map(Number);
