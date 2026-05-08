@@ -12,7 +12,8 @@ import {
   Unlock,
   Printer,
   Download,
-  Search
+  Search,
+  CreditCard
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Profile } from '../types';
