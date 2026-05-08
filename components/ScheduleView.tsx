@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -64,6 +64,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
   const [saving, setSaving] = useState(false);
+  const saveInProgressRef = useRef(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
@@ -397,9 +398,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const handleSave = async () => {
-    if (!selectedTarget || saving) return;
+    if (!selectedTarget || saveInProgressRef.current) return;
+    saveInProgressRef.current = true;
     setSaving(true);
     setMessage(null);
+    let savedSuccessfully = false;
 
     try {
       const now = new Date();
@@ -413,6 +416,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       if (now > targetDateTime) {
         if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
           alert("No se puede modificar un horario una vez iniciada la jornada por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
+          saveInProgressRef.current = false;
           setSaving(false);
           return;
         }
@@ -462,6 +466,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       const saved = await scheduleService.save(shiftsToSave);
       if (saved) {
+        savedSuccessfully = true;
         // ── LOGICA DE FRANCOS COMPENSATORIOS (Solo si está habilitado) ──
         if (isCompRestEnabled) {
           const dateKey = formatDate(selectedTarget.date);
@@ -527,6 +532,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         setTimeout(() => {
           setIsModalOpen(false);
           setMessage(null);
+          saveInProgressRef.current = false;
+          setSaving(false);
         }, 1500);
       } else {
         setMessage({ text: 'Error al intentar guardar los cambios', type: 'error' });
@@ -535,7 +542,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       console.error('Error in handleSave:', error);
       setMessage({ text: `Error: ${error.message || 'No se pudo guardar'}`, type: 'error' });
     } finally {
-      setSaving(false);
+      if (!savedSuccessfully) {
+        saveInProgressRef.current = false;
+        setSaving(false);
+      }
     }
   };
 
