@@ -128,7 +128,7 @@ export const authService = {
     async getSession() {
         try {
             const sessionPromise = supabase.auth.getSession();
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
             const { data: { session } } = await (Promise.race([sessionPromise, timeoutPromise]) as any);
             return session;
         } catch (error) {
