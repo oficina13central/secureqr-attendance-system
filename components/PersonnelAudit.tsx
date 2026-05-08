@@ -51,6 +51,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     // Filtros avanzados
     const [selectedSectorId, setSelectedSectorId] = useState<string>('all');
+    const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
     const [showOnlyLate, setShowOnlyLate] = useState(false);
     const [showOnlyAbsences, setShowOnlyAbsences] = useState(false);
     const [showOnlyNoPresentismo, setShowOnlyNoPresentismo] = useState(false);
@@ -73,6 +74,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const [auditDataRawState, setAuditDataRawState] = useState<any[]>([]);
 
     const [recalculating, setRecalculating] = useState(false);
+
+    const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
     const loadData = async (force: boolean = false) => {
         setLoading(true);
@@ -566,6 +569,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             return {
                 id: emp.id,
                 name: emp.full_name,
+                employmentType: emp.employment_type || 'efectivo',
                 sector: sectorName,
                 totalLateMinutes,
                 absences,
@@ -592,7 +596,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const auditDataFiltered = useMemo(() => {
         return auditDataRaw.filter(data => {
             const matchesSearch = data.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                data.sector.toLowerCase().includes(searchTerm.toLowerCase());
+                data.sector.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                getEmploymentTypeLabel(data.employmentType).toLowerCase().includes(searchTerm.toLowerCase());
 
             const employee = employees.find(e => e.id === data.id);
             const accessibleSectorIds = getAccessibleSectorIds();
@@ -608,6 +613,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const matchesSector = selectedSectorId === 'all' ||
                 employee?.sector_id === selectedSectorId ||
                 sectors.find(s => s.id === selectedSectorId)?.name === employee?.sector_id;
+            const matchesEmploymentType = selectedEmploymentType === 'all' ||
+                (employee?.employment_type || 'efectivo') === selectedEmploymentType;
 
             const hasIssueFilter = showOnlyLate || showOnlyAbsences || showOnlyNoPresentismo;
             const matchesIssue = !hasIssueFilter ||
@@ -615,9 +622,9 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 (showOnlyAbsences && data.absences > 0) ||
                 (showOnlyNoPresentismo && data.lostPresentismo > 0);
 
-            return matchesSearch && hasAccess && matchesSector && matchesIssue;
+            return matchesSearch && hasAccess && matchesSector && matchesEmploymentType && matchesIssue;
         });
-    }, [auditDataRaw, employees, searchTerm, selectedSectorId, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors, currentUser]);
+    }, [auditDataRaw, employees, searchTerm, selectedSectorId, selectedEmploymentType, showOnlyLate, showOnlyAbsences, showOnlyNoPresentismo, sectors, currentUser]);
 
     const selectedEmployeeData = useMemo(() =>
         auditDataFiltered.find(d => d.id === selectedEmployeeId),
@@ -632,8 +639,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     const handleExport = () => {
         const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdió el Presentismo", "Eficiencia (%)"];
+        headers.splice(1, 0, "Tipo");
         const rows = auditDataFiltered.map(d => [
             d.name,
+            getEmploymentTypeLabel(d.employmentType),
             d.sector,
             d.totalLateMinutes,
             d.absences,
@@ -739,7 +748,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Buscar por nombre o sector..."
+                        placeholder="Buscar por nombre, sector o tipo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
@@ -758,6 +767,18 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                             {sectors.map(s => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
+                        </select>
+                    </div>
+
+                    <div className="relative">
+                        <select
+                            value={selectedEmploymentType}
+                            onChange={(e) => setSelectedEmploymentType(e.target.value as 'all' | 'efectivo' | 'jornalero')}
+                            className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="all">Todo el Personal</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="jornalero">Jornalero</option>
                         </select>
                     </div>
 
@@ -785,11 +806,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                         </button>
                     </div>
 
-                    {(searchTerm || selectedSectorId !== 'all' || showOnlyLate || showOnlyAbsences || showOnlyNoPresentismo) && (
+                    {(searchTerm || selectedSectorId !== 'all' || selectedEmploymentType !== 'all' || showOnlyLate || showOnlyAbsences || showOnlyNoPresentismo) && (
                         <button
                             onClick={() => {
                                 setSearchTerm('');
                                 setSelectedSectorId('all');
+                                setSelectedEmploymentType('all');
                                 setShowOnlyLate(false);
                                 setShowOnlyAbsences(false);
                                 setShowOnlyNoPresentismo(false);
@@ -891,7 +913,9 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                             </div>
                                             <div>
                                                 <span className="block font-black text-slate-700 text-base leading-tight lowercase first-letter:uppercase">{data.name}</span>
-                                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{data.sector}</span>
+                                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                                    {data.sector} · {getEmploymentTypeLabel(data.employmentType)}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>

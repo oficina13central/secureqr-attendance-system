@@ -72,6 +72,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [dailyWeather, setDailyWeather] = useState<Record<string, DailyWeatherContext>>({});
   const [weatherError, setWeatherError] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
+
+  const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -199,6 +202,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const emp = employees.find(e => (e.full_name || '').trim().toLowerCase() === searchName);
     if (!emp) return 'Sin Sector';
     return sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'Sin Sector';
+  };
+
+  const getEmployeeForRecord = (record: { employee_id?: string, employee_name?: string }) => {
+    const recordId = record.employee_id?.toLowerCase().trim();
+    const recordName = record.employee_name?.toLowerCase().trim();
+    return employees.find(e =>
+      (recordId && e.id.toLowerCase().trim() === recordId) ||
+      (recordName && (e.full_name || '').toLowerCase().trim() === recordName)
+    );
   };
 
   const weatherDisplay = useMemo(() => {
@@ -579,6 +591,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     // 3. Filter the full set by these keys
     let baseRecs = allDailyRecs.filter(r => matchedKeys.has(`${r.employee_id?.toLowerCase()}_${r.date}`));
 
+    if (selectedEmploymentType !== 'all') {
+      baseRecs = baseRecs.filter(r => (getEmployeeForRecord(r)?.employment_type || 'efectivo') === selectedEmploymentType);
+    }
+
     // 4. Apply Search Filter at Employee/Group Level
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
@@ -587,7 +603,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       baseRecs.forEach(r => {
         const empName = r.employee_name || '';
         const sectorName = getSectorForEmployee(empName).toLowerCase();
-        if (empName.toLowerCase().includes(search) || sectorName.includes(search)) {
+        const employmentType = getEmploymentTypeLabel(getEmployeeForRecord(r)?.employment_type).toLowerCase();
+        if (empName.toLowerCase().includes(search) || sectorName.includes(search) || employmentType.includes(search)) {
           matchingSearchKeys.add(`${r.employee_id?.toLowerCase()}_${r.date}`);
         }
       });
@@ -596,7 +613,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     }
 
     return baseRecs;
-  }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, employees, sectors, workingNowRecords, correctedRecords]);
+  }, [authorizedRecords, realTimeAbsences, searchTerm, activeFilter, selectedEmploymentType, employees, sectors, workingNowRecords, correctedRecords]);
 
   // ── GROUPING FOR SPLIT SHIFTS ──
   const displayRecords = useMemo(() => {
@@ -724,10 +741,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   }, [authorizedRecords]);
 
   const handleExportMonthly = () => {
-    const headers = ["Fecha", "Empleado", "Sector", "Turno", "Entrada", "Salida", "Estatus"];
+    const headers = ["Fecha", "Empleado", "Tipo", "Sector", "Turno", "Entrada", "Salida", "Estatus"];
     const rows = filteredRecords.map(r => [
       r.date,
       r.employee_name,
+      getEmploymentTypeLabel(getEmployeeForRecord(r)?.employment_type),
       getSectorForEmployee(r.employee_name),
       getScheduledShiftForRecord(r),
       formatTime(r.check_in),
@@ -1021,13 +1039,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar empleado o sector..."
+              placeholder="Buscar empleado, sector o tipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 font-bold transition-all placeholder:text-slate-400"
             />
           </div>
           <div className="flex items-center space-x-4">
+             <select
+               value={selectedEmploymentType}
+               onChange={(e) => setSelectedEmploymentType(e.target.value as 'all' | 'efectivo' | 'jornalero')}
+               className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-wider text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+             >
+               <option value="all">Todo el Personal</option>
+               <option value="efectivo">Efectivo</option>
+               <option value="jornalero">Jornalero</option>
+             </select>
              {activeFilter !== 'all' && (
                <button 
                  onClick={() => setActiveFilter('all')}
@@ -1071,7 +1098,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                         </span>
                       )}
                       <span className="block font-black text-slate-700">{group.employee_name}</span>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{getSectorForEmployee(group.employee_name)}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        {getSectorForEmployee(group.employee_name)} · {getEmploymentTypeLabel(getEmployeeForRecord(group)?.employment_type)}
+                      </span>
                     </div>
                   </td>
                   <td className="px-8 py-5">

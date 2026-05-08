@@ -44,11 +44,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState<string>('all');
     const [selectedSector, setSelectedSector] = useState<string>('all');
+    const [selectedEmploymentType, setSelectedEmploymentType] = useState<string>('all');
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
     const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
     const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
+
+    const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
     // Helper: get all sector IDs this user can manage (own sector + managed_sectors)
     const getAccessibleSectorIds = (user: Profile): string[] => {
@@ -105,15 +108,17 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
             const matchesSearch = emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 sectorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                getEmploymentTypeLabel(emp.employment_type).toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (emp.dni && emp.dni.includes(searchTerm));
             
             const scoreCategory = scoringData[emp.id]?.category?.toString() || '0';
             const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
             const matchesSector = selectedSector === 'all' || emp.sector_id === selectedSector;
+            const matchesEmploymentType = selectedEmploymentType === 'all' || (emp.employment_type || 'efectivo') === selectedEmploymentType;
             
-            return matchesSearch && matchesClass && matchesSector;
+            return matchesSearch && matchesClass && matchesSector && matchesEmploymentType;
         });
-    }, [employees, searchTerm, selectedClass, selectedSector, sectors, scoringData, currentUser]);
+    }, [employees, searchTerm, selectedClass, selectedSector, selectedEmploymentType, sectors, scoringData, currentUser]);
 
     // Initial Data is now passed via props from App.tsx
 
@@ -123,6 +128,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         email: '',
         dni: '',
         role: 'encargado',
+        employment_type: 'efectivo',
         sector_id: '',
         managed_sectors: []
     });
@@ -146,7 +152,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', sector_id: '', managed_sectors: [] });
+        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', employment_type: 'efectivo', sector_id: '', managed_sectors: [] });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -214,6 +220,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
                     role: formData.role as string,
+                    employment_type: formData.employment_type || 'efectivo',
                     sector_id: formData.sector_id || null,
                     managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_${formData.id}`
@@ -231,6 +238,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
                     role: formData.role as string,
+                    employment_type: formData.employment_type || 'efectivo',
                     sector_id: formData.sector_id || 'General',
                     managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_PENDING`
@@ -446,7 +454,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             return 0;
         });
 
-        const headers = ["Nombre", "DNI", "Rol", "Sector", "Clasificacion", "Puntos"];
+        const headers = ["Nombre", "DNI", "Rol", "Tipo", "Sector", "Clasificacion", "Puntos"];
         const rows = sorted.map(emp => {
             const roleName = roles.find(r => r.id === emp.role)?.name || emp.role;
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
@@ -456,6 +464,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 emp.full_name,
                 emp.dni || '-',
                 roleName,
+                getEmploymentTypeLabel(emp.employment_type),
                 sectorName,
                 scoreData ? scoreData.label : 'Sin Datos',
                 scoreData ? scoreData.score : '-'
@@ -557,12 +566,27 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar por nombre, DNI o sector..."
+                            placeholder="Buscar por nombre, DNI, sector o tipo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all cursor-text text-left"
                             style={{ WebkitAppearance: 'none' }}
                         />
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <select
+                            value={selectedEmploymentType}
+                            onChange={(e) => setSelectedEmploymentType(e.target.value)}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+                            style={{ minWidth: '180px' }}
+                        >
+                            <option value="all">Todo el Personal</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="jornalero">Jornalero</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
                     </div>
                     <div className="relative w-full sm:w-auto">
                         <select
@@ -607,6 +631,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Nombre</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">DNI</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Rol</th>
+                                <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Tipo</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Sector</th>
                                 <th className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Scoring</th>
                                 <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Acciones</th>
@@ -629,6 +654,15 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     <td className="px-8 py-4">
                                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 uppercase tracking-wider">
                                             {roles.find(r => r.id === emp.role)?.name || emp.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-4">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                            (emp.employment_type || 'efectivo') === 'jornalero'
+                                                ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                                                : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                        }`}>
+                                            {getEmploymentTypeLabel(emp.employment_type)}
                                         </span>
                                     </td>
                                     <td className="px-8 py-4 text-sm font-medium text-slate-500">
@@ -789,6 +823,18 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tipo de Personal</label>
+                                    <select
+                                        value={formData.employment_type || 'efectivo'}
+                                        onChange={e => setFormData({ ...formData, employment_type: e.target.value as 'efectivo' | 'jornalero' })}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                    >
+                                        <option value="efectivo">Efectivo</option>
+                                        <option value="jornalero">Jornalero</option>
+                                    </select>
                                 </div>
 
                                 {/* Panel de sectores adicionales */}

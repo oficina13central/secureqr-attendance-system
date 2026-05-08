@@ -14,6 +14,7 @@ import {
   Download,
   Search
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
@@ -60,6 +61,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
+
+  const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
   useEffect(() => {
     const fetchSectors = async () => {
@@ -116,12 +120,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (selectedSector !== 'all') {
       list = list.filter(e => (e.sector_id || 'General') === selectedSector);
     }
+
+    if (selectedEmploymentType !== 'all') {
+      list = list.filter(e => (e.employment_type || 'efectivo') === selectedEmploymentType);
+    }
     
     // Filtro por nombre
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       list = list.filter(e => 
         e.full_name.toLowerCase().includes(term) ||
+        getEmploymentTypeLabel(e.employment_type).toLowerCase().includes(term) ||
         (e.dni && e.dni.includes(term))
       );
     }
@@ -136,7 +145,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return list.filter(e => mySectorIds.has(e.sector_id || 'General'));
     }
     return [];
-  }, [employees, currentUser, selectedSector, searchTerm]);
+  }, [employees, currentUser, selectedSector, selectedEmploymentType, searchTerm]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -183,6 +192,204 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const escapeXml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+
+  const getActiveShift = (emp: Profile, date: Date) => {
+    const dateKey = formatDate(date);
+    const explicitShift = shifts[`${emp.id}_${dateKey}`];
+
+    let activeShift = explicitShift;
+    if (!activeShift && emp.default_schedule) {
+      const base = emp.default_schedule[date.getDay().toString()];
+      if (base) activeShift = { type: base.type, segments: base.segments } as any;
+    }
+
+    return activeShift;
+  };
+
+  const getShiftText = (emp: Profile, date: Date) => {
+    const activeShift = getActiveShift(emp, date);
+    const isSunday = date.getDay() === 0;
+
+    if (!activeShift) return isSunday ? 'Descanso' : '';
+    if (activeShift.type === 'off') return 'Descanso';
+    if (activeShift.type === 'vacation') return 'Vacaciones';
+    if (activeShift.type === 'medical') return 'Licencia Medica';
+    if (activeShift.type === 'continuous') {
+      return `${activeShift.segments?.[0]?.start || ''}-${activeShift.segments?.[0]?.end || ''}`;
+    }
+    if (activeShift.type === 'split') {
+      return (activeShift.segments || []).map((s: any) => `${s.start}-${s.end}`).join(' / ');
+    }
+    return '';
+  };
+
+  const downloadXlsx = async (fileName: string, sheetName: string, rows: unknown[][], columnWidths: number[]) => {
+    const colName = (index: number) => {
+      let name = '';
+      let n = index + 1;
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        name = String.fromCharCode(65 + rem) + name;
+        n = Math.floor((n - 1) / 26);
+      }
+      return name;
+    };
+
+    const sheetData = rows.map((row, rowIndex) => {
+      const cells = row.map((value, colIndex) => {
+        const ref = `${colName(colIndex)}${rowIndex + 1}`;
+        return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>`;
+      }).join('');
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    }).join('');
+
+    const cols = columnWidths.map((width, index) =>
+      `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`
+    ).join('');
+
+    const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <cols>${cols}</cols>
+  <sheetData>${sheetData}</sheetData>
+</worksheet>`;
+
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`);
+    zip.folder('_rels')?.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`);
+    zip.folder('xl')?.file('workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`);
+    zip.folder('xl')?.folder('_rels')?.file('workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`);
+    zip.folder('xl')?.folder('worksheets')?.file('sheet1.xml', worksheet);
+
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const handleExportExcel = async () => {
+    const headers = [
+      'Empleado',
+      'Tipo',
+      'Sector',
+      ...weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }))
+    ];
+
+    const rows = filteredEmployees.map(emp => [
+      emp.full_name,
+      getEmploymentTypeLabel(emp.employment_type),
+      sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
+      ...weekDays.map(d => getShiftText(emp, d))
+    ]);
+
+    await downloadXlsx(
+      `Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`,
+      'Cronograma',
+      [
+        ['Cronograma Semanal', weekLabel],
+        ['Sector', sectorLabel],
+        [],
+        headers,
+        ...rows
+      ],
+      [32, 14, 22, 18, 18, 18, 18, 18, 18, 18]
+    );
+  };
+
+  const getSegmentHours = (segment: { start?: string; end?: string }) => {
+    if (!segment.start || !segment.end) return 0;
+    const [startHours, startMinutes] = segment.start.split(':').map(Number);
+    const [endHours, endMinutes] = segment.end.split(':').map(Number);
+    if ([startHours, startMinutes, endHours, endMinutes].some(Number.isNaN)) return 0;
+
+    const startTotal = (startHours * 60) + startMinutes;
+    let endTotal = (endHours * 60) + endMinutes;
+    if (endTotal <= startTotal) endTotal += 24 * 60;
+    return (endTotal - startTotal) / 60;
+  };
+
+  const getScheduledWorkSummary = (emp: Profile) => {
+    let workedDays = 0;
+    let weeklyHours = 0;
+
+    const daily = weekDays.map(date => {
+      const activeShift = getActiveShift(emp, date);
+      const isWorkingShift = activeShift &&
+        activeShift.type !== 'off' &&
+        activeShift.type !== 'vacation' &&
+        activeShift.type !== 'medical' &&
+        (activeShift.segments || []).length > 0;
+
+      if (!isWorkingShift) return '';
+
+      const hours = (activeShift.segments || []).reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
+      workedDays += 1;
+      weeklyHours += hours;
+      return hours.toFixed(2).replace('.', ',');
+    });
+
+    return { workedDays, weeklyHours, daily };
+  };
+
+  const handleExportWeeklySummaryExcel = async () => {
+    const dayHeaders = weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }));
+    const headers = [
+      'Empleado',
+      'Tipo',
+      'Sector',
+      'Dias trabajados',
+      'Horas semanales',
+      ...dayHeaders
+    ];
+
+    const rows = filteredEmployees.map(emp => {
+      const summary = getScheduledWorkSummary(emp);
+      return [
+        emp.full_name,
+        getEmploymentTypeLabel(emp.employment_type),
+        sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
+        summary.workedDays,
+        summary.weeklyHours.toFixed(2).replace('.', ','),
+        ...summary.daily
+      ];
+    });
+
+    await downloadXlsx(
+      `Resumen_Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`,
+      'Resumen semanal',
+      [
+        ['Resumen semanal de cronograma', weekLabel],
+        ['Sector', sectorLabel],
+        [],
+        headers,
+        ...rows
+      ],
+      [32, 14, 22, 16, 18, 14, 14, 14, 14, 14, 14, 14]
+    );
   };
 
   const handleSave = async () => {
@@ -466,7 +673,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por nombre..."
+              placeholder="Buscar por nombre o tipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-white border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all w-full sm:w-[250px]"
@@ -497,6 +704,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
           )}
 
+          <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tipo:</span>
+            <select
+              value={selectedEmploymentType}
+              onChange={(e) => setSelectedEmploymentType(e.target.value as 'all' | 'efectivo' | 'jornalero')}
+              className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
+            >
+              <option value="all">Todo el Personal</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="jornalero">Jornalero</option>
+            </select>
+          </div>
+
           <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
             <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
             <span className="px-3 sm:px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
@@ -511,6 +731,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir / PDF</span>
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center space-x-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-lg no-print"
+          >
+            <Download className="w-4 h-4" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handleExportWeeklySummaryExcel}
+            className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg no-print"
+          >
+            <Download className="w-4 h-4" />
+            <span>Resumen Excel</span>
           </button>
         </div>
       </header>
@@ -690,15 +924,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       </div>
                       <div>
                         <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
                           <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
                             {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
                           </p>
-                          {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${emp.compensatory_rest_balance > 0 ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-400'}`}>
-                              {emp.compensatory_rest_balance} F
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <p className="text-[9px] text-indigo-400 font-black uppercase leading-tight">
+                              {getEmploymentTypeLabel(emp.employment_type)}
+                            </p>
+                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${emp.compensatory_rest_balance > 0 ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-400'}`}>
+                                {emp.compensatory_rest_balance} F
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -19,6 +19,7 @@ export interface Profile {
   full_name: string;
   email: string;
   role: string; // Dynamic role ID
+  employment_type?: 'efectivo' | 'jornalero';
   sector_id?: string;
   dni?: string;
   photo_url?: string;
