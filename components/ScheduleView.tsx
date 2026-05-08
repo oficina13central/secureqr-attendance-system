@@ -401,136 +401,142 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     setSaving(true);
     setMessage(null);
 
-    const now = new Date();
-    const targetDateStr = formatDate(selectedTarget.date);
+    try {
+      const now = new Date();
+      const targetDateStr = formatDate(selectedTarget.date);
 
-    let startTimeStr = editForm.s1Start;
-    if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59";
+      let startTimeStr = editForm.s1Start;
+      if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59";
 
-    const targetDateTime = new Date(`${targetDateStr}T${startTimeStr}`);
+      const targetDateTime = new Date(`${targetDateStr}T${startTimeStr}`);
 
-    if (now > targetDateTime) {
-      if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
-        alert("No se puede modificar un horario una vez iniciada la jornada por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
-        return;
+      if (now > targetDateTime) {
+        if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
+          alert("No se puede modificar un horario una vez iniciada la jornada por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
+          setSaving(false);
+          return;
+        }
       }
-    }
 
-    const shiftsToSave: ShiftData[] = [];
+      const shiftsToSave: ShiftData[] = [];
 
-    if (editForm.type === 'vacation' || editForm.type === 'medical') {
-      const startStr = editForm.startDate || targetDateStr;
-      const endStr = editForm.endDate || startStr;
+      if (editForm.type === 'vacation' || editForm.type === 'medical') {
+        const startStr = editForm.startDate || targetDateStr;
+        const endStr = editForm.endDate || startStr;
 
-      const start = new Date(startStr + 'T00:00:00');
-      const end = new Date(endStr + 'T00:00:00');
+        const start = new Date(startStr + 'T00:00:00');
+        const end = new Date(endStr + 'T00:00:00');
 
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dKey = formatDate(d);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dKey = formatDate(d);
+          shiftsToSave.push({
+            id: `${selectedTarget.empId}_${dKey}`,
+            employee_id: selectedTarget.empId,
+            date: dKey,
+            type: editForm.type,
+            segments: [],
+            last_modified_by: currentUser.full_name || 'Admin',
+            last_modified_at: new Date().toISOString()
+          });
+        }
+      } else {
+        const segments: ShiftSegment[] = [];
+        if (editForm.type === 'continuous') {
+          segments.push({ start: editForm.s1Start, end: editForm.s1End });
+        } else if (editForm.type === 'split') {
+          segments.push({ start: editForm.s1Start, end: editForm.s1End });
+          segments.push({ start: editForm.s2Start, end: editForm.s2End });
+        }
+
+        const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
         shiftsToSave.push({
-          id: `${selectedTarget.empId}_${dKey}`,
+          id: shiftKey,
           employee_id: selectedTarget.empId,
-          date: dKey,
+          date: targetDateStr,
           type: editForm.type,
-          segments: [],
+          segments,
           last_modified_by: currentUser.full_name || 'Admin',
           last_modified_at: new Date().toISOString()
         });
       }
-    } else {
-      const segments: ShiftSegment[] = [];
-      if (editForm.type === 'continuous') {
-        segments.push({ start: editForm.s1Start, end: editForm.s1End });
-      } else if (editForm.type === 'split') {
-        segments.push({ start: editForm.s1Start, end: editForm.s1End });
-        segments.push({ start: editForm.s2Start, end: editForm.s2End });
-      }
 
-      const shiftKey = `${selectedTarget.empId}_${targetDateStr}`;
-      shiftsToSave.push({
-        id: shiftKey,
-        employee_id: selectedTarget.empId,
-        date: targetDateStr,
-        type: editForm.type,
-        segments,
-        last_modified_by: currentUser.full_name || 'Admin',
-        last_modified_at: new Date().toISOString()
-      });
-    }
+      const saved = await scheduleService.save(shiftsToSave);
+      if (saved) {
+        // ── LOGICA DE FRANCOS COMPENSATORIOS (Solo si está habilitado) ──
+        if (isCompRestEnabled) {
+          const dateKey = formatDate(selectedTarget.date);
+          const shiftKey = `${selectedTarget.empId}_${dateKey}`;
+          const prevShift = shifts[shiftKey];
 
-    const saved = await scheduleService.save(shiftsToSave);
-    if (saved) {
-      // ── LOGICA DE FRANCOS COMPENSATORIOS (Solo si está habilitado) ──
-      if (isCompRestEnabled) {
-        const dateKey = formatDate(selectedTarget.date);
-        const shiftKey = `${selectedTarget.empId}_${dateKey}`;
-        const prevShift = shifts[shiftKey];
+          // 1. Manejo de Consumo (-1)
+          if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
+            await compensatoryRestService.addLog({
+              employee_id: selectedTarget.empId,
+              amount: -1,
+              type: 'usage',
+              reason: `Uso de franco compensatorio el día ${dateKey}`,
+              manager_name: currentUser.full_name || 'Admin'
+            });
+          } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
+            await compensatoryRestService.addLog({
+              employee_id: selectedTarget.empId,
+              amount: 1,
+              type: 'adjustment',
+              reason: `Cancelación de franco compensatorio del día ${dateKey}`,
+              manager_name: currentUser.full_name || 'Admin'
+            });
+          }
 
-        // 1. Manejo de Consumo (-1)
-        if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
-          await compensatoryRestService.addLog({
-            employee_id: selectedTarget.empId,
-            amount: -1,
-            type: 'usage',
-            reason: `Uso de franco compensatorio el día ${dateKey}`,
-            manager_name: currentUser.full_name || 'Admin'
-          });
-        } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
-          await compensatoryRestService.addLog({
-            employee_id: selectedTarget.empId,
-            amount: 1,
-            type: 'adjustment',
-            reason: `Cancelación de franco compensatorio del día ${dateKey}`,
-            manager_name: currentUser.full_name || 'Admin'
-          });
+          // 2. Manejo de Crédito Automático (+1) - Regla de Oro
+          await compensatoryRestService.processAutomaticCredit(
+            selectedTarget.empId,
+            dateKey,
+            editForm.type,
+            editForm.type === 'split' 
+              ? [{ start: editForm.s1Start, end: editForm.s1End }, { start: editForm.s2Start, end: editForm.s2End }]
+              : [{ start: editForm.s1Start, end: editForm.s1End }],
+            currentUser.full_name || 'Admin'
+          );
         }
 
-        // 2. Manejo de Crédito Automático (+1) - Regla de Oro
-        await compensatoryRestService.processAutomaticCredit(
-          selectedTarget.empId,
-          dateKey,
-          editForm.type,
-          editForm.type === 'split' 
-            ? [{ start: editForm.s1Start, end: editForm.s1End }, { start: editForm.s2Start, end: editForm.s2End }]
-            : [{ start: editForm.s1Start, end: editForm.s1End }],
-          currentUser.full_name || 'Admin'
-        );
+        const savedArray = Array.isArray(saved) ? saved : [saved];
+        const newShiftsMap = { ...shifts };
+        savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
+        setShifts(newShiftsMap);
+
+        await auditService.logAction({
+          manager_name: currentUser.full_name || 'Admin',
+          employee_name: selectedTarget.empName,
+          action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 
+                  editForm.type === 'medical' ? 'Licencia Médica' : 
+                  editForm.type === 'compensatory' ? 'Asignación Franco Comp.' :
+                  editForm.type === 'suspension' ? 'Suspensión de Personal' : 'Cambio de Turno',
+          old_value: 'N/A',
+          new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
+            ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}`
+            : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
+          reason: 'Modificación manual de cronograma'
+        });
+
+        // Recalcular asistencia para el rango modificado para corregir ausencias previas generadas automáticamente
+        const startStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.startDate || targetDateStr) : targetDateStr;
+        const endStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.endDate || targetDateStr) : targetDateStr;
+        await attendanceService.recalculateAttendance(selectedTarget.empId, startStr, endStr, currentUser.full_name || 'Admin');
+        
+        setMessage({ text: 'Cronograma guardado con éxito', type: 'success' });
+        setTimeout(() => {
+          setIsModalOpen(false);
+          setMessage(null);
+        }, 1500);
+      } else {
+        setMessage({ text: 'Error al intentar guardar los cambios', type: 'error' });
       }
-
-      const savedArray = Array.isArray(saved) ? saved : [saved];
-      const newShiftsMap = { ...shifts };
-      savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
-      setShifts(newShiftsMap);
-
-      await auditService.logAction({
-        manager_name: currentUser.full_name || 'Admin',
-        employee_name: selectedTarget.empName,
-        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 
-                editForm.type === 'medical' ? 'Licencia Médica' : 
-                editForm.type === 'compensatory' ? 'Asignación Franco Comp.' :
-                editForm.type === 'suspension' ? 'Suspensión de Personal' : 'Cambio de Turno',
-        old_value: 'N/A',
-        new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
-          ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}`
-          : `${editForm.type}: ${editForm.s1Start}-${editForm.s1End} (Fecha: ${targetDateStr})`,
-        reason: 'Modificación manual de cronograma'
-      });
-
-      // Recalcular asistencia para el rango modificado para corregir ausencias previas generadas automáticamente
-      const startStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.startDate || targetDateStr) : targetDateStr;
-      const endStr = editForm.type === 'vacation' || editForm.type === 'medical' ? (editForm.endDate || targetDateStr) : targetDateStr;
-      await attendanceService.recalculateAttendance(selectedTarget.empId, startStr, endStr, currentUser.full_name || 'Admin');
-      
-      setMessage({ text: 'Cronograma guardado con éxito', type: 'success' });
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setMessage(null);
-      }, 1500);
-    } else {
-      setMessage({ text: 'Error al intentar guardar los cambios', type: 'error' });
+    } catch (error: any) {
+      console.error('Error in handleSave:', error);
+      setMessage({ text: `Error: ${error.message || 'No se pudo guardar'}`, type: 'error' });
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   const renderCellContent = (empId: string, date: Date) => {
