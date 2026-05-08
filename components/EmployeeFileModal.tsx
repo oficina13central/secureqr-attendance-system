@@ -47,6 +47,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   const [restLogs, setRestLogs] = useState<CompensatoryRestLog[]>([]);
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [scoring, setScoring] = useState<{score: number, label: string, color: string} | null>(null);
   
   // Actions states
   const [amount, setAmount] = useState<number>(1);
@@ -72,15 +73,17 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     const { data: empData } = await supabase.from('profiles').select('*').eq('id', employeeId).single();
     setEmployee(empData);
     
-    const [logs, docs, audits] = await Promise.all([
+    const [logs, docs, audits, score] = await Promise.all([
       compensatoryRestService.getLogs(employeeId),
       supabase.from('employee_documents').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }),
-      auditService.getAll() // We'll filter these later or use a dedicated method
+      auditService.getAll(),
+      attendanceService.calculateScoring(employeeId)
     ]);
     
     setRestLogs(logs);
     setDocuments(docs.data || []);
     setAuditLogs(audits.filter(a => a.employee_name === empData?.full_name));
+    setScoring(score);
     setLoading(false);
   };
 
@@ -191,10 +194,19 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
               <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-all">
                 <X className="w-8 h-8 text-white" />
               </button>
-              <div className="bg-white/10 backdrop-blur-xl p-4 rounded-3xl border border-white/20 text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Saldo de Francos</p>
-                <p className="text-4xl font-black">{employee.compensatory_rest_balance || 0} <span className="text-sm opacity-50">Días</span></p>
+            <div className="flex items-center gap-3">
+              {scoring && managerRole !== 'encargado' && (
+                <div className={`backdrop-blur-xl p-4 rounded-3xl border text-right min-w-[140px] shadow-xl ${scoring.color}`}>
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-70">Scoring Actual</p>
+                  <p className="text-4xl font-black">{scoring.score}</p>
+                  <p className="text-[8px] font-black uppercase tracking-tighter mt-1 opacity-80">{scoring.label}</p>
+                </div>
+              )}
+              <div className="bg-white/10 backdrop-blur-xl p-4 rounded-3xl border border-white/20 text-right min-w-[140px]">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-70 text-white">Saldo de Francos</p>
+                <p className="text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-sm opacity-50 text-white/50">Días</span></p>
               </div>
+            </div>
             </div>
           </div>
         </div>
