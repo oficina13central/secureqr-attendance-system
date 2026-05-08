@@ -32,8 +32,11 @@ interface EmployeeFileModalProps {
 }
 
 const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
-  // Solo restringimos si el rol es EXPLÍCITAMENTE 'encargado'
-  const isRestricted = managerRole.toLowerCase().includes('encargado');
+  // Lógica robusta: Si es admin o super, NUNCA está restringido.
+  const roleLower = managerRole.toLowerCase();
+  const isAdmin = roleLower.includes('admin') || roleLower.includes('super');
+  const isRestricted = roleLower.includes('encargado') && !isAdmin;
+  
   const [employee, setEmployee] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<'stats' | 'francos' | 'docs'>(!isRestricted ? 'stats' : 'francos');
   const [loading, setLoading] = useState(true);
