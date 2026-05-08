@@ -24,6 +24,7 @@ import { sectorService, Sector } from '../services/sectorService';
 import { roleService } from '../services/roleService';
 import { attendanceService } from '../services/attendanceService';
 import { Role } from '../types';
+import EmployeeFileModal from './EmployeeFileModal';
 
 interface PersonnelViewProps {
     employees: Profile[];
@@ -47,6 +48,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
     const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
+    const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
 
     // Helper: get all sector IDs this user can manage (own sector + managed_sectors)
     const getAccessibleSectorIds = (user: Profile): string[] => {
@@ -209,7 +211,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 // Update existing — only include columns that exist in the DB, exclude joined fields like 'roles'
                 const updatedProfile: Record<string, any> = {
                     full_name: formData.full_name!,
-                    email: formData.email || '',
+                    email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
                     role: formData.role as string,
                     sector_id: formData.sector_id || null,
@@ -226,7 +228,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 // Create new
                 const newProfile: Omit<Profile, 'id'> = {
                     full_name: formData.full_name || 'Nuevo Empleado',
-                    email: formData.email || '',
+                    email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
                     role: formData.role as string,
                     sector_id: formData.sector_id || 'General',
@@ -646,6 +648,15 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     </td>
                                     <td className="px-8 py-4 text-right">
                                         <div className="flex items-center justify-end space-x-3">
+                                            {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+                                                <button
+                                                    onClick={() => setSelectedFileEmployeeId(emp.id)}
+                                                    className="p-2 text-violet-500 hover:bg-violet-50 rounded-lg transition-colors"
+                                                    title="Ver Legajo Digital"
+                                                >
+                                                    <Users className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => openEditModal(emp)}
                                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -1077,6 +1088,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
           }
         }
       `}</style>
+            {/* ── LEGADO DIGITAL MODAL ── */}
+            {selectedFileEmployeeId && (
+                <EmployeeFileModal
+                    employeeId={selectedFileEmployeeId}
+                    managerName={currentUser.full_name || 'Admin'}
+                    onClose={() => setSelectedFileEmployeeId(null)}
+                />
+            )}
         </div>
     );
 };

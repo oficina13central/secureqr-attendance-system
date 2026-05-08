@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, Clock, ShieldAlert, CheckCircle2, AlertCircle, Layers, Shield } from 'lucide-react';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { auditService } from '../services/auditService';
-import SectorManager from './SectorManager';
 import RoleManager from './RoleManager';
+import HolidayManager from './HolidayManager';
 import { Profile } from '../types';
 
 interface SettingsViewProps {
     currentUser: Profile;
 }
 
-type TabType = 'rules' | 'sectors' | 'roles';
+type TabType = 'rules' | 'sectors' | 'roles' | 'holidays';
 
 const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState<TabType>('rules');
@@ -71,6 +71,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                         { id: 'rules', label: 'Reglas', icon: Settings, permission: 'MANAGE_RULES' },
                         { id: 'sectors', label: 'Sectores', icon: Layers, permission: 'MANAGE_SECTORS' },
                         { id: 'roles', label: 'Roles', icon: Shield, permission: 'MANAGE_ROLES' },
+                        { id: 'holidays', label: 'Feriados', icon: CalendarDays, permission: 'MANAGE_RULES' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -171,6 +172,32 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Compensatory Rest Master Toggle */}
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-6 md:col-span-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-3 bg-violet-50 rounded-2xl text-violet-600">
+                                            <Settings className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-slate-800">Módulo de Francos</h3>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Configuración Maestra</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setRules({ ...rules, enable_compensatory_rest: !rules.enable_compensatory_rest })}
+                                        className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${rules.enable_compensatory_rest ? 'bg-violet-600' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${rules.enable_compensatory_rest ? 'translate-x-7' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                                        Al habilitar este módulo, el sistema calculará automáticamente los créditos por domingos y feriados, permitirá el uso de "Francos Compensatorios" en el cronograma y habilitará el Legajo Digital de RRHH.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-4">
@@ -195,6 +222,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
 
                 {activeTab === 'sectors' && <div className="animate-in fade-in slide-in-from-bottom-2"><SectorManager /></div>}
                 {activeTab === 'roles' && <div className="animate-in fade-in slide-in-from-bottom-2"><RoleManager /></div>}
+                {activeTab === 'holidays' && <div className="animate-in fade-in slide-in-from-bottom-2"><HolidayManager /></div>}
             </div>
         </div>
     );

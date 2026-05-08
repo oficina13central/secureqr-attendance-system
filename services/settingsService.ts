@@ -5,6 +5,7 @@ export interface AttendanceRules {
     llego_tarde: number;
     max_mensual: number;
     ausente_gracia: number;
+    enable_compensatory_rest?: boolean;
 }
 
 export const settingsService = {
@@ -17,9 +18,9 @@ export const settingsService = {
 
         if (error || !data) {
             console.error('Error fetching settings:', error);
-            return { en_horario: 5, llego_tarde: 30, max_mensual: 15, ausente_gracia: 120 };
+            return { en_horario: 5, llego_tarde: 30, max_mensual: 15, ausente_gracia: 120, enable_compensatory_rest: false };
         }
-        return { ...data.value, ausente_gracia: data.value.ausente_gracia || 120 };
+        return { ...data.value, ausente_gracia: data.value.ausente_gracia || 120, enable_compensatory_rest: !!data.value.enable_compensatory_rest };
     },
 
     async updateRules(rules: AttendanceRules): Promise<boolean> {

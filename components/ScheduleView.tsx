@@ -18,8 +18,10 @@ import { Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
-import { attendanceService } from '../services/attendanceService';
 import { getLocalDateString } from '../utils/dateUtils';
+import { compensatoryRestService } from '../services/compensatoryRestService';
+import { settingsService } from '../services/settingsService';
+import EmployeeFileModal from './EmployeeFileModal';
 
 interface ScheduleViewProps {
   employees?: Profile[];
@@ -56,17 +58,24 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
+  const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSectors = async () => {
-      try {
-        const s = await sectorService.getAll();
-        const dict: Record<string, string> = {};
-        s.forEach(sec => dict[sec.id] = sec.name);
-        setSectorMap(dict);
-      } catch (e) {}
+      const data = await sectorService.getAll();
+      const map: Record<string, string> = {};
+      data.forEach(s => map[s.id] = s.name);
+      setSectorMap(map);
     };
+
+    const checkMasterConfig = async () => {
+      const rules = await settingsService.getRules();
+      setIsCompRestEnabled(!!rules.enable_compensatory_rest);
+    };
+
     fetchSectors();
+    checkMasterConfig();
   }, []);
 
   useEffect(() => {
@@ -238,6 +247,43 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     const saved = await scheduleService.save(shiftsToSave);
     if (saved) {
+      // ── LOGICA DE FRANCOS COMPENSATORIOS (Solo si está habilitado) ──
+      if (isCompRestEnabled) {
+        const dateKey = formatDate(selectedTarget.date);
+        const shiftKey = `${selectedTarget.empId}_${dateKey}`;
+        const prevShift = shifts[shiftKey];
+
+        // 1. Manejo de Consumo (-1)
+        if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
+          await compensatoryRestService.addLog({
+            employee_id: selectedTarget.empId,
+            amount: -1,
+            type: 'usage',
+            reason: `Uso de franco compensatorio el día ${dateKey}`,
+            manager_name: currentUser.full_name || 'Admin'
+          });
+        } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
+          await compensatoryRestService.addLog({
+            employee_id: selectedTarget.empId,
+            amount: 1,
+            type: 'adjustment',
+            reason: `Cancelación de franco compensatorio del día ${dateKey}`,
+            manager_name: currentUser.full_name || 'Admin'
+          });
+        }
+
+        // 2. Manejo de Crédito Automático (+1) - Regla de Oro
+        await compensatoryRestService.processAutomaticCredit(
+          selectedTarget.empId,
+          dateKey,
+          editForm.type,
+          editForm.type === 'split' 
+            ? [{ start: editForm.s1Start, end: editForm.s1End }, { start: editForm.s2Start, end: editForm.s2End }]
+            : [{ start: editForm.s1Start, end: editForm.s1End }],
+          currentUser.full_name || 'Admin'
+        );
+      }
+
       const savedArray = Array.isArray(saved) ? saved : [saved];
       const newShiftsMap = { ...shifts };
       savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
@@ -246,7 +292,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       await auditService.logAction({
         manager_name: currentUser.full_name || 'Admin',
         employee_name: selectedTarget.empName,
-        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : editForm.type === 'medical' ? 'Licencia Médica' : 'Cambio de Turno',
+        action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 
+                editForm.type === 'medical' ? 'Licencia Médica' : 
+                editForm.type === 'compensatory' ? 'Asignación Franco Comp.' :
+                editForm.type === 'suspension' ? 'Suspensión de Personal' : 'Cambio de Turno',
         old_value: 'N/A',
         new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
           ? `Rango: ${editForm.startDate || targetDateStr} al ${editForm.endDate || targetDateStr}`
@@ -299,7 +348,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         indigo: "bg-indigo-100/80 text-indigo-700 border-indigo-200",
         emerald: "bg-emerald-100/80 text-emerald-700 border-emerald-200",
         red: "bg-red-100/80 text-red-700 border-red-200",
-        slate: "bg-slate-100/80 text-slate-500 border-slate-200"
+        slate: "bg-slate-100/80 text-slate-500 border-slate-200",
+        violet: "bg-violet-100/80 text-violet-700 border-violet-200",
+        zinc: "bg-zinc-700 text-white border-zinc-800 shadow-inner"
       };
       
       const stateClass = isBase 
@@ -308,6 +359,26 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       
       return `${colors[theme]} ${stateClass} px-2 py-1 rounded-md transition-all`;
     };
+
+    if (activeShift.type === 'compensatory') {
+      return (
+        <div className="flex flex-col items-center">
+          <span className={`${getShiftStyles('violet')} text-[9px] font-black uppercase tracking-widest`}>
+            Franco Comp.
+          </span>
+        </div>
+      );
+    }
+
+    if (activeShift.type === 'suspension') {
+      return (
+        <div className="flex flex-col items-center">
+          <span className={`${getShiftStyles('zinc')} text-[9px] font-black uppercase tracking-widest`}>
+            SUSPENDIDO
+          </span>
+        </div>
+      );
+    }
 
     if (activeShift.type === 'off') {
       return (
@@ -602,15 +673,33 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               {filteredEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="w-[190px] min-w-[190px] sm:w-[260px] sm:min-w-[260px] px-4 sm:px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50/50 transition-colors border-r border-slate-50">
-                    <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div 
+                      className={`flex items-center space-x-2 sm:space-x-3 p-1 rounded-2xl transition-all ${
+                        (currentUser.role === 'administrador' || currentUser.role === 'superusuario') 
+                          ? 'hover:bg-indigo-50 cursor-pointer' 
+                          : ''
+                      }`}
+                      onClick={() => {
+                        if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') {
+                          setSelectedFileEmployeeId(emp.id);
+                        }
+                      }}
+                    >
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print shrink-0">
                         {emp.full_name.charAt(0)}
                       </div>
                       <div>
                         <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
-                        <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
-                          {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
+                            {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
+                          </p>
+                          {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${emp.compensatory_rest_balance > 0 ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {emp.compensatory_rest_balance} F
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -658,13 +747,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
             <div className="space-y-6">
               <div className="grid grid-cols-5 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off', 'vacation', 'medical'] as const).map((t) => (
+                {(['continuous', 'split', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
                     className={`py-2 px-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'compensatory' ? 'Franco C.' : t === 'suspension' ? 'Suspendido' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
                   </button>
                 ))}
               </div>
@@ -738,6 +827,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* ── LEGADO DIGITAL MODAL ── */}
+      {selectedFileEmployeeId && (
+        <EmployeeFileModal
+          employeeId={selectedFileEmployeeId}
+          managerName={currentUser.full_name || 'Admin'}
+          onClose={() => setSelectedFileEmployeeId(null)}
+        />
       )}
     </div>
   );

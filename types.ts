@@ -33,6 +33,7 @@ export interface Profile {
   deleted_at?: string | null;       // ISO date string, null = active
   is_employee?: boolean;            // Differentiate system accounts from personnel
   default_schedule?: Record<string, any>; // '0'-'6' for Sun-Sat, plus optional metadata
+  compensatory_rest_balance?: number;
 }
 
 export interface DailyShift {
@@ -47,7 +48,7 @@ export interface AttendanceRecord {
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica' | 'presente';
+  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica' | 'presente' | 'compensatorio' | 'suspendido';
   minutes_late: number;
   manual_reason?: string;
   assigned_time?: string;
@@ -69,4 +70,30 @@ export interface FraudReport {
   summary: string;
   anomalies: string[];
   recommendations: string[];
+}
+
+export interface CompensatoryRestLog {
+  id: string;
+  employee_id: string;
+  amount: number;
+  type: 'credit' | 'usage' | 'payment' | 'adjustment';
+  reason: string;
+  manager_name: string;
+  created_at: string;
+}
+
+export interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  employee_id: string;
+  type: 'medical' | 'suspension' | 'identity' | 'other';
+  file_url: string;
+  file_name: string;
+  description: string;
+  created_at: string;
 }
