@@ -914,7 +914,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                           : ''
                       }`}
                       onClick={() => {
-                        if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') {
+                        const isAuthorized = currentUser.role === 'administrador' || currentUser.role === 'superusuario' || currentUser.role === 'encargado';
+                        if (isAuthorized) {
                           setSelectedFileEmployeeId(emp.id);
                         }
                       }}
@@ -922,24 +923,24 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print shrink-0">
                         {emp.full_name.charAt(0)}
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase leading-tight">
-                            {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
-                          </p>
+                        <div className="flex flex-col gap-1">
+                          <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-[9px] text-indigo-400 font-black uppercase leading-tight">
-                              {getEmploymentTypeLabel(emp.employment_type)}
+                            <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight">
+                              {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
                             </p>
-                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && (
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${emp.compensatory_rest_balance > 0 ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-400'}`}>
-                                {emp.compensatory_rest_balance} F
+                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance > 0 && (
+                              <span className="text-[9px] px-2 py-0.5 bg-violet-600 text-white rounded-full font-black shadow-sm animate-pulse-subtle">
+                                {emp.compensatory_rest_balance} FRANCOS
+                              </span>
+                            )}
+                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance <= 0 && (
+                              <span className="text-[9px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-full font-black">
+                                0 F
                               </span>
                             )}
                           </div>
                         </div>
-                      </div>
                     </div>
                   </td>
                   {weekDays.map(d => {
@@ -1072,6 +1073,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         <EmployeeFileModal
           employeeId={selectedFileEmployeeId}
           managerName={currentUser.full_name || 'Admin'}
+          managerRole={currentUser.role}
           onClose={() => setSelectedFileEmployeeId(null)}
         />
       )}

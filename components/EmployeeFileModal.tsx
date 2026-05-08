@@ -27,10 +27,11 @@ import { Profile, CompensatoryRestLog, AttendanceRecord, EmployeeDocument } from
 interface EmployeeFileModalProps {
   employeeId: string;
   managerName: string;
+  managerRole?: string;
   onClose: () => void;
 }
 
-const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, onClose }) => {
+const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
   const [employee, setEmployee] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<'stats' | 'francos' | 'docs' | 'audit'>('stats');
   const [loading, setLoading] = useState(true);
@@ -54,6 +55,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
+    if (managerRole === 'encargado') {
+      setActiveTab('francos');
+    }
     fetchInitialData();
   }, [employeeId]);
 
@@ -198,11 +202,11 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-100 px-8 bg-slate-50/50">
           {[
-            { id: 'stats', label: 'Estadísticas', icon: TrendingUp },
+            { id: 'stats', label: 'Estadísticas', icon: TrendingUp, hidden: managerRole === 'encargado' },
             { id: 'francos', label: 'Banco de Francos', icon: CreditCard },
-            { id: 'docs', label: 'Documentos/Fotos', icon: Camera },
-            { id: 'audit', label: 'Historial Auditable', icon: History },
-          ].map(tab => (
+            { id: 'docs', label: 'Documentos/Fotos', icon: Camera, hidden: managerRole === 'encargado' },
+            { id: 'audit', label: 'Historial Auditable', icon: History, hidden: managerRole === 'encargado' },
+          ].filter(t => !t.hidden).map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
