@@ -923,22 +923,23 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print shrink-0">
                         {emp.full_name.charAt(0)}
                       </div>
-                        <div className="flex flex-col gap-1.5 mt-1">
-                          <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                              {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
-                            </p>
-                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance > 0 && (
-                              <span className="text-[11px] px-3 py-1 bg-indigo-600 text-white rounded-lg font-black shadow-md border border-indigo-400/50 flex items-center gap-1">
-                                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                                {emp.compensatory_rest_balance} FRANCOS
-                              </span>
-                            )}
-                            {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance <= 0 && (
-                              <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-md font-bold border border-slate-200">
-                                0 F
-                              </span>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <p className="font-bold text-slate-800 text-xs sm:text-sm leading-tight uppercase tracking-tight">{emp.full_name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest border-r border-slate-200 pr-2">
+                              {emp.role === 'encargado' ? 'Encargado/a' : 'Personal'}
+                            </span>
+                            {isCompRestEnabled && (
+                              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-sm transition-all ${
+                                (emp.compensatory_rest_balance || 0) > 0 
+                                  ? 'bg-indigo-600 border-indigo-400 text-white scale-105 ring-4 ring-indigo-500/10' 
+                                  : 'bg-slate-50 border-slate-200 text-slate-500'
+                              }`}>
+                                <CreditCard className={`w-3 h-3 ${ (emp.compensatory_rest_balance || 0) > 0 ? 'text-indigo-200' : 'text-slate-400' }`} />
+                                <span className="text-[10px] font-black tracking-tighter whitespace-nowrap">
+                                  SALDO: <span className="text-xs">{(emp.compensatory_rest_balance || 0)}</span>
+                                </span>
+                              </div>
                             )}
                           </div>
                         </div>
