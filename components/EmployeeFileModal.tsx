@@ -46,7 +46,6 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, lateMinutes: 0, medical: 0, suspension: 0 });
   const [restLogs, setRestLogs] = useState<CompensatoryRestLog[]>([]);
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [scoring, setScoring] = useState<{score: number, label: string, color: string} | null>(null);
   
   // Actions states
@@ -73,16 +72,14 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     const { data: empData } = await supabase.from('profiles').select('*').eq('id', employeeId).single();
     setEmployee(empData);
     
-    const [logs, docs, audits, score] = await Promise.all([
+    const [logs, docs, score] = await Promise.all([
       compensatoryRestService.getLogs(employeeId),
       supabase.from('employee_documents').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }),
-      auditService.getAll(),
       attendanceService.calculateScoring(employeeId)
     ]);
     
     setRestLogs(logs);
     setDocuments(docs.data || []);
-    setAuditLogs(audits.filter(a => a.employee_name === empData?.full_name));
     setScoring(score);
     setLoading(false);
   };
@@ -217,7 +214,6 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
             { id: 'stats', label: 'Estadísticas', icon: TrendingUp, hidden: managerRole === 'encargado' },
             { id: 'francos', label: 'Banco de Francos', icon: CreditCard },
             { id: 'docs', label: 'Documentos/Fotos', icon: Camera, hidden: managerRole === 'encargado' },
-            { id: 'audit', label: 'Historial Auditable', icon: History, hidden: managerRole === 'encargado' },
           ].filter(t => !t.hidden).map(tab => (
             <button
               key={tab.id}
@@ -356,41 +352,6 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'audit' && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-center gap-4">
-                <ShieldAlert className="w-6 h-6 text-indigo-600" />
-                <p className="text-sm font-bold text-indigo-900">
-                  Este historial muestra todas las modificaciones manuales realizadas por encargados o administradores sobre este legajo.
-                </p>
-              </div>
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fecha</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Responsable</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acción</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Motivo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {auditLogs.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-50/50 transition-all">
-                        <td className="px-8 py-5 text-sm font-bold text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
-                        <td className="px-8 py-5 text-sm font-black text-slate-700">{log.manager_name}</td>
-                        <td className="px-8 py-5">
-                          <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">{log.action}</span>
-                        </td>
-                        <td className="px-8 py-5 text-xs text-slate-500 font-medium">{log.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}
