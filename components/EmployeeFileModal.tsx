@@ -256,20 +256,30 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
           {activeTab === 'francos' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2">
-              <div className="lg:col-span-1 space-y-6">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                  <h3 className="text-xl font-black text-slate-800">Carga / Ajuste</h3>
-                  <div className="space-y-4">
-                    <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-2xl text-center" />
-                    <textarea placeholder="Motivo (ej: Domingos trabajados Marzo)" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm h-24" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => handleRestAction('credit')} disabled={saving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20">Sumar Día</button>
-                      <button onClick={() => handleRestAction('payment')} disabled={saving} className="py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20">Liquidar Pago</button>
+              {managerRole !== 'encargado' ? (
+                <div className="lg:col-span-1 space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                    <h3 className="text-xl font-black text-slate-800">Carga / Ajuste</h3>
+                    <div className="space-y-4">
+                      <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-2xl text-center" />
+                      <textarea placeholder="Motivo (ej: Domingos trabajados Marzo)" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm h-24" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => handleRestAction('credit')} disabled={saving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20">Sumar Día</button>
+                        <button onClick={() => handleRestAction('payment')} disabled={saving} className="py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20">Liquidar Pago</button>
+                      </div>
+                      <button onClick={() => handleRestAction('adjustment')} disabled={saving} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black">Ajuste Manual Saldo</button>
                     </div>
-                    <button onClick={() => handleRestAction('adjustment')} disabled={saving} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black">Ajuste Manual Saldo</button>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="lg:col-span-1">
+                  <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100">
+                    <p className="text-xs font-bold text-indigo-700 leading-relaxed">
+                      Como <strong>Encargado/a</strong>, tienes acceso de solo lectura a este saldo. Contacta a un Administrador para realizar ajustes manuales.
+                    </p>
+                  </div>
+                </div>
+              )}
               
               <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
                 <div className="p-8 border-b border-slate-50 flex items-center gap-3">
