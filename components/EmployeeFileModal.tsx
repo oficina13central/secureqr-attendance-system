@@ -32,9 +32,10 @@ interface EmployeeFileModalProps {
 }
 
 const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
-  const isAdmin = managerRole === 'administrador' || managerRole === 'superusuario';
+  // Solo restringimos si el rol es EXPLÍCITAMENTE 'encargado'
+  const isRestricted = managerRole.toLowerCase().includes('encargado');
   const [employee, setEmployee] = useState<Profile | null>(null);
-  const [activeTab, setActiveTab] = useState<'stats' | 'francos' | 'docs'>(isAdmin ? 'stats' : 'francos');
+  const [activeTab, setActiveTab] = useState<'stats' | 'francos' | 'docs'>(!isRestricted ? 'stats' : 'francos');
   const [loading, setLoading] = useState(true);
   
   // Date Range for stats
@@ -209,9 +210,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-100 px-8 bg-slate-50/50">
           {[
-            { id: 'stats', label: 'Estadísticas', icon: TrendingUp, hidden: !isAdmin },
-            { id: 'francos', label: 'Banco de Francos', icon: CreditCard },
-            { id: 'docs', label: 'Documentos/Fotos', icon: Camera, hidden: !isAdmin },
+            { id: 'stats', label: '📊 Estadísticas', icon: TrendingUp, hidden: isRestricted },
+            { id: 'francos', label: '🏦 Banco de Francos', icon: CreditCard },
+            { id: 'docs', label: '📂 Documentos/Fotos', icon: Camera, hidden: isRestricted },
           ].filter(t => !t.hidden).map(tab => (
             <button
               key={tab.id}
@@ -262,7 +263,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
           {activeTab === 'francos' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2">
-              {isAdmin ? (
+              {!isRestricted ? (
                 <div className="lg:col-span-1 space-y-6">
                   <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
                     <h3 className="text-xl font-black text-slate-800">Carga / Ajuste</h3>
