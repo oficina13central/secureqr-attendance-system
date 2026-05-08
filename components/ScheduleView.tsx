@@ -923,19 +923,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm no-print shrink-0">
                         {emp.full_name.charAt(0)}
                       </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1.5 mt-1">
                           <p className="font-bold text-slate-700 text-xs sm:text-sm leading-tight">{emp.full_name}</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
                               {emp.role === 'encargado' ? 'Encargado/a' : emp.role === 'empleado' ? 'Empleado/a' : emp.role === 'administrador' ? 'Administrador/a' : emp.role}
                             </p>
                             {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance > 0 && (
-                              <span className="text-[9px] px-2 py-0.5 bg-violet-600 text-white rounded-full font-black shadow-sm animate-pulse-subtle">
+                              <span className="text-[11px] px-3 py-1 bg-indigo-600 text-white rounded-lg font-black shadow-md border border-indigo-400/50 flex items-center gap-1">
+                                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                                 {emp.compensatory_rest_balance} FRANCOS
                               </span>
                             )}
                             {isCompRestEnabled && emp.compensatory_rest_balance !== undefined && emp.compensatory_rest_balance <= 0 && (
-                              <span className="text-[9px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-full font-black">
+                              <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-md font-bold border border-slate-200">
                                 0 F
                               </span>
                             )}
