@@ -108,6 +108,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                                 type="number"
                                                 value={rules.en_horario}
                                                 onChange={e => setRules({ ...rules, en_horario: parseInt(e.target.value) })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <span className="text-sm font-bold text-slate-500">Minutos</span>
@@ -121,6 +122,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                                 type="number"
                                                 value={rules.llego_tarde}
                                                 onChange={e => setRules({ ...rules, llego_tarde: parseInt(e.target.value) })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <span className="text-sm font-bold text-slate-500">Minutos</span>
@@ -134,6 +136,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                                 type="number"
                                                 value={rules.ausente_gracia}
                                                 onChange={e => setRules({ ...rules, ausente_gracia: parseInt(e.target.value) })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <span className="text-sm font-bold text-slate-500">Minutos</span>
@@ -159,6 +162,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                                 type="number"
                                                 value={rules.max_mensual}
                                                 onChange={e => setRules({ ...rules, max_mensual: parseInt(e.target.value) })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <span className="text-sm font-bold text-slate-500">Minutos</span>

@@ -466,7 +466,13 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
                     <h3 className="text-xl font-black text-slate-800">Carga / Ajuste</h3>
                     <div className="space-y-4">
-                      <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-2xl text-center" />
+                      <input 
+                        type="number" 
+                        value={amount} 
+                        onChange={e => setAmount(Number(e.target.value))} 
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-2xl text-center" 
+                      />
                       <textarea placeholder="Motivo (ej: Domingos trabajados Marzo)" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm h-24" />
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => handleRestAction('credit')} disabled={saving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20">Sumar Día</button>
