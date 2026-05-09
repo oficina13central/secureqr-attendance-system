@@ -13,7 +13,8 @@ import {
   Printer,
   Download,
   Search,
-  CreditCard
+  CreditCard,
+  CheckCircle2
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Profile } from '../types';
@@ -23,6 +24,7 @@ import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { compensatoryRestService } from '../services/compensatoryRestService';
 import { settingsService } from '../services/settingsService';
+import { attendanceService } from '../services/attendanceService';
 import EmployeeFileModal from './EmployeeFileModal';
 
 interface ScheduleViewProps {
@@ -541,6 +543,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     } catch (error: any) {
       console.error('Error in handleSave:', error);
       setMessage({ text: `Error: ${error.message || 'No se pudo guardar'}`, type: 'error' });
+      saveInProgressRef.current = false;
+      setSaving(false);
     } finally {
       if (!savedSuccessfully) {
         saveInProgressRef.current = false;
