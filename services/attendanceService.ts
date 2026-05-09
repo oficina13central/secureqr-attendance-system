@@ -282,7 +282,8 @@ export const attendanceService = {
         const rules = await settingsService.getRules();
         console.log(`Starting syncPastAbsences for ${employees.length} employees...`);
         
-        for (let i = 0; i <= 3; i++) {
+        // Sincronizar ausencias de los últimos 60 días para cubrir todo abril y mayo
+        for (let i = 0; i <= 60; i++) {
             const checkDate = new Date();
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);

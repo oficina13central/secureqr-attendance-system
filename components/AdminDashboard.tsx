@@ -84,7 +84,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          scheduleService.getAllSchedulesInRange(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+          scheduleService.getAllSchedulesInRange('2026-04-01'),
           settingsService.getRules()
         ]);
 
@@ -111,7 +111,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
              // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
                attendanceService.getAll(),
-               scheduleService.getAllSchedulesInRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+               scheduleService.getAllSchedulesInRange('2026-04-01')
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules) setSchedules(updatedSchedules);
