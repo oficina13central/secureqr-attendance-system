@@ -1019,7 +1019,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
             <div className="space-y-6">
               <div className="grid grid-cols-5 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const).map((t) => (
+                {(['continuous', 'split', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const)
+                  .filter(t => t !== 'medical' || currentUser.role !== 'encargado')
+                  .map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
