@@ -43,17 +43,37 @@ export const attendanceService = {
     },
 
     async getAll(): Promise<AttendanceRecord[]> {
-        const { data, error } = await supabase
-            .from('attendance_records')
-            .select('*')
-            .order('date', { ascending: false })
-            .order('check_in', { ascending: false });
+        // Supabase limits to 1000 rows per query by default.
+        // We paginate to ensure ALL records are fetched.
+        let allRecords: AttendanceRecord[] = [];
+        let page = 0;
+        const limit = 1000;
+        let hasMore = true;
 
-        if (error) {
-            console.error('Error fetching all attendance records:', error);
-            return [];
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .order('date', { ascending: false })
+                .order('check_in', { ascending: false })
+                .range(page * limit, (page + 1) * limit - 1);
+
+            if (error) {
+                console.error('Error fetching attendance records (page ' + page + '):', error);
+                break;
+            }
+
+            if (data && data.length > 0) {
+                allRecords = [...allRecords, ...data];
+                page++;
+                if (data.length < limit) {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
         }
-        return data || [];
+        return allRecords;
     },
 
     async getTodayStats(): Promise<{ presentes: number, tardes: number, ausentes: number }> {

@@ -80,18 +80,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const loadData = async (force: boolean = false) => {
         setLoading(true);
         try {
-            const today = new Date();
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(today.getDate() - 30);
+            // Calcular el rango de fechas para schedules basado en el mes seleccionado
+            const targetMonth = selectedDate.getMonth();
+            const targetYear = selectedDate.getFullYear();
+            const scheduleStartDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
             
-            const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+            // También incluir schedules del mes actual si el mes seleccionado es diferente
+            const today = new Date();
+            const currentMonthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            const earliestDate = scheduleStartDate < currentMonthStart ? scheduleStartDate : currentMonthStart;
 
             const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors, fetchedSchedules] = await Promise.all([
                 attendanceService.getAll(),
                 initialEmployees.length > 0 ? Promise.resolve(initialEmployees) : personnelService.getAll(),
                 settingsService.getRules(),
                 sectorService.getAll(),
-                scheduleService.getAllSchedulesInRange(startDate)
+                scheduleService.getAllSchedulesInRange(earliestDate)
             ]);
 
             setRecords(fetchedRecords || []);
@@ -117,7 +121,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     useEffect(() => {
         loadData();
-    }, [initialEmployees]);
+    }, [initialEmployees, selectedDate]);
 
     useEffect(() => {
         const fetchScores = async () => {
