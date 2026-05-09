@@ -277,35 +277,39 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-[3rem] w-full max-w-5xl h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-2xl md:rounded-[3rem] w-full max-w-5xl h-[95vh] md:h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 rounded-[2rem] bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center overflow-hidden shadow-2xl">
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-4 md:p-8 text-white relative">
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-all z-10 md:hidden">
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full md:w-auto">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-[2rem] bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center overflow-hidden shadow-2xl shrink-0">
                 {employee.photo_url ? (
                   <img src={employee.photo_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-12 h-12 text-white/50" />
+                  <User className="w-10 h-10 md:w-12 md:h-12 text-white/50" />
                 )}
               </div>
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md">Legajo Digital</span>
-                  <span className="px-3 py-1 bg-emerald-400/20 text-emerald-300 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-400/30">Activo</span>
+              <div className="text-center md:text-left flex-1 min-w-0">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2">
+                  <span className="px-2 py-0.5 bg-white/20 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md">Legajo Digital</span>
+                  <span className="px-2 py-0.5 bg-emerald-400/20 text-emerald-300 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-400/30">Activo</span>
                 </div>
-                <h2 className="text-4xl font-black tracking-tight">{employee.full_name}</h2>
-                <div className="flex items-center gap-4 mt-2 text-indigo-100 font-bold text-sm">
-                  <span className="flex items-center gap-1"><FileText className="w-4 h-4" /> DNI: {employee.dni}</span>
-                  <span className="w-1 h-1 bg-white/30 rounded-full" />
+                <h2 className="text-2xl md:text-4xl font-black tracking-tight truncate w-full">{employee.full_name}</h2>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 mt-2 text-indigo-100 font-bold text-xs md:text-sm">
+                  <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> DNI: {employee.dni}</span>
+                  <span className="hidden md:block w-1 h-1 bg-white/30 rounded-full" />
                   <span>{employee.role?.toUpperCase()}</span>
                 </div>
               </div>
             </div>
             
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
+              <div className="hidden md:flex items-center gap-2">
                 {!isRestricted && (
                   <button
                     onClick={handleExportPDF}
@@ -319,55 +323,69 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   <X className="w-8 h-8 text-white" />
                 </button>
               </div>
-            <div className="flex items-center gap-3">
-              {scoring && managerRole !== 'encargado' && (
-                <div className={`backdrop-blur-xl p-4 rounded-3xl border text-right min-w-[140px] shadow-xl ${scoring.color}`}>
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-70">Scoring Actual</p>
-                  <p className="text-4xl font-black">{scoring.score}</p>
-                  <p className="text-[8px] font-black uppercase tracking-tighter mt-1 opacity-80">{scoring.label}</p>
-                </div>
+
+              {/* Mobile Export Button */}
+              {!isRestricted && (
+                <button
+                  onClick={handleExportPDF}
+                  className="md:hidden flex items-center justify-center gap-2 w-full px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/20"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar Reporte PDF
+                </button>
               )}
-              <div className="bg-white/10 backdrop-blur-xl p-4 rounded-3xl border border-white/20 text-right min-w-[140px]">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-70 text-white">Saldo de Francos</p>
-                <p className="text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-sm opacity-50 text-white/50">Días</span></p>
+
+              <div className="grid grid-cols-2 md:flex md:items-center gap-3 w-full md:w-auto">
+                {scoring && managerRole !== 'encargado' && (
+                  <div className={`backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border text-center md:text-right min-w-[120px] md:min-w-[140px] shadow-xl ${scoring.color}`}>
+                    <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-70">Scoring Actual</p>
+                    <p className="text-2xl md:text-4xl font-black">{scoring.score}</p>
+                    <p className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter mt-1 opacity-80">{scoring.label}</p>
+                  </div>
+                )}
+                <div className="bg-white/10 backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border border-white/20 text-center md:text-right min-w-[120px] md:min-w-[140px]">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-70 text-white">Saldo de Francos</p>
+                  <p className="text-2xl md:text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-[10px] md:text-sm opacity-50 text-white/50 uppercase">Días</span></p>
+                </div>
               </div>
-            </div>
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-100 px-8 bg-slate-50/50">
-          {[
-            { id: 'stats', label: '📊 Estadísticas', icon: TrendingUp, hidden: isRestricted },
-            { id: 'francos', label: '🏦 Banco de Francos', icon: CreditCard },
-            { id: 'docs', label: '📂 Documentos/Fotos', icon: Camera, hidden: isRestricted },
-          ].filter(t => !t.hidden).map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-5 text-xs font-black uppercase tracking-widest transition-all border-b-4 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
-              <tab.icon className="w-4 h-4" /> {tab.label}
-            </button>
-          ))}
+        <div className="flex border-b border-slate-100 px-4 md:px-8 bg-slate-50/50 overflow-x-auto no-scrollbar">
+          <div className="flex min-w-max">
+            {[
+              { id: 'stats', label: '📊 Estadísticas', icon: TrendingUp, hidden: isRestricted },
+              { id: 'francos', label: '🏦 Banco de Francos', icon: CreditCard },
+              { id: 'docs', label: '📂 Documentos/Fotos', icon: Camera, hidden: isRestricted },
+            ].filter(t => !t.hidden).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all border-b-4 shrink-0 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >
+                <tab.icon className="w-3.5 h-3.5 md:w-4 md:h-4" /> {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/30">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/30">
           
           {activeTab === 'stats' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
               {/* Range Selector */}
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-6 h-6 text-indigo-600" />
-                  <span className="font-black text-slate-700 uppercase text-xs tracking-widest">Rango de Análisis</span>
+              <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <Calendar className="w-5 h-5 md:w-6 md:h-6 text-indigo-600" />
+                  <span className="font-black text-slate-700 uppercase text-[10px] md:text-xs tracking-widest">Rango de Análisis</span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-600 focus:outline-none focus:ring-2 ring-indigo-500/20" />
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                  <input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-600 focus:outline-none focus:ring-2 ring-indigo-500/20" />
+                <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-between md:justify-end">
+                  <input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className="flex-1 md:flex-none px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs md:text-sm text-slate-600 focus:outline-none focus:ring-2 ring-indigo-500/20" />
+                  <ChevronRight className="w-4 h-4 text-slate-300 hidden md:block" />
+                  <input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className="flex-1 md:flex-none px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs md:text-sm text-slate-600 focus:outline-none focus:ring-2 ring-indigo-500/20" />
                 </div>
               </div>
 
@@ -398,9 +416,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                               : `${s.bg} border-slate-100 hover:${s.border}`
                           }`}
                         >
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{s.label}</p>
-                          <p className={`text-3xl font-black ${s.color}`}>{s.val}</p>
-                          {s.val > 0 && <p className="text-[9px] font-bold text-slate-400 mt-1">Ver detalle ↓</p>}
+                          <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{s.label}</p>
+                          <p className={`text-xl md:text-3xl font-black ${s.color}`}>{s.val}</p>
+                          {s.val > 0 && <p className="text-[7px] md:text-[9px] font-bold text-slate-400 mt-1 uppercase">Tocar para detalle</p>}
                         </button>
                       ))}
                     </div>
@@ -538,11 +556,11 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center px-12">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SecureQR HR Management • Confidential</p>
+        <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-3 px-6 md:px-12">
+          <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center md:text-left">SecureQR HR Management • Confidential</p>
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-600" />
-            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Sincronizado con Supabase Cloud</span>
+            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600" />
+            <span className="text-[8px] md:text-[10px] font-black text-indigo-600 uppercase tracking-widest">Sincronizado con Supabase Cloud</span>
           </div>
         </div>
 
