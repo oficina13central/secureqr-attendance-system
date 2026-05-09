@@ -267,7 +267,7 @@ export const attendanceService = {
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
 
-            if (dateStr <= '2026-04-19') continue;
+            if (dateStr <= '2026-03-31') continue;
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
@@ -710,8 +710,8 @@ export const attendanceService = {
         let medicalPenalty = 0;
         
         for (const record of records) {
-            // Ignorar penalidades antes de la fecha de inicio oficial (20 de Abril 2026)
-            if (record.date <= '2026-04-19') continue;
+            // Ignorar penalidades antes de la fecha de inicio oficial (1 de Abril 2026)
+            if (record.date <= '2026-03-31') continue;
 
             if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
             

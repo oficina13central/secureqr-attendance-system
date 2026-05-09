@@ -303,8 +303,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
       });
     }
-    // Filtramos las ausencias generadas en periodo de prueba (antes o en 19 de Abril)
-    return recs.filter(r => !(r.status === 'ausente' && r.date <= '2026-04-19'));
+    // Filtramos las ausencias generadas en periodo de prueba (antes del 1 de Abril)
+    return recs.filter(r => !(r.status === 'ausente' && r.date <= '2026-03-31'));
   }, [records, employees, authorizedSectors]);
 
   const formatTime = (isoString: string | null) => {
@@ -420,7 +420,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else {
-          if (today <= '2026-04-19') return;
+          if (today <= '2026-03-31') return;
 
           // Split shift support: generate records for missing segments
           const segments = shift.segments || [];

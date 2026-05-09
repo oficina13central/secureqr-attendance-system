@@ -478,7 +478,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const empId = emp.id.toLowerCase();
             let monthRecords = records.filter(r => {
                 if (!r.date) return false;
-                if (r.status === 'ausente' && r.date <= '2026-04-19') return false;
+                if (r.status === 'ausente' && r.date <= '2026-03-31') return false;
                 
                 // Safe parsing of YYYY-MM-DD to avoid timezone shifts
                 const [y, m] = r.date.split('-').map(Number);
@@ -509,7 +509,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             monthRecords = removeDuplicateAbsencesCoveredByCheckIns(emp, monthRecords);
 
-            if (isCurrentMonth && todayStr >= '2026-04-20') {
+            if (isCurrentMonth && todayStr >= '2026-04-01') {
                 const todayRecords = monthRecords.filter(r => r.date === todayStr);
                 const shift = getRobustShift(emp, todayStr);
 
