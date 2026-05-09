@@ -80,22 +80,18 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const loadData = async (force: boolean = false) => {
         setLoading(true);
         try {
-            // Calcular el rango de fechas para schedules basado en el mes seleccionado
+            // Calcular el rango del mes seleccionado
             const targetMonth = selectedDate.getMonth();
             const targetYear = selectedDate.getFullYear();
-            const scheduleStartDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
-            
-            // También incluir schedules del mes actual si el mes seleccionado es diferente
-            const today = new Date();
-            const currentMonthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-            const earliestDate = scheduleStartDate < currentMonthStart ? scheduleStartDate : currentMonthStart;
+            const monthStart = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
+            const monthEnd = new Date(targetYear, targetMonth + 1, 0).toISOString().split('T')[0];
 
             const [fetchedRecords, fetchedEmployees, fetchedRules, fetchedSectors, fetchedSchedules] = await Promise.all([
-                attendanceService.getAll(),
+                attendanceService.getByDateRange(monthStart, monthEnd),
                 initialEmployees.length > 0 ? Promise.resolve(initialEmployees) : personnelService.getAll(),
                 settingsService.getRules(),
                 sectorService.getAll(),
-                scheduleService.getAllSchedulesInRange(earliestDate)
+                scheduleService.getAllSchedulesInRange(monthStart, monthEnd)
             ]);
 
             setRecords(fetchedRecords || []);
@@ -103,6 +99,14 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             setRules(fetchedRules || null);
             setSectors(fetchedSectors || []);
             setSchedules(fetchedSchedules || []);
+
+            // Sincronización en segundo plano para el periodo seleccionado
+            if (fetchedEmployees.length > 0) {
+                attendanceService.syncRangeAbsences(fetchedEmployees, monthStart, monthEnd).then(async () => {
+                    const updatedRecords = await attendanceService.getByDateRange(monthStart, monthEnd);
+                    setRecords(updatedRecords);
+                });
+            }
         } catch (error) {
             console.error("Error loading audit data:", error);
         } finally {

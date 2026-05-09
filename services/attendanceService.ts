@@ -29,17 +29,36 @@ export const attendanceService = {
     },
 
     async getByDateRange(startDate: string, endDate: string): Promise<AttendanceRecord[]> {
-        const { data, error } = await supabase
-            .from('attendance_records')
-            .select('*')
-            .gte('date', startDate)
-            .lte('date', endDate);
+        let allRecords: AttendanceRecord[] = [];
+        let page = 0;
+        const limit = 1000;
+        let hasMore = true;
 
-        if (error) {
-            console.error('Error fetching attendance records by range:', error);
-            return [];
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .order('date', { ascending: true })
+                .range(page * limit, (page + 1) * limit - 1);
+
+            if (error) {
+                console.error('Error fetching attendance records by range (page ' + page + '):', error);
+                break;
+            }
+
+            if (data && data.length > 0) {
+                allRecords = [...allRecords, ...data];
+                page++;
+                if (data.length < limit) {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
         }
-        return data || [];
+        return allRecords;
     },
 
     async getAll(): Promise<AttendanceRecord[]> {
@@ -277,13 +296,12 @@ export const attendanceService = {
         return data;
     },
 
-    async syncPastAbsences(employees: Profile[]): Promise<void> {
+    async syncPastAbsences(employees: Profile[], days: number = 7): Promise<void> {
         const today = new Date();
         const rules = await settingsService.getRules();
-        console.log(`Starting syncPastAbsences for ${employees.length} employees...`);
+        console.log(`Starting syncPastAbsences for ${employees.length} employees (${days} days)...`);
         
-        // Sincronizar ausencias de los últimos 60 días para cubrir todo abril y mayo
-        for (let i = 0; i <= 60; i++) {
+        for (let i = 0; i <= days; i++) {
             const checkDate = new Date();
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
@@ -401,6 +419,99 @@ export const attendanceService = {
             }
         }
         console.log(`Finished syncPastAbsences.`);
+    },
+
+    async syncRangeAbsences(employees: Profile[], startDate: string, endDate: string): Promise<void> {
+        const rules = await settingsService.getRules();
+        const start = new Date(startDate + 'T12:00:00');
+        const end = new Date(endDate + 'T12:00:00');
+        const todayStr = getLocalDateString();
+        
+        console.log(`Syncing absences from ${startDate} to ${endDate}...`);
+        
+        let current = new Date(end);
+        while (current >= start) {
+            const dateStr = getLocalDateString(current);
+            if (dateStr < '2026-04-01' || dateStr > todayStr) {
+                current.setDate(current.getDate() - 1);
+                continue;
+            }
+
+            // Mismo bloque que syncPastAbsences pero para dateStr
+            const { data: existingToday } = await supabase
+                .from('attendance_records')
+                .select('id, employee_id, employee_name, check_in, status, manual_reason')
+                .eq('date', dateStr);
+
+            const recordsByEmployeeKey = new Map<string, any[]>();
+            (existingToday || []).forEach(record => {
+                const keys = [
+                    record.employee_id?.toLowerCase().trim(),
+                    record.employee_name?.toLowerCase().trim()
+                ].filter(Boolean);
+                keys.forEach(key => {
+                    const bucket = recordsByEmployeeKey.get(key) || [];
+                    bucket.push(record);
+                    recordsByEmployeeKey.set(key, bucket);
+                });
+            });
+
+            for (const emp of employees) {
+                const empIdNormalized = emp.id.toLowerCase().trim();
+                const empNameNormalized = emp.full_name.toLowerCase().trim();
+                let existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
+
+                const { data: schedule } = await supabase
+                    .from('schedules')
+                    .select('type, segments, date')
+                    .eq('employee_id', emp.id)
+                    .eq('date', dateStr)
+                    .maybeSingle();
+
+                let activeSchedule = schedule;
+                if (!activeSchedule && emp.default_schedule) {
+                    const metadata = emp.default_schedule.metadata;
+                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
+                        const base = emp.default_schedule[current.getDay().toString()];
+                        if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
+                    }
+                }
+
+                if (!activeSchedule || activeSchedule.type === 'off') continue;
+
+                const closedSegmentCount = getClosedSegmentCount(
+                    activeSchedule,
+                    dateStr,
+                    todayStr,
+                    new Date()
+                );
+
+                const status: 'vacaciones' | 'licencia_medica' | null =
+                    activeSchedule.type === 'vacation' ? 'vacaciones' :
+                    activeSchedule.type === 'medical' ? 'licencia_medica' :
+                    null;
+
+                if (status) {
+                    const visualDueCount = getDueRecordCount(activeSchedule, dateStr, todayStr, new Date(), 120);
+                    if (existingEmpRecords.length < visualDueCount) {
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                    }
+                    continue;
+                }
+
+                const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
+                const existingAutoAbsences = existingEmpRecords.filter(r => 
+                    !r.check_in && r.status === 'ausente' && isAutomaticAbsenceReason(r.manual_reason)
+                ).length;
+                
+                const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
+                
+                for (let j = 0; j < missingClosedAbsences; j++) {
+                    await this.recordAbsence(emp.id, emp.full_name, dateStr, 'ausente', AUTO_ABSENCE_REASON);
+                }
+            }
+            current.setDate(current.getDate() - 1);
+        }
     },
 
     async resolveEmployeeId(id: string, name: string): Promise<string | null> {
