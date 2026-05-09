@@ -49,7 +49,12 @@ export const attendanceService = {
             }
 
             if (data && data.length > 0) {
-                allRecords = [...allRecords, ...data];
+                // Filtro de seguridad: ignorar ausencias generadas antes del inicio real (20 de abril)
+                const filtered = data.filter(r => {
+                    const d = r.date.substring(0, 10);
+                    return d >= '2026-04-20' || r.check_in !== null;
+                });
+                allRecords = [...allRecords, ...filtered];
                 page++;
                 if (data.length < limit) {
                     hasMore = false;
@@ -83,7 +88,12 @@ export const attendanceService = {
             }
 
             if (data && data.length > 0) {
-                allRecords = [...allRecords, ...data];
+                // Filtro de seguridad: ignorar ausencias generadas antes del inicio real (20 de abril)
+                const filtered = data.filter(r => {
+                    const d = r.date.substring(0, 10);
+                    return d >= '2026-04-20' || r.check_in !== null;
+                });
+                allRecords = [...allRecords, ...filtered];
                 page++;
                 if (data.length < limit) {
                     hasMore = false;
@@ -227,7 +237,13 @@ export const attendanceService = {
         return data;
     },
 
-    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'descanso' | 'vacaciones'): Promise<AttendanceRecord | null> {
+    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'vacaciones' | 'licencia_medica' = 'ausente', manualReason?: string): Promise<AttendanceRecord | null> {
+        // CANDADO DE SEGURIDAD: No permitir generar ausencias antes de la fecha de inicio real
+        if (date < '2026-04-20') {
+            console.warn(`Intento de generar ausencia bloqueado para fecha pre-operativa: ${date}`);
+            return null;
+        }
+        
         // Verificar si ya existe algún registro para este empleado en esta fecha
         const { data: existingRecords } = await supabase
             .from('attendance_records')
@@ -306,7 +322,7 @@ export const attendanceService = {
             checkDate.setDate(today.getDate() - i);
             const dateStr = getLocalDateString(checkDate);
 
-            if (dateStr <= '2026-03-31') continue;
+            if (dateStr < '2026-04-20' || dateStr > todayStr) continue;
 
             const { data: existingToday } = await supabase
                 .from('attendance_records')
@@ -432,7 +448,7 @@ export const attendanceService = {
         let current = new Date(end);
         while (current >= start) {
             const dateStr = getLocalDateString(current);
-            if (dateStr < '2026-04-01' || dateStr > todayStr) {
+            if (dateStr < '2026-04-20' || dateStr > todayStr) {
                 current.setDate(current.getDate() - 1);
                 continue;
             }
@@ -843,7 +859,7 @@ export const attendanceService = {
         
         for (const record of records) {
             // Ignorar penalidades antes de la fecha de inicio oficial (1 de Abril 2026)
-            if (record.date <= '2026-03-31') continue;
+            if (record.date < '2026-04-20') continue;
 
             if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
             

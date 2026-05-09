@@ -84,7 +84,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          scheduleService.getAllSchedulesInRange('2026-04-01'),
+          scheduleService.getAllSchedulesInRange('2026-04-20'),
           settingsService.getRules()
         ]);
 
@@ -111,7 +111,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
              // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
                attendanceService.getAll(),
-               scheduleService.getAllSchedulesInRange('2026-04-01')
+               scheduleService.getAllSchedulesInRange('2026-04-20')
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules) setSchedules(updatedSchedules);
@@ -303,8 +303,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         return emp && emp.sector_id && authorizedSectors.includes(emp.sector_id);
       });
     }
-    // Filtramos las ausencias generadas en periodo de prueba (antes del 1 de Abril)
-    return recs.filter(r => !(r.status === 'ausente' && r.date <= '2026-03-31'));
+    // Filtramos las ausencias generadas en periodo de prueba (antes del 20 de abril)
+    const baseFiltered = recs.filter(r => !(r.status === 'ausente' && r.date < '2026-04-20'));
+    
+    // Deduplicación: Evitar mostrar múltiples ausencias/fichadas para el mismo empleado el mismo día si son idénticas
+    const unique = new Map<string, any>();
+    baseFiltered.forEach(r => {
+      const key = `${r.employee_id || r.employee_name}_${r.date.substring(0, 10)}_${r.check_in || 'no-in'}`;
+      if (!unique.has(key)) unique.set(key, r);
+    });
+    
+    return Array.from(unique.values());
   }, [records, employees, authorizedSectors]);
 
   const formatTime = (isoString: string | null) => {
@@ -420,7 +429,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             minutes_late: 0
           });
         } else {
-          if (today <= '2026-03-31') return;
+          if (today < '2026-04-20') return;
 
           // Split shift support: generate records for missing segments
           const segments = shift.segments || [];

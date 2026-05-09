@@ -486,7 +486,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const empId = emp.id.toLowerCase();
             let monthRecords = records.filter(r => {
                 if (!r.date) return false;
-                if (r.status === 'ausente' && r.date <= '2026-03-31') return false;
+                if (r.status === 'ausente' && r.date < '2026-04-20') return false;
                 
                 // Safe parsing of YYYY-MM-DD to avoid timezone shifts
                 const [y, m] = r.date.split('-').map(Number);
@@ -517,7 +517,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             monthRecords = removeDuplicateAbsencesCoveredByCheckIns(emp, monthRecords);
 
-            if (isCurrentMonth && todayStr >= '2026-04-01') {
+            if (isCurrentMonth && todayStr >= '2026-04-20') {
                 const todayRecords = monthRecords.filter(r => r.date === todayStr);
                 const shift = getRobustShift(emp, todayStr);
 
@@ -584,9 +584,23 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
-                detailedRecords: (() => {
                     const assignedTimes = buildAssignedTimesByRecordId(emp, monthRecords);
-                    const sorted = [...monthRecords].sort((a, b) => {
+                    
+                    // Deduplicación agresiva: solo un registro por día y horario asignado
+                    const uniqueRecordsMap = new Map<string, any>();
+                    
+                    monthRecords.forEach(r => {
+                        const datePart = r.date.substring(0, 10);
+                        const assignedTime = assignedTimes.get(r.id) || '--:--';
+                        const key = `${datePart}_${assignedTime}`;
+                        
+                        // Priorizar registros con fichada real sobre ausencias
+                        if (!uniqueRecordsMap.has(key) || (r.check_in && !uniqueRecordsMap.get(key).check_in)) {
+                            uniqueRecordsMap.set(key, r);
+                        }
+                    });
+
+                    const sorted = Array.from(uniqueRecordsMap.values()).sort((a, b) => {
                         const timeA = a.date + (a.check_in ? 'T' + a.check_in.split('T')[1] : 'T00:00:00');
                         const timeB = b.date + (b.check_in ? 'T' + b.check_in.split('T')[1] : 'T00:00:00');
                         return timeA.localeCompare(timeB);
