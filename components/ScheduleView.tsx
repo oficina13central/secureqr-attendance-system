@@ -74,6 +74,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const saveInProgressRef = useRef(false);
   const lastCompCreditSyncKeyRef = useRef<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const canReconcileCompRest = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
 
@@ -234,7 +235,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const handleReconcileCompRest = async () => {
-    if (!isCompRestEnabled || reconcilingCompRest) return;
+    if (!isCompRestEnabled || !canReconcileCompRest || reconcilingCompRest) return;
 
     setReconcilingCompRest(true);
     setCompRestSummary(null);
@@ -849,7 +850,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <Download className="w-4 h-4" />
             <span>Resumen Excel</span>
           </button>
-          {isCompRestEnabled && (currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+          {isCompRestEnabled && canReconcileCompRest && (
             <button
               onClick={handleReconcileCompRest}
               disabled={reconcilingCompRest}
