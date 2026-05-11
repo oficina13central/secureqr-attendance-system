@@ -4,6 +4,31 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 const hasDatePassed = (date: string): boolean => date < getLocalDateString();
 
+const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('compensatory_rest_ledger')
+    .select('amount')
+    .eq('employee_id', employeeId);
+
+  if (error) {
+    console.error('Error fetching compensatory rest ledger balance:', error);
+    return false;
+  }
+
+  const balance = (data || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ compensatory_rest_balance: balance })
+    .eq('id', employeeId);
+
+  if (updateError) {
+    console.error('Error syncing compensatory rest balance:', updateError);
+    return false;
+  }
+
+  return true;
+};
+
 const addAutomaticCreditIfMissing = async (
   employeeId: string,
   date: string,
@@ -19,7 +44,7 @@ const addAutomaticCreditIfMissing = async (
     .ilike('reason', `%(${date})`)
     .limit(1);
 
-  if (data && data.length > 0) return false;
+  if (data && data.length > 0) return syncBalanceFromLedger(employeeId);
 
   const { error } = await supabase
     .from('compensatory_rest_ledger')
@@ -31,7 +56,12 @@ const addAutomaticCreditIfMissing = async (
       manager_name: managerName
     }]);
 
-  return !error;
+  if (error) {
+    console.error('Error creating automatic compensatory rest credit:', error);
+    return false;
+  }
+
+  return syncBalanceFromLedger(employeeId);
 };
 
 const hasWorkedOnDate = async (employeeId: string, employeeName: string, date: string): Promise<boolean> => {
@@ -83,7 +113,8 @@ export const compensatoryRestService = {
       .from('compensatory_rest_ledger')
       .insert([log]);
 
-    return !error;
+    if (error) return false;
+    return syncBalanceFromLedger(log.employee_id);
   },
 
   async getHolidays(): Promise<Holiday[]> {
