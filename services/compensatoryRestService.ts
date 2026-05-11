@@ -57,11 +57,22 @@ const createEmptySummary = (): CompRestReconcileSummary => ({
 const normalizeIdentity = (value?: string | null): string =>
   (value || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
+const normalizeSearchText = (value?: string | null): string =>
+  normalizeIdentity(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
 const normalizeDate = (value?: string | null): string => (value || '').substring(0, 10);
 
 const extractDateFromReason = (reason?: string | null): string | null => {
   const match = (reason || '').match(/(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : null;
+};
+
+const getAutomaticCreditDateFromReason = (reason?: string | null): string | null => {
+  const normalizedReason = normalizeSearchText(reason);
+  if (!normalizedReason.includes('credito automatico')) return null;
+  return extractDateFromReason(reason);
 };
 
 const shouldCountLedgerRow = (row: { type?: string | null; reason?: string | null }): boolean => {
@@ -170,10 +181,22 @@ const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
     return false;
   }
 
-  const balance = (data || []).reduce(
-    (sum, row) => shouldCountLedgerRow(row) ? sum + (Number(row.amount) || 0) : sum,
-    0
-  );
+  const countedAutomaticCredits = new Set<string>();
+  const balance = (data || []).reduce((sum, row) => {
+    if (!shouldCountLedgerRow(row)) return sum;
+
+    const amount = Number(row.amount) || 0;
+    const automaticCreditDate = amount > 0 && row.type === 'credit'
+      ? getAutomaticCreditDateFromReason(row.reason)
+      : null;
+
+    if (automaticCreditDate) {
+      if (countedAutomaticCredits.has(automaticCreditDate)) return sum;
+      countedAutomaticCredits.add(automaticCreditDate);
+    }
+
+    return sum + amount;
+  }, 0);
   const { error: updateError } = await supabase
     .from('profiles')
     .update({ compensatory_rest_balance: balance })
@@ -243,14 +266,15 @@ const addAutomaticCreditIfMissing = async (
 ): Promise<boolean> => {
   const { data } = await supabase
     .from('compensatory_rest_ledger')
-    .select('id')
+    .select('id, reason')
     .eq('employee_id', employeeId)
     .eq('amount', 1)
     .eq('type', 'credit')
-    .ilike('reason', `%(${date})`)
-    .limit(1);
+    .ilike('reason', `%${date}%`);
 
-  if (data && data.length > 0) return syncBalanceFromLedger(employeeId);
+  if ((data || []).some(log => getAutomaticCreditDateFromReason(log.reason) === date)) {
+    return syncBalanceFromLedger(employeeId);
+  }
 
   const { error } = await supabase
     .from('compensatory_rest_ledger')
@@ -311,16 +335,31 @@ const buildExistingAutomaticCreditSet = (logs: Array<{ employee_id: string; reas
   const set = new Set<string>();
 
   logs.forEach(log => {
-    const reason = log.reason || '';
-    if (!normalizeIdentity(reason).includes('automatic')) return;
+    const date = getAutomaticCreditDateFromReason(log.reason);
+    if (!date) return;
 
-    const match = reason.match(/\((\d{4}-\d{2}-\d{2})\)/);
-    if (!match) return;
-
-    set.add(`${log.employee_id}_${match[1]}`);
+    set.add(`${log.employee_id}_${date}`);
   });
 
   return set;
+};
+
+const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): CompensatoryRestLog[] => {
+  const seenAutomaticCredits = new Set<string>();
+
+  return logs.filter(log => {
+    const amount = Number(log.amount) || 0;
+    const automaticCreditDate = amount > 0 && log.type === 'credit'
+      ? getAutomaticCreditDateFromReason(log.reason)
+      : null;
+
+    if (!automaticCreditDate) return true;
+
+    const key = `${log.employee_id}_${automaticCreditDate}`;
+    if (seenAutomaticCredits.has(key)) return false;
+    seenAutomaticCredits.add(key);
+    return true;
+  });
 };
 
 const addSkippedDetail = (
@@ -359,7 +398,7 @@ export const compensatoryRestService = {
       .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
 
-    return data || [];
+    return filterDuplicateAutomaticCreditLogs(data || []);
   },
 
   async addLog(log: Omit<CompensatoryRestLog, 'id' | 'created_at'>): Promise<boolean> {
