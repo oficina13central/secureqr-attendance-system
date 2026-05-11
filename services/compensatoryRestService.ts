@@ -4,6 +4,9 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 const hasDatePassed = (date: string): boolean => date < getLocalDateString();
 
+const normalizeIdentity = (value?: string | null): string =>
+  (value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
 const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('compensatory_rest_ledger')
@@ -27,6 +30,37 @@ const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
   }
 
   return true;
+};
+
+const hasWorkedOnDate = async (
+  employeeId: string,
+  employeeName: string | null | undefined,
+  employeeDni: string | null | undefined,
+  date: string
+): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('employee_id, employee_name')
+    .eq('date', date)
+    .not('check_in', 'is', null)
+    .limit(100);
+
+  if (error) {
+    console.error('Error checking compensatory rest attendance evidence:', error);
+    return false;
+  }
+
+  const validIds = new Set(
+    [employeeId, employeeDni]
+      .map(normalizeIdentity)
+      .filter(Boolean)
+  );
+  const normalizedName = normalizeIdentity(employeeName);
+
+  return (data || []).some(record =>
+    validIds.has(normalizeIdentity(record.employee_id)) ||
+    normalizeIdentity(record.employee_name) === normalizedName
+  );
 };
 
 const addAutomaticCreditIfMissing = async (
@@ -129,7 +163,7 @@ export const compensatoryRestService = {
 
     const { data: emp } = await supabase
       .from('profiles')
-      .select('employment_type')
+      .select('employment_type, full_name, dni')
       .eq('id', employeeId)
       .single();
     if (emp?.employment_type === 'jornalero') return false;
@@ -149,6 +183,7 @@ export const compensatoryRestService = {
 
       if (isNextDayRestricted && segments && segments.length > 0) {
         if (!hasDatePassed(nextDayStr)) return false;
+        if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
 
         const lastSegment = segments[segments.length - 1];
         if (lastSegment.end) {
@@ -166,6 +201,7 @@ export const compensatoryRestService = {
     }
 
     if (!hasDatePassed(date)) return false;
+    if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
 
     if (segments && segments.length > 0) {
       const firstSegment = segments[0];
