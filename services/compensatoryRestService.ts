@@ -38,10 +38,15 @@ const hasWorkedOnDate = async (
   employeeDni: string | null | undefined,
   date: string
 ): Promise<boolean> => {
+  const nextDate = new Date(`${date}T12:00:00`);
+  nextDate.setDate(nextDate.getDate() + 1);
+  const nextDateStr = getLocalDateString(nextDate);
+
   const { data, error } = await supabase
     .from('attendance_records')
-    .select('employee_id, employee_name')
-    .eq('date', date)
+    .select('date, employee_id, employee_name')
+    .gte('date', date)
+    .lt('date', nextDateStr)
     .not('check_in', 'is', null)
     .limit(100);
 
@@ -58,8 +63,11 @@ const hasWorkedOnDate = async (
   const normalizedName = normalizeIdentity(employeeName);
 
   return (data || []).some(record =>
-    validIds.has(normalizeIdentity(record.employee_id)) ||
-    normalizeIdentity(record.employee_name) === normalizedName
+    record.date?.substring(0, 10) === date &&
+    (
+      validIds.has(normalizeIdentity(record.employee_id)) ||
+      normalizeIdentity(record.employee_name) === normalizedName
+    )
   );
 };
 
