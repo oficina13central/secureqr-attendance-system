@@ -25,10 +25,12 @@ import { getLocalDateString } from '../utils/dateUtils';
 import { compensatoryRestService } from '../services/compensatoryRestService';
 import { settingsService } from '../services/settingsService';
 import { attendanceService } from '../services/attendanceService';
+import { personnelService } from '../services/personnelService';
 import EmployeeFileModal from './EmployeeFileModal';
 
 interface ScheduleViewProps {
   employees?: Profile[];
+  setEmployees?: React.Dispatch<React.SetStateAction<Profile[]>>;
   currentUser?: Profile;
 }
 
@@ -56,6 +58,7 @@ const addDays = (date: Date, days: number) => {
 
 const ScheduleView: React.FC<ScheduleViewProps> = ({
   employees = defaultEmployees,
+  setEmployees,
   currentUser = defaultUser
 }) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
@@ -67,6 +70,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
   const [saving, setSaving] = useState(false);
   const saveInProgressRef = useRef(false);
+  const lastCompCreditSyncKeyRef = useRef<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
@@ -101,6 +105,55 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     };
     fetchShifts();
   }, [currentWeekStart]);
+
+  useEffect(() => {
+    if (!isCompRestEnabled) return;
+
+    const shiftCount = Object.keys(shifts).length;
+    const weekKey = `${formatDate(currentWeekStart)}_${shiftCount}_${employees.length}`;
+    if (lastCompCreditSyncKeyRef.current === weekKey) return;
+
+    const syncMissingCompCredits = async () => {
+      const weekShifts = [...Object.values(shifts)];
+
+      employees.forEach(emp => {
+        for (let i = 0; i < 7; i++) {
+          const date = addDays(currentWeekStart, i);
+          const dateKey = formatDate(date);
+          const shiftKey = `${emp.id}_${dateKey}`;
+          if (shifts[shiftKey]) continue;
+
+          const base = emp.default_schedule?.[date.getDay().toString()];
+          if (base) {
+            weekShifts.push({
+              id: shiftKey,
+              employee_id: emp.id,
+              date: dateKey,
+              type: base.type,
+              segments: base.segments || [],
+              last_modified_by: 'Horario base',
+              last_modified_at: ''
+            });
+          }
+        }
+      });
+
+      if (weekShifts.length === 0) return;
+
+      lastCompCreditSyncKeyRef.current = weekKey;
+      const created = await compensatoryRestService.syncAutomaticCreditsForSchedules(
+        weekShifts,
+        currentUser.full_name || 'System Auto'
+      );
+
+      if (created > 0 && setEmployees) {
+        const updatedEmployees = await personnelService.getAll();
+        setEmployees(updatedEmployees);
+      }
+    };
+
+    void syncMissingCompCredits();
+  }, [currentWeekStart, currentUser.full_name, employees, isCompRestEnabled, setEmployees, shifts]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<{ empId: string; date: Date; empName: string } | null>(null);
@@ -405,6 +458,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     setSaving(true);
     setMessage(null);
     let savedSuccessfully = false;
+    let createdCompCredit = false;
 
     try {
       const now = new Date();
@@ -495,7 +549,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           }
 
           // 2. Manejo de Crédito Automático (+1) - Regla de Oro
-          await compensatoryRestService.processAutomaticCredit(
+          createdCompCredit = await compensatoryRestService.processAutomaticCredit(
             selectedTarget.empId,
             dateKey,
             editForm.type,
@@ -510,6 +564,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         const newShiftsMap = { ...shifts };
         savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
         setShifts(newShiftsMap);
+
+        if (createdCompCredit && setEmployees) {
+          const updatedEmployees = await personnelService.getAll();
+          setEmployees(updatedEmployees);
+        }
 
         await auditService.logAction({
           manager_name: currentUser.full_name || 'Admin',
@@ -583,7 +642,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     // Definición de estilos dinámicos
-    const getShiftStyles = (theme: 'amber' | 'indigo' | 'emerald' | 'red' | 'slate') => {
+    const getShiftStyles = (theme: 'amber' | 'indigo' | 'emerald' | 'red' | 'slate' | 'violet' | 'zinc') => {
       const colors = {
         amber: "bg-amber-100/80 text-amber-700 border-amber-200",
         indigo: "bg-indigo-100/80 text-indigo-700 border-indigo-200",

@@ -266,14 +266,14 @@ const App: React.FC = () => {
         return <MyCredentialView user={currentUser} />;
       }
       // Si ni eso, mostramos su cronograma (segurización máxima)
-      return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
+      return <ScheduleView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
     }
 
     // 5. Renderizado seguro de componentes
     switch (adminSubView) {
       case 'dashboard': return <AdminDashboard currentUser={currentUser!} />;
       case 'audit_personnel': return <PersonnelAudit employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
-      case 'schedule': return <ScheduleView employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
+      case 'schedule': return <ScheduleView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'audit': return <AuditView />;
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;

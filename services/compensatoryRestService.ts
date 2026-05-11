@@ -9,7 +9,7 @@ const addAutomaticCreditIfMissing = async (
   date: string,
   reason: string,
   managerName: string
-): Promise<void> => {
+): Promise<boolean> => {
   const { data } = await supabase
     .from('compensatory_rest_ledger')
     .select('id')
@@ -19,9 +19,9 @@ const addAutomaticCreditIfMissing = async (
     .ilike('reason', `%(${date})`)
     .limit(1);
 
-  if (data && data.length > 0) return;
+  if (data && data.length > 0) return false;
 
-  await supabase
+  const { error } = await supabase
     .from('compensatory_rest_ledger')
     .insert([{
       employee_id: employeeId,
@@ -30,6 +30,25 @@ const addAutomaticCreditIfMissing = async (
       reason,
       manager_name: managerName
     }]);
+
+  return !error;
+};
+
+const hasWorkedOnDate = async (employeeId: string, date: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('id')
+    .eq('employee_id', employeeId)
+    .eq('date', date)
+    .not('check_in', 'is', null)
+    .limit(1);
+
+  if (error) {
+    console.error('Error checking compensatory rest attendance evidence:', error);
+    return false;
+  }
+
+  return (data || []).length > 0;
 };
 
 export const compensatoryRestService = {
@@ -91,15 +110,15 @@ export const compensatoryRestService = {
     shiftType: string,
     segments: any[],
     managerName: string = 'System Auto'
-  ): Promise<void> {
-    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension') return;
+  ): Promise<boolean> {
+    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension') return false;
 
     const { data: emp } = await supabase
       .from('profiles')
       .select('employment_type')
       .eq('id', employeeId)
       .single();
-    if (emp?.employment_type === 'jornalero') return;
+    if (emp?.employment_type === 'jornalero') return false;
 
     const holidays = await this.getHolidays();
     const holidayDates = holidays.map(h => h.date);
@@ -115,7 +134,8 @@ export const compensatoryRestService = {
       const isNextDayRestricted = nextDay.getDay() === 0 || holidayDates.includes(nextDayStr);
 
       if (isNextDayRestricted && segments && segments.length > 0) {
-        if (!hasDatePassed(nextDayStr)) return;
+        if (!hasDatePassed(nextDayStr)) return false;
+        if (!(await hasWorkedOnDate(employeeId, date))) return false;
 
         const lastSegment = segments[segments.length - 1];
         if (lastSegment.end) {
@@ -124,25 +144,49 @@ export const compensatoryRestService = {
             const [sh] = lastSegment.start.split(':').map(Number);
             if (h < sh || h >= 3) {
               const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
-              await addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
+              return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
             }
           }
         }
       }
-      return;
+      return false;
     }
 
-    if (!hasDatePassed(date)) return;
+    if (!hasDatePassed(date)) return false;
+    if (!(await hasWorkedOnDate(employeeId, date))) return false;
 
     if (segments && segments.length > 0) {
       const firstSegment = segments[0];
       const [sh] = firstSegment.start.split(':').map(Number);
 
-      if (sh >= 19) return;
+      if (sh >= 19) return false;
 
       const reason = `Credito automatico: Trabajo en ${isHoliday ? 'Feriado' : 'Domingo'} (${date})`;
-      await addAutomaticCreditIfMissing(employeeId, date, reason, managerName);
+      return addAutomaticCreditIfMissing(employeeId, date, reason, managerName);
     }
+
+    return false;
+  },
+
+  async syncAutomaticCreditsForSchedules(
+    schedules: Array<{ employee_id: string; date: string; type: string; segments: any[] }>,
+    managerName: string = 'System Auto'
+  ): Promise<number> {
+    let created = 0;
+
+    for (const schedule of schedules) {
+      const didCreate = await this.processAutomaticCredit(
+        schedule.employee_id,
+        schedule.date,
+        schedule.type,
+        schedule.segments || [],
+        managerName
+      );
+
+      if (didCreate) created++;
+    }
+
+    return created;
   },
 
   async payRestDays(employeeId: string, amount: number, managerName: string, reason: string): Promise<boolean> {
