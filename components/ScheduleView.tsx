@@ -545,21 +545,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
           // 1. Manejo de Consumo (-1)
           if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
-            await compensatoryRestService.addLog({
-              employee_id: selectedTarget.empId,
-              amount: -1,
-              type: 'usage',
-              reason: `Uso de franco compensatorio el día ${dateKey}`,
-              manager_name: currentUser.full_name || 'Admin'
-            });
+            await compensatoryRestService.addCompensatoryUsageIfDue(
+              selectedTarget.empId,
+              dateKey,
+              currentUser.full_name || 'Admin'
+            );
           } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
-            await compensatoryRestService.addLog({
-              employee_id: selectedTarget.empId,
-              amount: 1,
-              type: 'adjustment',
-              reason: `Cancelación de franco compensatorio del día ${dateKey}`,
-              manager_name: currentUser.full_name || 'Admin'
-            });
+            await compensatoryRestService.reverseCompensatoryUsageIfApplied(
+              selectedTarget.empId,
+              dateKey,
+              currentUser.full_name || 'Admin'
+            );
           }
 
           // 2. Manejo de Crédito Automático (+1) - Regla de Oro

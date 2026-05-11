@@ -59,6 +59,18 @@ const normalizeIdentity = (value?: string | null): string =>
 
 const normalizeDate = (value?: string | null): string => (value || '').substring(0, 10);
 
+const extractDateFromReason = (reason?: string | null): string | null => {
+  const match = (reason || '').match(/(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+};
+
+const shouldCountLedgerRow = (row: { type?: string | null; reason?: string | null }): boolean => {
+  if (row.type !== 'usage') return true;
+  const usageDate = extractDateFromReason(row.reason);
+  if (!usageDate) return true;
+  return usageDate <= getLocalDateString();
+};
+
 const addDaysToDateString = (date: string, days: number): string => {
   const d = new Date(`${date}T12:00:00`);
   d.setDate(d.getDate() + days);
@@ -150,7 +162,7 @@ const fetchPaged = async <T>(
 const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('compensatory_rest_ledger')
-    .select('amount')
+    .select('amount, type, reason')
     .eq('employee_id', employeeId);
 
   if (error) {
@@ -158,7 +170,10 @@ const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
     return false;
   }
 
-  const balance = (data || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  const balance = (data || []).reduce(
+    (sum, row) => shouldCountLedgerRow(row) ? sum + (Number(row.amount) || 0) : sum,
+    0
+  );
   const { error: updateError } = await supabase
     .from('profiles')
     .update({ compensatory_rest_balance: balance })
@@ -255,6 +270,43 @@ const addAutomaticCreditIfMissing = async (
   return syncBalanceFromLedger(employeeId);
 };
 
+const hasUsageForDate = async (employeeId: string, date: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('compensatory_rest_ledger')
+    .select('id')
+    .eq('employee_id', employeeId)
+    .eq('amount', -1)
+    .eq('type', 'usage')
+    .ilike('reason', `%${date}%`)
+    .limit(1);
+
+  if (error) {
+    console.error('Error checking compensatory rest usage:', error);
+    return false;
+  }
+
+  return !!data && data.length > 0;
+};
+
+const hasUsageCancellationForDate = async (employeeId: string, date: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('compensatory_rest_ledger')
+    .select('id')
+    .eq('employee_id', employeeId)
+    .eq('amount', 1)
+    .eq('type', 'adjustment')
+    .ilike('reason', `%${date}%`)
+    .ilike('reason', '%Cancelación%')
+    .limit(1);
+
+  if (error) {
+    console.error('Error checking compensatory rest usage cancellation:', error);
+    return false;
+  }
+
+  return !!data && data.length > 0;
+};
+
 const buildExistingAutomaticCreditSet = (logs: Array<{ employee_id: string; reason?: string | null }>) => {
   const set = new Set<string>();
 
@@ -317,6 +369,55 @@ export const compensatoryRestService = {
 
     if (error) return false;
     return syncBalanceFromLedger(log.employee_id);
+  },
+
+  async addCompensatoryUsageIfDue(
+    employeeId: string,
+    date: string,
+    managerName: string = 'System Auto'
+  ): Promise<boolean> {
+    if (date > getLocalDateString()) {
+      await syncBalanceFromLedger(employeeId);
+      return false;
+    }
+
+    if (await hasUsageForDate(employeeId, date)) {
+      await syncBalanceFromLedger(employeeId);
+      return false;
+    }
+
+    return this.addLog({
+      employee_id: employeeId,
+      amount: -1,
+      type: 'usage',
+      reason: `Uso de franco compensatorio el día ${date}`,
+      manager_name: managerName
+    });
+  },
+
+  async reverseCompensatoryUsageIfApplied(
+    employeeId: string,
+    date: string,
+    managerName: string = 'System Auto'
+  ): Promise<boolean> {
+    const hasUsage = await hasUsageForDate(employeeId, date);
+    if (!hasUsage) {
+      await syncBalanceFromLedger(employeeId);
+      return false;
+    }
+
+    if (await hasUsageCancellationForDate(employeeId, date)) {
+      await syncBalanceFromLedger(employeeId);
+      return false;
+    }
+
+    return this.addLog({
+      employee_id: employeeId,
+      amount: 1,
+      type: 'adjustment',
+      reason: `Cancelación de franco compensatorio del día ${date}`,
+      manager_name: managerName
+    });
   },
 
   async getHolidays(): Promise<Holiday[]> {
@@ -515,6 +616,12 @@ export const compensatoryRestService = {
               : null;
 
           if (!effectiveShift) continue;
+
+          if (effectiveShift.type === 'compensatory') {
+            const used = await this.addCompensatoryUsageIfDue(employee.id, date, managerName);
+            if (used || date <= getLocalDateString()) affectedEmployees.add(employee.id);
+            continue;
+          }
 
           const creditDate = getShiftCreditDate(effectiveShift, holidayDates);
           if (!creditDate || !rangeDateSet.has(creditDate)) continue;

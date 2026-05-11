@@ -42,6 +42,12 @@ No debe sumar credito si:
 - La fecha aun no paso.
 - Ya se acredito antes esa misma fecha.
 
+Regla de consumo de Franco C.:
+
+- Asignar un Franco C. a una fecha futura no debe descontar saldo en el momento de la carga.
+- El descuento se aplica cuando la fecha del Franco C. llega o ya paso.
+- Si existiera un movimiento de uso cargado prematuramente para una fecha futura, el saldo efectivo debe ignorarlo hasta que llegue esa fecha.
+
 Regla nocturna especial:
 
 - Si el turno empieza el sabado desde las 19:00 y termina el domingo, corresponde 1 franco compensatorio porque parte de la jornada cae en domingo.
