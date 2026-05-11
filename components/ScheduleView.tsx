@@ -22,7 +22,7 @@ import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
-import { compensatoryRestService } from '../services/compensatoryRestService';
+import { compensatoryRestService, CompRestReconcileSummary } from '../services/compensatoryRestService';
 import { settingsService } from '../services/settingsService';
 import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
@@ -69,6 +69,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
   const [saving, setSaving] = useState(false);
+  const [reconcilingCompRest, setReconcilingCompRest] = useState(false);
+  const [compRestSummary, setCompRestSummary] = useState<CompRestReconcileSummary | null>(null);
   const saveInProgressRef = useRef(false);
   const lastCompCreditSyncKeyRef = useRef<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -110,50 +112,27 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (!isCompRestEnabled) return;
 
     const shiftCount = Object.keys(shifts).length;
-    const weekKey = `${formatDate(currentWeekStart)}_${shiftCount}_${employees.length}`;
+    const startDate = formatDate(currentWeekStart);
+    const endDate = formatDate(addDays(currentWeekStart, 6));
+    const weekKey = `${startDate}_${endDate}_${shiftCount}`;
     if (lastCompCreditSyncKeyRef.current === weekKey) return;
 
     const syncMissingCompCredits = async () => {
-      const weekShifts = [...Object.values(shifts)];
-
-      employees.forEach(emp => {
-        for (let i = 0; i < 7; i++) {
-          const date = addDays(currentWeekStart, i);
-          const dateKey = formatDate(date);
-          const shiftKey = `${emp.id}_${dateKey}`;
-          if (shifts[shiftKey]) continue;
-
-          const base = emp.default_schedule?.[date.getDay().toString()];
-          if (base) {
-            weekShifts.push({
-              id: shiftKey,
-              employee_id: emp.id,
-              date: dateKey,
-              type: base.type,
-              segments: base.segments || [],
-              last_modified_by: 'Horario base',
-              last_modified_at: ''
-            });
-          }
-        }
-      });
-
-      if (weekShifts.length === 0) return;
-
       lastCompCreditSyncKeyRef.current = weekKey;
-      const created = await compensatoryRestService.syncAutomaticCreditsForSchedules(
-        weekShifts,
+      const summary = await compensatoryRestService.reconcileCompensatoryCredits(
+        startDate,
+        endDate,
         currentUser.full_name || 'System Auto'
       );
 
-      if (created > 0 && setEmployees) {
+      if ((summary.created > 0 || summary.existing > 0) && setEmployees) {
         const updatedEmployees = await personnelService.getAll();
         setEmployees(updatedEmployees);
       }
     };
 
     void syncMissingCompCredits();
-  }, [currentWeekStart, currentUser.full_name, employees, isCompRestEnabled, setEmployees, shifts]);
+  }, [currentWeekStart, currentUser.full_name, isCompRestEnabled, setEmployees, shifts]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<{ empId: string; date: Date; empName: string } | null>(null);
@@ -252,6 +231,41 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleReconcileCompRest = async () => {
+    if (!isCompRestEnabled || reconcilingCompRest) return;
+
+    setReconcilingCompRest(true);
+    setCompRestSummary(null);
+    setMessage(null);
+
+    const startDate = formatDate(currentWeekStart);
+    const endDate = formatDate(addDays(currentWeekStart, 6));
+
+    try {
+      const summary = await compensatoryRestService.reconcileCompensatoryCredits(
+        startDate,
+        endDate,
+        currentUser.full_name || 'Admin'
+      );
+
+      setCompRestSummary(summary);
+      if (setEmployees) {
+        const updatedEmployees = await personnelService.getAll();
+        setEmployees(updatedEmployees);
+      }
+
+      setMessage({
+        text: `Francos recalculados: ${summary.created} acreditados, ${summary.existing} existentes, ${Object.values(summary.skipped).reduce((sum, value) => sum + value, 0)} omitidos.`,
+        type: summary.errors > 0 ? 'error' : 'success'
+      });
+    } catch (error: any) {
+      console.error('Error reconciling compensatory rest credits:', error);
+      setMessage({ text: `Error al recalcular francos: ${error.message || 'intente nuevamente'}`, type: 'error' });
+    } finally {
+      setReconcilingCompRest(false);
+    }
   };
 
   const escapeXml = (value: unknown) => String(value ?? '')
@@ -839,8 +853,38 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <Download className="w-4 h-4" />
             <span>Resumen Excel</span>
           </button>
+          {isCompRestEnabled && (currentUser.role === 'administrador' || currentUser.role === 'superusuario') && (
+            <button
+              onClick={handleReconcileCompRest}
+              disabled={reconcilingCompRest}
+              className="flex items-center space-x-2 px-6 py-3 bg-violet-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-violet-700 disabled:opacity-60 disabled:cursor-wait transition-all shadow-lg no-print"
+            >
+              <History className="w-4 h-4" />
+              <span>{reconcilingCompRest ? 'Recalculando...' : 'Recalcular Francos'}</span>
+            </button>
+          )}
         </div>
       </header>
+
+      {compRestSummary && (
+        <div className="no-print mb-4 bg-white border border-violet-100 rounded-2xl shadow-sm p-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-black uppercase tracking-widest text-violet-600">Resumen de francos</span>
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg">Acreditados: {compRestSummary.created}</span>
+            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg">Ya existentes: {compRestSummary.existing}</span>
+            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-lg">Sin fichada: {compRestSummary.skipped.no_attendance}</span>
+            <span className="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1 rounded-lg">Jornaleros: {compRestSummary.skipped.jornalero}</span>
+            {compRestSummary.errors > 0 && (
+              <span className="text-xs font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg">Errores: {compRestSummary.errors}</span>
+            )}
+          </div>
+          {compRestSummary.details.length > 0 && (
+            <p className="text-xs text-slate-500 font-medium">
+              Ultimos movimientos: {compRestSummary.details.slice(0, 5).map(d => `${d.employee_name} ${d.date}: ${d.reason}`).join(' | ')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── PRINT STYLES ── */}
       <style>{`
