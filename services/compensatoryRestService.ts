@@ -64,28 +64,6 @@ const addAutomaticCreditIfMissing = async (
   return syncBalanceFromLedger(employeeId);
 };
 
-const hasWorkedOnDate = async (employeeId: string, employeeName: string, date: string): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from('attendance_records')
-    .select('id, employee_id, employee_name')
-    .eq('date', date)
-    .not('check_in', 'is', null)
-    .limit(50);
-
-  if (error) {
-    console.error('Error checking compensatory rest attendance evidence:', error);
-    return false;
-  }
-
-  const normalizedId = employeeId.toLowerCase().trim();
-  const normalizedName = employeeName.toLowerCase().trim();
-
-  return (data || []).some(record =>
-    record.employee_id?.toLowerCase().trim() === normalizedId ||
-    record.employee_name?.toLowerCase().trim() === normalizedName
-  );
-};
-
 export const compensatoryRestService = {
   async getBalance(employeeId: string): Promise<number> {
     const { data, error } = await supabase
@@ -151,11 +129,10 @@ export const compensatoryRestService = {
 
     const { data: emp } = await supabase
       .from('profiles')
-      .select('employment_type, full_name')
+      .select('employment_type')
       .eq('id', employeeId)
       .single();
     if (emp?.employment_type === 'jornalero') return false;
-    const employeeName = emp?.full_name || '';
 
     const holidays = await this.getHolidays();
     const holidayDates = holidays.map(h => h.date);
@@ -172,7 +149,6 @@ export const compensatoryRestService = {
 
       if (isNextDayRestricted && segments && segments.length > 0) {
         if (!hasDatePassed(nextDayStr)) return false;
-        if (!(await hasWorkedOnDate(employeeId, employeeName, date))) return false;
 
         const lastSegment = segments[segments.length - 1];
         if (lastSegment.end) {
@@ -190,7 +166,6 @@ export const compensatoryRestService = {
     }
 
     if (!hasDatePassed(date)) return false;
-    if (!(await hasWorkedOnDate(employeeId, employeeName, date))) return false;
 
     if (segments && segments.length > 0) {
       const firstSegment = segments[0];
