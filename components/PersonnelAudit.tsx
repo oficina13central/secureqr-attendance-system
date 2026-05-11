@@ -584,6 +584,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 lostPresentismo,
                 presents: onTime + late + severeLate,
                 compliance: complianceScore,
+                detailedRecords: (() => {
                     const assignedTimes = buildAssignedTimesByRecordId(emp, monthRecords);
                     
                     // Deduplicación agresiva: solo un registro por día y horario asignado
