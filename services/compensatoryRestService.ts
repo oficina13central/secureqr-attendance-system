@@ -42,19 +42,6 @@ const hasWorkedOnDate = async (
   nextDate.setDate(nextDate.getDate() + 1);
   const nextDateStr = getLocalDateString(nextDate);
 
-  const { data, error } = await supabase
-    .from('attendance_records')
-    .select('date, employee_id, employee_name')
-    .gte('date', date)
-    .lt('date', nextDateStr)
-    .not('check_in', 'is', null)
-    .limit(100);
-
-  if (error) {
-    console.error('Error checking compensatory rest attendance evidence:', error);
-    return false;
-  }
-
   const validIds = new Set(
     [employeeId, employeeDni]
       .map(normalizeIdentity)
@@ -62,13 +49,35 @@ const hasWorkedOnDate = async (
   );
   const normalizedName = normalizeIdentity(employeeName);
 
-  return (data || []).some(record =>
-    record.date?.substring(0, 10) === date &&
-    (
-      validIds.has(normalizeIdentity(record.employee_id)) ||
-      normalizeIdentity(record.employee_name) === normalizedName
-    )
-  );
+  let page = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('date, employee_id, employee_name')
+      .gte('date', date)
+      .lt('date', nextDateStr)
+      .not('check_in', 'is', null)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error) {
+      console.error('Error checking compensatory rest attendance evidence:', error);
+      return false;
+    }
+
+    const hasMatch = (data || []).some(record =>
+      record.date?.substring(0, 10) === date &&
+      (
+        validIds.has(normalizeIdentity(record.employee_id)) ||
+        normalizeIdentity(record.employee_name) === normalizedName
+      )
+    );
+
+    if (hasMatch) return true;
+    if (!data || data.length < pageSize) return false;
+    page++;
+  }
 };
 
 const addAutomaticCreditIfMissing = async (
