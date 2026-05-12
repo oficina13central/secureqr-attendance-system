@@ -130,15 +130,12 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     useEffect(() => {
         const fetchScores = async () => {
             if (employees.length === 0) return;
-            const scoresMap: Record<string, any> = {};
-            await Promise.all(employees.map(async (emp) => {
-                const s = await attendanceService.calculateScoring(emp.id);
-                scoresMap[emp.id] = s;
-            }));
+            const employeeIds = employees.map(emp => emp.id);
+            const scoresMap = await attendanceService.calculateBulkScoring(employeeIds);
             setScoringData(scoresMap);
         };
         fetchScores();
-    }, [employees, records]);
+    }, [employees]);
 
     useEffect(() => {
         const handleToggleView = (e: any) => {

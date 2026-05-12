@@ -838,91 +838,86 @@ export const attendanceService = {
     },
 
     async calculateScoring(employeeId: string): Promise<{ score: number, category: number, label: string, color: string }> {
+        const results = await this.calculateBulkScoring([employeeId]);
+        return results[employeeId] || { score: 999, category: 0, label: 'Clase 0 (Altamente Puntual)', color: 'bg-purple-100 text-purple-700 border-purple-200' };
+    },
+
+    async calculateBulkScoring(employeeIds: string[]): Promise<Record<string, { score: number, category: number, label: string, color: string }>> {
+        if (employeeIds.length === 0) return {};
+
         const now = new Date();
         const pastDate = new Date();
         pastDate.setDate(now.getDate() - 90);
         const startDate = getLocalDateString(pastDate);
         const endDate = getLocalDateString(now);
 
-        const { data: records, error } = await supabase
+        const { data: allRecords, error } = await supabase
             .from('attendance_records')
-            .select('date, status, minutes_late')
-            .eq('employee_id', employeeId)
+            .select('employee_id, date, status, minutes_late')
+            .in('employee_id', employeeIds)
             .gte('date', startDate)
             .lte('date', endDate);
 
-        let finalScore = 999;
-        if (error || !records || records.length === 0) return { score: 999, category: 0, label: 'Clase 0 (Altamente Puntual)', color: 'bg-purple-100 text-purple-700 border-purple-200' };
-
-        let totalPenalty = 0;
-        let medicalPenalty = 0;
+        const scoresMap: Record<string, { score: number, category: number, label: string, color: string }> = {};
         
-        for (const record of records) {
-            // Ignorar penalidades antes de la fecha de inicio oficial (1 de Abril 2026)
-            if (record.date < '2026-04-20') continue;
+        // Initialize map
+        employeeIds.forEach(id => {
+            scoresMap[id] = { score: 999, category: 0, label: 'Clase 0 (Altamente Puntual)', color: 'bg-purple-100 text-purple-700 border-purple-200' };
+        });
 
-            if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+        if (error || !allRecords || allRecords.length === 0) return scoresMap;
+
+        // Group records by employee
+        const recordsByEmployee: Record<string, any[]> = {};
+        allRecords.forEach(record => {
+            if (!recordsByEmployee[record.employee_id]) recordsByEmployee[record.employee_id] = [];
+            recordsByEmployee[record.employee_id].push(record);
+        });
+
+        // Calculate score for each employee
+        for (const empId of employeeIds) {
+            const records = recordsByEmployee[empId] || [];
+            if (records.length === 0) continue;
+
+            let totalPenalty = 0;
+            let medicalPenalty = 0;
             
-            const rDate = new Date(`${record.date}T12:00:00`);
-            const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-            let weight = diffDays <= 30 ? 1.0 : diffDays <= 60 ? 0.6 : diffDays <= 90 ? 0.3 : 0;
-            if (weight === 0) continue;
+            for (const record of records) {
+                if (record.date < '2026-04-20') continue;
+                if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+                
+                const rDate = new Date(`${record.date}T12:00:00`);
+                const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
+                let weight = diffDays <= 30 ? 1.0 : diffDays <= 60 ? 0.6 : diffDays <= 90 ? 0.3 : 0;
+                if (weight === 0) continue;
 
-            if (record.status === 'licencia_medica') {
-                medicalPenalty += (20 * weight); // Descuento base por licencia médica
-            } else {
-                let penalty = record.status === 'ausente' ? 250 : record.status === 'sin_presentismo' ? 100 : 20;
-
-                // Penalización acumulativa por minutos
-                if ((record.status === 'tarde' || record.status === 'sin_presentismo') && record.minutes_late) {
-                    penalty += record.minutes_late; // 1 punto extra por cada minuto de retraso
+                if (record.status === 'licencia_medica') {
+                    medicalPenalty += (20 * weight);
+                } else {
+                    let penalty = record.status === 'ausente' ? 250 : record.status === 'sin_presentismo' ? 100 : 20;
+                    if ((record.status === 'tarde' || record.status === 'sin_presentismo') && record.minutes_late) {
+                        penalty += record.minutes_late;
+                    }
+                    totalPenalty += (penalty * weight);
                 }
-
-                totalPenalty += (penalty * weight);
             }
+
+            if (medicalPenalty > 100) medicalPenalty = 100;
+            totalPenalty += medicalPenalty;
+
+            const finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
+            
+            let category = 1, label = '', color = '';
+            if (finalScore >= 990) { category = 0; label = 'Clase 0 (Altamente Puntual)'; color = 'bg-purple-100 text-purple-700 border-purple-200'; }
+            else if (finalScore >= 950) { category = 1; label = 'Clase 1 (Excelente)'; color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; }
+            else if (finalScore >= 750) { category = 2; label = 'Clase 2 (Estable)'; color = 'bg-amber-100 text-amber-700 border-amber-300'; }
+            else if (finalScore >= 500) { category = 3; label = 'Clase 3 (Regular)'; color = 'bg-orange-100 text-orange-700 border-orange-300'; }
+            else if (finalScore >= 250) { category = 4; label = 'Clase 4 (Alerta)'; color = 'bg-rose-100 text-rose-700 border-rose-300'; }
+            else { category = 5; label = 'Clase 5 (Crónica)'; color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; }
+
+            scoresMap[empId] = { score: finalScore, category, label, color };
         }
 
-        if (medicalPenalty > 100) {
-            medicalPenalty = 100;
-        }
-
-        totalPenalty += medicalPenalty;
-
-        finalScore = Math.max(0, Math.min(999, 999 - Math.round(totalPenalty)));
-        
-        let category = 1, label = '', color = '';
-        
-        if (finalScore >= 990) { 
-            category = 0; 
-            label = 'Clase 0 (Altamente Puntual)'; 
-            color = 'bg-purple-100 text-purple-700 border-purple-200'; 
-        }
-        else if (finalScore >= 950) { 
-            category = 1; 
-            label = 'Clase 1 (Excelente)'; 
-            color = 'bg-emerald-100 text-emerald-700 border-emerald-200'; 
-        }
-        else if (finalScore >= 750) { 
-            category = 2; 
-            label = 'Clase 2 (Estable)'; 
-            color = 'bg-amber-100 text-amber-700 border-amber-300'; 
-        }
-        else if (finalScore >= 500) { 
-            category = 3; 
-            label = 'Clase 3 (Regular)'; 
-            color = 'bg-orange-100 text-orange-700 border-orange-300'; 
-        }
-        else if (finalScore >= 250) { 
-            category = 4; 
-            label = 'Clase 4 (Alerta)'; 
-            color = 'bg-rose-100 text-rose-700 border-rose-300'; 
-        }
-        else { 
-            category = 5; 
-            label = 'Clase 5 (Crónica)'; 
-            color = 'bg-slate-800 text-rose-400 border-rose-900 shadow-inner'; 
-        }
-
-        return { score: finalScore, category, label, color };
+        return scoresMap;
     }
 };

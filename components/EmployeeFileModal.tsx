@@ -90,13 +90,16 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   };
 
   const fetchStats = async () => {
-    const records = await attendanceService.getAll();
-    const empRecords = records.filter(r => 
-      r.employee_id === employeeId && 
-      r.date >= dateRange.start && 
-      r.date <= dateRange.end
-    );
-    setAllRecords(empRecords);
+    // Query directa filtrada por empleado y rango — evita descargar toda la base
+    const { data: empRecords } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .gte('date', dateRange.start)
+      .lte('date', dateRange.end)
+      .order('date', { ascending: false });
+    
+    setAllRecords(empRecords || []);
 
     const s = {
       present: empRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
