@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import { CompensatoryRestLog, Holiday, Profile } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
 
-const hasDatePassed = (date: string): boolean => date < getLocalDateString();
+const hasDatePassed = (date: string): boolean => date <= getLocalDateString();
 
 type CompRestShift = {
   employee_id: string;
@@ -549,7 +549,7 @@ export const compensatoryRestService = {
     segments: any[],
     managerName: string = 'System Auto'
   ): Promise<boolean> {
-    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension') return false;
+    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension' || shiftType === 'vacation' || shiftType === 'medical') return false;
 
     const { data: emp } = await supabase
       .from('profiles')
@@ -576,14 +576,13 @@ export const compensatoryRestService = {
         if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
 
         const lastSegment = segments[segments.length - 1];
-        if (lastSegment.end) {
-          const [h] = lastSegment.end.split(':').map(Number);
-          if (h >= 3) {
-            const [sh] = lastSegment.start.split(':').map(Number);
-            if (h < sh || h >= 3) {
-              const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
-              return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
-            }
+        if (lastSegment.start && lastSegment.end) {
+          const [sh] = lastSegment.start.split(':').map(Number);
+          const [eh] = lastSegment.end.split(':').map(Number);
+          // Turno nocturno: arranca >= 19:00 y cruza medianoche (hora fin < hora inicio)
+          if (sh >= 19 && eh < sh) {
+            const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
+            return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
           }
         }
       }
