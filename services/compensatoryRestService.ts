@@ -812,5 +812,42 @@ export const compensatoryRestService = {
       reason: reason || 'Ajuste manual de saldo',
       manager_name: managerName
     });
+  },
+
+  async getAutomaticCreditsForDate(date: string): Promise<{ id: string; employee_id: string }[]> {
+    const { data, error } = await supabase
+      .from('compensatory_rest_ledger')
+      .select('id, employee_id, reason')
+      .eq('amount', 1)
+      .eq('type', 'credit')
+      .ilike('reason', `%${date}%`);
+
+    if (error || !data) return [];
+    return data.filter(log => getAutomaticCreditDateFromReason(log.reason) === date);
+  },
+
+  async reverseAutomaticCreditsForDate(date: string): Promise<number> {
+    const credits = await this.getAutomaticCreditsForDate(date);
+    if (credits.length === 0) return 0;
+
+    const affectedEmployees = new Set<string>();
+
+    for (const credit of credits) {
+      const { error } = await supabase
+        .from('compensatory_rest_ledger')
+        .delete()
+        .eq('id', credit.id);
+
+      if (!error) {
+        affectedEmployees.add(credit.employee_id);
+      }
+    }
+
+    // Recalcular saldos de todos los empleados afectados
+    await Promise.all(
+      Array.from(affectedEmployees).map(employeeId => syncBalanceFromLedger(employeeId))
+    );
+
+    return credits.length;
   }
 };

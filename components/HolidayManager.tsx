@@ -40,12 +40,43 @@ const HolidayManager: React.FC = () => {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este feriado?')) return;
+  const handleDelete = async (id: string, date: string) => {
+    // Verificar si hay créditos automáticos generados para este feriado
+    const credits = await compensatoryRestService.getAutomaticCreditsForDate(date);
     
-    const success = await compensatoryRestService.deleteHoliday(id);
-    if (success) {
-      await fetchHolidays();
+    let confirmMsg = '¿Estás seguro de eliminar este feriado?';
+    if (credits.length > 0) {
+      confirmMsg = `Este feriado ya generó ${credits.length} crédito(s) automático(s) de franco compensatorio.\n\n¿Desea eliminar el feriado Y revertir esos créditos?\n\n• Aceptar = Elimina feriado + revierte créditos\n• Cancelar = No hace nada`;
+    }
+
+    if (!confirm(confirmMsg)) return;
+
+    setSaving(true);
+    try {
+      // Si hay créditos, revertirlos primero
+      if (credits.length > 0) {
+        const reversed = await compensatoryRestService.reverseAutomaticCreditsForDate(date);
+        if (reversed > 0) {
+          setMessage({ text: `Se revirtieron ${reversed} crédito(s) automático(s).`, type: 'success' });
+        }
+      }
+
+      // Luego eliminar el feriado
+      const success = await compensatoryRestService.deleteHoliday(id);
+      if (success) {
+        await fetchHolidays();
+        setMessage({ text: credits.length > 0
+          ? `Feriado eliminado y ${credits.length} crédito(s) revertido(s) correctamente.`
+          : 'Feriado eliminado correctamente.', type: 'success' });
+      } else {
+        setMessage({ text: 'Error al eliminar el feriado.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error deleting holiday:', err);
+      setMessage({ text: 'Error inesperado al procesar la eliminación.', type: 'error' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(null), 4000);
     }
   };
 
@@ -136,7 +167,7 @@ const HolidayManager: React.FC = () => {
                       <p className="font-black text-slate-700 leading-tight">{holiday.name}</p>
                     </div>
                     <button 
-                      onClick={() => handleDelete(holiday.id)}
+                      onClick={() => handleDelete(holiday.id, holiday.date)}
                       className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-5 h-5" />
