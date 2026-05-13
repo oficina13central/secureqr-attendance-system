@@ -49,7 +49,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   });
 
   // Data states
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, lateMinutes: 0, medical: 0, suspension: 0 });
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, lateMinutes: 0, vacation: 0, medical: 0, suspension: 0 });
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
   const [restLogs, setRestLogs] = useState<CompensatoryRestLog[]>([]);
@@ -70,7 +70,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     if (employeeId && dateRange.start && dateRange.end) {
       fetchStats();
     }
-  }, [employeeId, dateRange]);
+  }, [employeeId, dateRange, employee?.full_name]);
 
   const fetchInitialData = async () => {
     setLoading(true);
@@ -91,23 +91,65 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
   const fetchStats = async () => {
     // Query directa filtrada por empleado y rango — evita descargar toda la base
-    const { data: empRecords } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .gte('date', dateRange.start)
-      .lte('date', dateRange.end)
-      .order('date', { ascending: false });
+    const [attendanceRes, schedulesRes] = await Promise.all([
+      supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('date', dateRange.start)
+        .lte('date', dateRange.end)
+        .order('date', { ascending: false }),
+      supabase
+        .from('schedules')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('date', dateRange.start)
+        .lte('date', dateRange.end)
+        .in('type', ['vacation', 'medical'])
+    ]);
     
-    setAllRecords(empRecords || []);
+    const empRecords = attendanceRes.data || [];
+    const leaveSchedules = schedulesRes.data || [];
+    const scheduleStatusByDate = new Map<string, 'vacaciones' | 'licencia_medica'>();
+    leaveSchedules.forEach((shift: any) => {
+      if (shift.type === 'vacation') scheduleStatusByDate.set(shift.date, 'vacaciones');
+      if (shift.type === 'medical') scheduleStatusByDate.set(shift.date, 'licencia_medica');
+    });
+
+    const normalizedRecords = empRecords.filter(r => {
+      const scheduledStatus = scheduleStatusByDate.get(r.date);
+      return !scheduledStatus || !['ausente', 'pendiente'].includes(r.status);
+    });
+
+    const existingLeaveKeys = new Set(normalizedRecords.map(r => `${r.date}_${r.status}`));
+    const scheduledLeaveRecords = leaveSchedules
+      .map((shift: any) => {
+        const status = shift.type === 'vacation' ? 'vacaciones' : shift.type === 'medical' ? 'licencia_medica' : null;
+        if (!status || existingLeaveKeys.has(`${shift.date}_${status}`)) return null;
+        return {
+          id: `schedule-${shift.id || `${employeeId}-${shift.date}-${status}`}`,
+          employee_id: employeeId,
+          employee_name: employee?.full_name || '',
+          date: shift.date,
+          check_in: null,
+          check_out: null,
+          status,
+          minutes_late: 0
+        } as AttendanceRecord;
+      })
+      .filter(Boolean) as AttendanceRecord[];
+
+    const recordsForStats = [...normalizedRecords, ...scheduledLeaveRecords].sort((a, b) => b.date.localeCompare(a.date));
+    setAllRecords(recordsForStats);
 
     const s = {
-      present: empRecords.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
-      absent: empRecords.filter(r => r.status === 'ausente').length,
-      late: empRecords.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
-      lateMinutes: empRecords.reduce((acc, r) => acc + (r.minutes_late || 0), 0),
-      medical: empRecords.filter(r => r.status === 'licencia_medica').length,
-      suspension: empRecords.filter(r => r.status === 'suspendido').length,
+      present: recordsForStats.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
+      absent: recordsForStats.filter(r => r.status === 'ausente').length,
+      late: recordsForStats.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
+      lateMinutes: recordsForStats.reduce((acc, r) => acc + (r.minutes_late || 0), 0),
+      vacation: recordsForStats.filter(r => r.status === 'vacaciones').length,
+      medical: recordsForStats.filter(r => r.status === 'licencia_medica').length,
+      suspension: recordsForStats.filter(r => r.status === 'suspendido').length,
     };
     setStats(s);
   };
@@ -198,7 +240,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     const statData = [
       ['Asistencias', stats.present, 'Ausencias', stats.absent],
       ['Tardanzas', stats.late, 'Minutos Tarde', stats.lateMinutes],
-      ['Licencias Médicas', stats.medical, 'Suspensiones', stats.suspension],
+      ['Vacaciones', stats.vacation, 'Licencias Médicas', stats.medical],
+      ['Suspensiones', stats.suspension, '', ''],
     ];
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     statData.forEach(([l1, v1, l2, v2]) => {
@@ -211,6 +254,25 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       y += 12;
     });
     y += 4;
+
+    // Vacation dates
+    const vacations = allRecords.filter(r => r.status === 'vacaciones').sort((a,b) => b.date.localeCompare(a.date));
+    if (vacations.length > 0) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
+      doc.text(`• DETALLE DE VACACIONES (${vacations.length})`, margin, y); y += 7;
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      vacations.slice(0, 20).forEach((r, i) => {
+        const dateStr = new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        doc.setFillColor(i % 2 === 0 ? 240 : 235, i % 2 === 0 ? 253 : 247, i % 2 === 0 ? 244 : 240);
+        doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
+        doc.setTextColor(20,100,70); doc.text(dateStr, margin + 3, y + 4.5);
+        doc.setTextColor(10,140,90); doc.text('VACACIONES', pageW - margin - 3, y + 4.5, { align: 'right' });
+        y += 8;
+        if (y > 270) { doc.addPage(); y = margin; }
+      });
+      if (vacations.length > 20) { doc.setTextColor(100,100,100); doc.text(`... y ${vacations.length - 20} registros más`, margin, y); y += 6; }
+      y += 4;
+    }
 
     // Absence dates
     const absences = allRecords.filter(r => r.status === 'ausente').sort((a,b) => b.date.localeCompare(a.date));
@@ -399,6 +461,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   { key: 'absent', label: 'Ausencias', val: stats.absent, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', ring: 'ring-rose-400', statuses: ['ausente'] },
                   { key: 'late', label: 'Tardanzas', val: stats.late, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', ring: 'ring-amber-400', statuses: ['tarde','sin_presentismo'] },
                   { key: 'lateMinutes', label: 'Min. Tarde', val: stats.lateMinutes, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', ring: 'ring-orange-400', statuses: ['tarde','sin_presentismo'] },
+                  { key: 'vacation', label: 'Vacaciones', val: stats.vacation, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-400', statuses: ['vacaciones'] },
                   { key: 'medical', label: 'L. Médicas', val: stats.medical, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-200', ring: 'ring-sky-400', statuses: ['licencia_medica'] },
                   { key: 'suspension', label: 'Suspensiones', val: stats.suspension, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-300', ring: 'ring-slate-400', statuses: ['suspendido'] },
                 ];
