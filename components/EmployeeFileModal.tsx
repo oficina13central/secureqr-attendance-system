@@ -85,6 +85,16 @@ const datesBetween = (start: string, end: string) => {
 
 const countUniqueRecordDates = (records: AttendanceRecord[]) => new Set(records.map(r => r.date)).size;
 
+const rangesOverlap = (range: LeaveRange, start: string, end: string) =>
+  range.start <= end && range.end >= start;
+
+const getLeaveRecordsForOverlappingRanges = (records: AttendanceRecord[], start: string, end: string) => {
+  const ranges = groupConsecutiveDates(records).filter(range => rangesOverlap(range, start, end));
+  if (ranges.length === 0) return [];
+
+  return records.filter(record => ranges.some(range => record.date >= range.start && record.date <= range.end));
+};
+
 const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
   // Lógica robusta: Si es admin o super, NUNCA está restringido.
   const roleLower = managerRole.toLowerCase();
@@ -156,13 +166,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         .from('schedules')
         .select('*')
         .eq('employee_id', employeeId)
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end)
         .in('type', ['vacation', 'medical'])
     ]);
     
     const empRecords = attendanceRes.data || [];
-    const leaveSchedules = schedulesRes.data || [];
+    const allLeaveSchedules = schedulesRes.data || [];
+    const leaveSchedules = allLeaveSchedules.filter((shift: any) => shift.date >= dateRange.start && shift.date <= dateRange.end);
     const scheduleStatusByDate = new Map<string, 'vacaciones' | 'licencia_medica'>();
     leaveSchedules.forEach((shift: any) => {
       if (shift.type === 'vacation') scheduleStatusByDate.set(shift.date, 'vacaciones');
@@ -192,16 +201,55 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       })
       .filter(Boolean) as AttendanceRecord[];
 
+    const allScheduledLeaveRecords = allLeaveSchedules
+      .map((shift: any) => {
+        const status = shift.type === 'vacation' ? 'vacaciones' : shift.type === 'medical' ? 'licencia_medica' : null;
+        if (!status) return null;
+        return {
+          id: `schedule-full-${shift.id || `${employeeId}-${shift.date}-${status}`}`,
+          employee_id: employeeId,
+          employee_name: employee?.full_name || '',
+          date: shift.date,
+          check_in: null,
+          check_out: null,
+          status,
+          minutes_late: 0
+        } as AttendanceRecord;
+      })
+      .filter(Boolean) as AttendanceRecord[];
+
     const recordsForStats = [...normalizedRecords, ...scheduledLeaveRecords].sort((a, b) => b.date.localeCompare(a.date));
-    setAllRecords(recordsForStats);
+    const overlappingLeaveDetails = [
+      ...getLeaveRecordsForOverlappingRanges(
+        allScheduledLeaveRecords.filter(r => r.status === 'vacaciones'),
+        dateRange.start,
+        dateRange.end
+      ),
+      ...getLeaveRecordsForOverlappingRanges(
+        allScheduledLeaveRecords.filter(r => r.status === 'licencia_medica'),
+        dateRange.start,
+        dateRange.end
+      )
+    ];
+    const detailRecordsByKey = new Map<string, AttendanceRecord>();
+    [...recordsForStats, ...overlappingLeaveDetails].forEach(record => {
+      detailRecordsByKey.set(`${record.date}_${record.status}`, record);
+    });
+    setAllRecords(Array.from(detailRecordsByKey.values()).sort((a, b) => b.date.localeCompare(a.date)));
 
     const s = {
       present: recordsForStats.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
       absent: recordsForStats.filter(r => r.status === 'ausente').length,
       late: recordsForStats.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
       lateMinutes: recordsForStats.reduce((acc, r) => acc + (r.minutes_late || 0), 0),
-      vacation: countUniqueRecordDates(recordsForStats.filter(r => r.status === 'vacaciones')),
-      medical: countUniqueRecordDates(recordsForStats.filter(r => r.status === 'licencia_medica')),
+      vacation: countUniqueRecordDates(
+        (overlappingLeaveDetails.some(r => r.status === 'vacaciones') ? overlappingLeaveDetails : recordsForStats)
+          .filter(r => r.status === 'vacaciones')
+      ),
+      medical: countUniqueRecordDates(
+        (overlappingLeaveDetails.some(r => r.status === 'licencia_medica') ? overlappingLeaveDetails : recordsForStats)
+          .filter(r => r.status === 'licencia_medica')
+      ),
       suspension: recordsForStats.filter(r => r.status === 'suspendido').length,
     };
     setStats(s);
