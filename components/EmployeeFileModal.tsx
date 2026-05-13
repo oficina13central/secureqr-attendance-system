@@ -83,6 +83,8 @@ const datesBetween = (start: string, end: string) => {
   return Math.round((endTime - startTime) / 86400000) + 1;
 };
 
+const countUniqueRecordDates = (records: AttendanceRecord[]) => new Set(records.map(r => r.date)).size;
+
 const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
   // Lógica robusta: Si es admin o super, NUNCA está restringido.
   const roleLower = managerRole.toLowerCase();
@@ -198,8 +200,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       absent: recordsForStats.filter(r => r.status === 'ausente').length,
       late: recordsForStats.filter(r => r.status === 'tarde' || r.status === 'sin_presentismo').length,
       lateMinutes: recordsForStats.reduce((acc, r) => acc + (r.minutes_late || 0), 0),
-      vacation: recordsForStats.filter(r => r.status === 'vacaciones').length,
-      medical: recordsForStats.filter(r => r.status === 'licencia_medica').length,
+      vacation: countUniqueRecordDates(recordsForStats.filter(r => r.status === 'vacaciones')),
+      medical: countUniqueRecordDates(recordsForStats.filter(r => r.status === 'licencia_medica')),
       suspension: recordsForStats.filter(r => r.status === 'suspendido').length,
     };
     setStats(s);
@@ -309,9 +311,10 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     // Vacation dates
     const vacations = allRecords.filter(r => r.status === 'vacaciones');
     const vacationRanges = groupConsecutiveDates(vacations);
+    const vacationDays = vacationRanges.reduce((acc, range) => acc + range.count, 0);
     if (vacationRanges.length > 0) {
       doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
-      doc.text(`• DETALLE DE VACACIONES (${vacations.length})`, margin, y); y += 7;
+      doc.text(`• DETALLE DE VACACIONES (${vacationDays})`, margin, y); y += 7;
       doc.setFontSize(8); doc.setFont('helvetica','normal');
       vacationRanges.slice(0, 20).forEach((range, i) => {
         const dateStr = formatLeaveRange(range);
@@ -329,9 +332,10 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     // Medical leave dates
     const medicalLeaves = allRecords.filter(r => r.status === 'licencia_medica');
     const medicalRanges = groupConsecutiveDates(medicalLeaves);
+    const medicalDays = medicalRanges.reduce((acc, range) => acc + range.count, 0);
     if (medicalRanges.length > 0) {
       doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
-      doc.text(`• DETALLE DE LICENCIAS MÉDICAS (${medicalLeaves.length})`, margin, y); y += 7;
+      doc.text(`• DETALLE DE LICENCIAS MÉDICAS (${medicalDays})`, margin, y); y += 7;
       doc.setFontSize(8); doc.setFont('helvetica','normal');
       medicalRanges.slice(0, 20).forEach((range, i) => {
         const dateStr = formatLeaveRange(range);
@@ -543,6 +547,10 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   : [];
                 const shouldGroupDetail = activeCard?.key === 'vacation' || activeCard?.key === 'medical';
                 const detailRanges = shouldGroupDetail ? groupConsecutiveDates(detailRecords) : [];
+                const detailCount = shouldGroupDetail
+                  ? detailRanges.reduce((acc, range) => acc + range.count, 0)
+                  : detailRecords.length;
+                const detailUnit = shouldGroupDetail ? 'día' : 'registro';
                 return (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -569,7 +577,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                         <div className={`px-6 py-4 flex items-center justify-between border-b ${activeCard.border}`}>
                           <div className="flex items-center gap-3">
                             <span className={`text-sm font-black uppercase tracking-widest ${activeCard.color}`}>
-                              {activeCard.label} — {detailRecords.length} registro{detailRecords.length !== 1 ? 's' : ''}
+                              {activeCard.label} — {detailCount} {detailUnit}{detailCount !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <button onClick={() => setSelectedStat(null)} className="text-slate-400 hover:text-slate-600 font-black text-lg leading-none">×</button>
