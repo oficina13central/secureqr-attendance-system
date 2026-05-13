@@ -32,6 +32,57 @@ interface EmployeeFileModalProps {
   onClose: () => void;
 }
 
+interface LeaveRange {
+  start: string;
+  end: string;
+  count: number;
+}
+
+const parseDateAtNoon = (date: string) => new Date(`${date}T12:00:00`);
+
+const getNextDateKey = (date: string) => {
+  const next = parseDateAtNoon(date);
+  next.setDate(next.getDate() + 1);
+  return next.toISOString().split('T')[0];
+};
+
+const formatDateLong = (date: string) =>
+  parseDateAtNoon(date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+const formatLeaveRange = (range: LeaveRange) => {
+  if (range.start === range.end) return formatDateLong(range.start);
+  return `Desde ${formatDateLong(range.start)} hasta ${formatDateLong(range.end)}`;
+};
+
+const groupConsecutiveDates = (records: AttendanceRecord[]): LeaveRange[] => {
+  const dates = Array.from(new Set(records.map(r => r.date))).sort((a, b) => a.localeCompare(b));
+  if (dates.length === 0) return [];
+
+  const ranges: LeaveRange[] = [];
+  let start = dates[0];
+  let end = dates[0];
+
+  dates.slice(1).forEach(date => {
+    if (date === getNextDateKey(end)) {
+      end = date;
+      return;
+    }
+
+    ranges.push({ start, end, count: datesBetween(start, end) });
+    start = date;
+    end = date;
+  });
+
+  ranges.push({ start, end, count: datesBetween(start, end) });
+  return ranges;
+};
+
+const datesBetween = (start: string, end: string) => {
+  const startTime = parseDateAtNoon(start).getTime();
+  const endTime = parseDateAtNoon(end).getTime();
+  return Math.round((endTime - startTime) / 86400000) + 1;
+};
+
 const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, managerName, managerRole = 'encargado', onClose }) => {
   // Lógica robusta: Si es admin o super, NUNCA está restringido.
   const roleLower = managerRole.toLowerCase();
@@ -256,21 +307,42 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     y += 4;
 
     // Vacation dates
-    const vacations = allRecords.filter(r => r.status === 'vacaciones').sort((a,b) => b.date.localeCompare(a.date));
-    if (vacations.length > 0) {
+    const vacations = allRecords.filter(r => r.status === 'vacaciones');
+    const vacationRanges = groupConsecutiveDates(vacations);
+    if (vacationRanges.length > 0) {
       doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
       doc.text(`• DETALLE DE VACACIONES (${vacations.length})`, margin, y); y += 7;
       doc.setFontSize(8); doc.setFont('helvetica','normal');
-      vacations.slice(0, 20).forEach((r, i) => {
-        const dateStr = new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      vacationRanges.slice(0, 20).forEach((range, i) => {
+        const dateStr = formatLeaveRange(range);
         doc.setFillColor(i % 2 === 0 ? 240 : 235, i % 2 === 0 ? 253 : 247, i % 2 === 0 ? 244 : 240);
         doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
         doc.setTextColor(20,100,70); doc.text(dateStr, margin + 3, y + 4.5);
-        doc.setTextColor(10,140,90); doc.text('VACACIONES', pageW - margin - 3, y + 4.5, { align: 'right' });
+        doc.setTextColor(10,140,90); doc.text(`VACACIONES${range.count > 1 ? ` - ${range.count} días` : ''}`, pageW - margin - 3, y + 4.5, { align: 'right' });
         y += 8;
         if (y > 270) { doc.addPage(); y = margin; }
       });
-      if (vacations.length > 20) { doc.setTextColor(100,100,100); doc.text(`... y ${vacations.length - 20} registros más`, margin, y); y += 6; }
+      if (vacationRanges.length > 20) { doc.setTextColor(100,100,100); doc.text(`... y ${vacationRanges.length - 20} períodos más`, margin, y); y += 6; }
+      y += 4;
+    }
+
+    // Medical leave dates
+    const medicalLeaves = allRecords.filter(r => r.status === 'licencia_medica');
+    const medicalRanges = groupConsecutiveDates(medicalLeaves);
+    if (medicalRanges.length > 0) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,60);
+      doc.text(`• DETALLE DE LICENCIAS MÉDICAS (${medicalLeaves.length})`, margin, y); y += 7;
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      medicalRanges.slice(0, 20).forEach((range, i) => {
+        const dateStr = formatLeaveRange(range);
+        doc.setFillColor(i % 2 === 0 ? 240 : 235, i % 2 === 0 ? 249 : 245, i % 2 === 0 ? 255 : 252);
+        doc.roundedRect(margin, y, pageW - margin * 2, 7, 1, 1, 'F');
+        doc.setTextColor(20,80,120); doc.text(dateStr, margin + 3, y + 4.5);
+        doc.setTextColor(0,120,180); doc.text(`LICENCIA MÉDICA${range.count > 1 ? ` - ${range.count} días` : ''}`, pageW - margin - 3, y + 4.5, { align: 'right' });
+        y += 8;
+        if (y > 270) { doc.addPage(); y = margin; }
+      });
+      if (medicalRanges.length > 20) { doc.setTextColor(100,100,100); doc.text(`... y ${medicalRanges.length - 20} períodos más`, margin, y); y += 6; }
       y += 4;
     }
 
@@ -469,6 +541,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                 const detailRecords = activeCard
                   ? allRecords.filter(r => activeCard.statuses.includes(r.status)).sort((a,b) => b.date.localeCompare(a.date))
                   : [];
+                const shouldGroupDetail = activeCard?.key === 'vacation' || activeCard?.key === 'medical';
+                const detailRanges = shouldGroupDetail ? groupConsecutiveDates(detailRecords) : [];
                 return (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -501,11 +575,25 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                           <button onClick={() => setSelectedStat(null)} className="text-slate-400 hover:text-slate-600 font-black text-lg leading-none">×</button>
                         </div>
                         <div className="max-h-48 overflow-y-auto divide-y divide-white/50">
-                          {detailRecords.map(r => (
+                          {shouldGroupDetail ? detailRanges.map(range => (
+                            <div key={`${range.start}_${range.end}`} className="flex items-center justify-between px-6 py-3">
+                              <div>
+                                <p className={`text-sm font-black ${activeCard.color}`}>
+                                  {formatLeaveRange(range)}
+                                </p>
+                                {range.count > 1 && (
+                                  <p className="text-xs font-bold text-slate-500">{range.count} días corridos</p>
+                                )}
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${activeCard.bg} ${activeCard.color} border ${activeCard.border}`}>
+                                {activeCard.label}
+                              </span>
+                            </div>
+                          )) : detailRecords.map(r => (
                             <div key={r.id} className="flex items-center justify-between px-6 py-3">
                               <div>
                                 <p className={`text-sm font-black ${activeCard.color}`}>
-                                  {new Date(r.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                  {formatDateLong(r.date)}
                                 </p>
                                 {r.minutes_late > 0 && (
                                   <p className="text-xs font-bold text-slate-500">{r.minutes_late} minutos tarde</p>
