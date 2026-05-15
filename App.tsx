@@ -41,6 +41,37 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
+type TerminalSessionSnapshot = {
+  userId: string;
+  fullName?: string;
+  email?: string;
+  savedAt: string;
+};
+
+const TERMINAL_SESSION_STORAGE_KEY = 'secureqr_terminal_session';
+
+const getStoredTerminalSession = (): TerminalSessionSnapshot | null => {
+  try {
+    const raw = localStorage.getItem(TERMINAL_SESSION_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredTerminalSession = (profile: Profile) => {
+  const snapshot: TerminalSessionSnapshot = {
+    userId: profile.id,
+    fullName: profile.full_name,
+    email: profile.email,
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem(TERMINAL_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+};
+
+const clearStoredTerminalSession = () => {
+  localStorage.removeItem(TERMINAL_SESSION_STORAGE_KEY);
+};
 
 const FloatingAppActions: React.FC<{
   canInstall: boolean;
@@ -70,6 +101,38 @@ const FloatingAppActions: React.FC<{
   </div>
 );
 
+const TerminalSessionRecovery: React.FC<{
+  terminalName?: string;
+  isOnline: boolean;
+  onRetry: () => void;
+}> = ({ terminalName, isOnline, onRetry }) => (
+  <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-white">
+    <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl text-center space-y-7">
+      <div className="w-20 h-20 mx-auto rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+        <RefreshCw className="w-9 h-9 text-indigo-300 animate-spin" />
+      </div>
+      <div className="space-y-3">
+        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-300">Terminal persistente</p>
+        <h1 className="text-2xl font-black tracking-tight">Reconectando sesion</h1>
+        <p className="text-sm text-slate-400 leading-relaxed">
+          Esta terminal sigue vinculada a {terminalName || 'este dispositivo'}, pero la conexion no permitio confirmar la sesion. No se enviara al login mientras se recupera el enlace.
+        </p>
+      </div>
+      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border ${isOnline ? 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10' : 'text-red-300 border-red-500/20 bg-red-500/10'}`}>
+        <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-red-400'}`} />
+        {isOnline ? 'Internet detectado' : 'Sin internet estable'}
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95"
+      >
+        Reintentar ahora
+      </button>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [mainView, setMainView] = useState<'terminal' | 'admin'>('admin');
   const [adminSubView, setAdminSubView] = useState<AdminSubView>('dashboard');
@@ -83,6 +146,9 @@ const App: React.FC = () => {
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [terminalSessionSnapshot, setTerminalSessionSnapshot] = useState<TerminalSessionSnapshot | null>(() => getStoredTerminalSession());
+  const [recoveringTerminalSession, setRecoveringTerminalSession] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -107,21 +173,37 @@ const App: React.FC = () => {
     setInstallPrompt(null);
   };
 
-  React.useEffect(() => {
-    // Initial session check
-    authService.getSession()
-      .then(session => {
-        setSession(session);
-        if (session) {
-          fetchProfile(session.user.id);
-        } else {
-          setLoadingAuth(false);
-        }
-      })
-      .catch(err => {
-        console.error("Initial session check failed:", err);
+  const recoverSession = React.useCallback(async () => {
+    setLoadingAuth(true);
+    const storedTerminalSession = getStoredTerminalSession();
+    setTerminalSessionSnapshot(storedTerminalSession);
+
+    try {
+      const result = await authService.getSessionStatus();
+      setSession(result.session);
+      if (result.session) {
+        setRecoveringTerminalSession(false);
+        fetchProfile(result.session.user.id);
+      } else if ((result.status === 'recovering' || !navigator.onLine) && storedTerminalSession) {
+        setMainView('terminal');
+        setRecoveringTerminalSession(true);
         setLoadingAuth(false);
-      });
+      } else {
+        setRecoveringTerminalSession(false);
+        setLoadingAuth(false);
+      }
+    } catch (err) {
+      console.error("Initial session check failed:", err);
+      if (storedTerminalSession) {
+        setMainView('terminal');
+        setRecoveringTerminalSession(true);
+      }
+      setLoadingAuth(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    recoverSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -132,17 +214,51 @@ const App: React.FC = () => {
       }
 
       if (session) {
+        setRecoveringTerminalSession(false);
         fetchProfile(session.user.id);
       } else {
-        setCurrentUser(null);
+        const storedTerminalSession = getStoredTerminalSession();
+        if (storedTerminalSession) {
+          setTerminalSessionSnapshot(storedTerminalSession);
+          setMainView('terminal');
+          setRecoveringTerminalSession(true);
+        } else {
+          setCurrentUser(null);
+          setRecoveringTerminalSession(false);
+        }
         setLoadingAuth(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [recoverSession]);
 
-  const fetchProfile = async (userId: string) => {
+  React.useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (recoveringTerminalSession) {
+        recoverSession();
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [recoverSession, recoveringTerminalSession]);
+
+  React.useEffect(() => {
+    if (!recoveringTerminalSession) return;
+    const intervalId = window.setInterval(() => {
+      recoverSession();
+    }, 20000);
+    return () => window.clearInterval(intervalId);
+  }, [recoverSession, recoveringTerminalSession]);
+
+  async function fetchProfile(userId: string) {
     setLoadingAuth(true);
     try {
       const profile = await authService.getUserProfile(userId);
@@ -150,14 +266,20 @@ const App: React.FC = () => {
       
       // Auto-redirección para el rol terminal
       if (profile?.role === 'terminal') {
+        saveStoredTerminalSession(profile);
+        setTerminalSessionSnapshot(getStoredTerminalSession());
+        setRecoveringTerminalSession(false);
         setMainView('terminal');
+      } else {
+        clearStoredTerminalSession();
+        setTerminalSessionSnapshot(null);
       }
     } catch (err) {
       console.error("Failed to fetch profile:", err);
     } finally {
       setLoadingAuth(false);
     }
-  };
+  }
 
   // Lifted State: Employees
   const [employees, setEmployees] = useState<Profile[]>([]);
@@ -302,6 +424,19 @@ const App: React.FC = () => {
             <p className="text-slate-500 font-bold text-sm animate-pulse">Cargando sistema...</p>
           </div>
         </div>
+        <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
+    );
+  }
+
+  if (recoveringTerminalSession && !session) {
+    return (
+      <>
+        <TerminalSessionRecovery
+          terminalName={terminalSessionSnapshot?.fullName}
+          isOnline={isOnline}
+          onRetry={recoverSession}
+        />
         <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
       </>
     );
