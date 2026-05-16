@@ -4,7 +4,7 @@ export interface OfflineScan {
     employeeId: string;
     employeeName: string;
     timestamp: string; // ISO format
-    type?: 'in' | 'out'; // Optional if we can determine it locally
+    mode?: 'in' | 'out'; // Optional if we can determine it locally
 }
 
 class OfflineService {
@@ -23,13 +23,14 @@ class OfflineService {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(queue));
     }
 
-    queueScan(employeeId: string, employeeName: string): OfflineScan {
+    queueScan(employeeId: string, employeeName: string, mode?: 'in' | 'out'): OfflineScan {
         const queue = this.getQueue();
         const newScan: OfflineScan = {
             id: crypto.randomUUID(),
             employeeId,
             employeeName,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            mode
         };
         queue.push(newScan);
         this.saveQueue(queue);

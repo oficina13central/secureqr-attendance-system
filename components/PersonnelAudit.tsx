@@ -452,7 +452,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 shift.type !== 'off' &&
                 shift.type !== 'vacation' &&
                 shift.type !== 'medical' &&
-                (shift.segments?.length || 0) > remainingRecordCount;
+                (shift.segments?.length || 0) > remainingRecordCount &&
+                dateKey >= '2026-04-20';
 
             const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
             if (!error) {
@@ -486,7 +487,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const empId = emp.id.toLowerCase();
             let monthRecords = records.filter(r => {
                 if (!r.date) return false;
-                if (r.status === 'ausente' && r.date < '2026-04-20') return false;
+                if (r.status === 'ausente' && r.date.substring(0, 10) < '2026-04-20') return false;
                 
                 // Safe parsing of YYYY-MM-DD to avoid timezone shifts
                 const [y, m] = r.date.split('-').map(Number);

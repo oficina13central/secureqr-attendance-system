@@ -185,7 +185,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       doc.setFontSize(9); doc.setFont('helvetica', 'bold');
       doc.text(`SCORING: ${scoring.score}/999  |  ${scoring.label}`, pageW - margin - 4, y + 18, { align: 'right' });
     }
-    doc.text(`FRANCOS: ${employee.compensatory_rest_balance || 0} días`, pageW - margin - 4, y + 27, { align: 'right' });
+    doc.text(`FRANCOS: ${employee.compensatory_rest_balance || 0} jornadas`, pageW - margin - 4, y + 27, { align: 'right' });
     y += 48;
 
     // Stats section
@@ -193,7 +193,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     doc.setFontSize(10); doc.setFont('helvetica', 'bold');
     doc.text(`• ESTADÍSTICAS (${dateRange.start} al ${dateRange.end})`, margin, y); y += 7;
     const statData = [
-      ['Asistencias', stats.present, 'Ausencias', stats.absent],
+      ['Jornadas', stats.present, 'Ausencias', stats.absent],
       ['Tardanzas', stats.late, 'Minutos Tarde', stats.lateMinutes],
       ['Licencias Médicas', stats.medical, 'Suspensiones', stats.suspension],
     ];
@@ -257,7 +257,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         doc.setTextColor(30,30,80); doc.text(log.reason || 'Sin motivo', margin + 3, y + 4.5);
         const sign = log.amount > 0 ? '+' : '';
         doc.setTextColor(log.amount > 0 ? 20 : 150, log.amount > 0 ? 120 : 20, 20);
-        doc.text(`${sign}${log.amount} días`, pageW - margin - 3, y + 4.5, { align: 'right' });
+        doc.text(`${sign}${log.amount} jornadas`, pageW - margin - 3, y + 4.5, { align: 'right' });
         y += 8;
         if (y > 270) { doc.addPage(); y = margin; }
       });
@@ -345,7 +345,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                 )}
                 <div className="bg-white/10 backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border border-white/20 text-center md:text-right min-w-[120px] md:min-w-[140px]">
                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-70 text-white">Saldo de Francos</p>
-                  <p className="text-2xl md:text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-[10px] md:text-sm opacity-50 text-white/50 uppercase">Días</span></p>
+                  <p className="text-2xl md:text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-[10px] md:text-sm opacity-50 text-white/50 uppercase">Jornadas</span></p>
                 </div>
               </div>
             </div>
@@ -392,7 +392,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
               {/* Stats Grid - Interactive */}
               {(() => {
                 const statCards = [
-                  { key: 'present', label: 'Asistencias', val: stats.present, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-400', statuses: ['presente','en_horario','manual'] },
+                  { key: 'present', label: 'Jornadas', val: stats.present, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-400', statuses: ['presente','en_horario','manual'] },
                   { key: 'absent', label: 'Ausencias', val: stats.absent, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', ring: 'ring-rose-400', statuses: ['ausente'] },
                   { key: 'late', label: 'Tardanzas', val: stats.late, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', ring: 'ring-amber-400', statuses: ['tarde','sin_presentismo'] },
                   { key: 'lateMinutes', label: 'Min. Tarde', val: stats.lateMinutes, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', ring: 'ring-orange-400', statuses: ['tarde','sin_presentismo'] },
@@ -475,7 +475,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       />
                       <textarea placeholder="Motivo (ej: Domingos trabajados Marzo)" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm h-24" />
                       <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => handleRestAction('credit')} disabled={saving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20">Sumar Día</button>
+                        <button onClick={() => handleRestAction('credit')} disabled={saving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20">Sumar Jornada</button>
                         <button onClick={() => handleRestAction('payment')} disabled={saving} className="py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20">Liquidar Pago</button>
                       </div>
                       <button onClick={() => handleRestAction('adjustment')} disabled={saving} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black">Ajuste Manual Saldo</button>
