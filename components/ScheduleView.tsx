@@ -300,7 +300,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'continuous') {
       return `${activeShift.segments?.[0]?.start || ''}-${activeShift.segments?.[0]?.end || ''}`;
     }
-    if (activeShift.type === 'split') {
+    if (activeShift.type === 'split' || activeShift.type === 'double') {
       return (activeShift.segments || []).map((s: any) => `${s.start}-${s.end}`).join(' / ');
     }
     return '';
@@ -342,7 +342,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.worksheet+xml"/>
 </Types>`);
     zip.folder('_rels')?.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -367,6 +367,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const handleExportExcel = async () => {
+    const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
+
     const headers = [
       'Empleado',
       'Tipo',
@@ -408,7 +411,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const getScheduledWorkSummary = (emp: Profile) => {
-    let workedDays = 0;
+    let workedJornadas = 0;
     let weeklyHours = 0;
 
     const daily = weekDays.map(date => {
@@ -421,22 +424,32 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       if (!isWorkingShift) return '';
 
-      const hours = (activeShift.segments || []).reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      workedDays += 1;
+      const segments = activeShift.segments || [];
+      const hours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
+      
+      // Diferenciación solicitada: 
+      // - Doble (double) = 2 jornadas
+      // - El resto (corrido, cortado, etc) = 1 jornada
+      const dayJornadas = activeShift.type === 'double' ? 2 : 1;
+      
+      workedJornadas += dayJornadas;
       weeklyHours += hours;
       return hours.toFixed(2).replace('.', ',');
     });
 
-    return { workedDays, weeklyHours, daily };
+    return { workedJornadas, weeklyHours, daily };
   };
 
   const handleExportWeeklySummaryExcel = async () => {
+    const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
+
     const dayHeaders = weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }));
     const headers = [
       'Empleado',
       'Tipo',
       'Sector',
-      'Dias trabajados',
+      'Jornadas trabajadas',
       'Horas semanales',
       ...dayHeaders
     ];
@@ -447,7 +460,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         emp.full_name,
         getEmploymentTypeLabel(emp.employment_type),
         sectorMap[emp.sector_id || ''] || emp.sector_id || 'General',
-        summary.workedDays,
+        summary.workedJornadas,
         summary.weeklyHours.toFixed(2).replace('.', ','),
         ...summary.daily
       ];
@@ -463,7 +476,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         headers,
         ...rows
       ],
-      [32, 14, 22, 16, 18, 14, 14, 14, 14, 14, 14, 14]
+      [32, 14, 22, 20, 18, 14, 14, 14, 14, 14, 14, 14]
     );
   };
 
@@ -518,7 +531,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         const segments: ShiftSegment[] = [];
         if (editForm.type === 'continuous') {
           segments.push({ start: editForm.s1Start, end: editForm.s1End });
-        } else if (editForm.type === 'split') {
+        } else if (editForm.type === 'split' || editForm.type === 'double') {
           segments.push({ start: editForm.s1Start, end: editForm.s1End });
           segments.push({ start: editForm.s2Start, end: editForm.s2End });
         }
@@ -564,7 +577,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             selectedTarget.empId,
             dateKey,
             editForm.type,
-            editForm.type === 'split' 
+            editForm.type === 'split' || editForm.type === 'double' 
               ? [{ start: editForm.s1Start, end: editForm.s1End }, { start: editForm.s2Start, end: editForm.s2End }]
               : [{ start: editForm.s1Start, end: editForm.s1End }],
             currentUser.full_name || 'Admin'
@@ -604,237 +617,116 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         setTimeout(() => {
           setIsModalOpen(false);
           setMessage(null);
-          saveInProgressRef.current = false;
-          setSaving(false);
         }, 1500);
-      } else {
-        setMessage({ text: 'Error al intentar guardar los cambios', type: 'error' });
       }
     } catch (error: any) {
-      console.error('Error in handleSave:', error);
-      setMessage({ text: `Error: ${error.message || 'No se pudo guardar'}`, type: 'error' });
+      console.error('Error saving schedule:', error);
+      setMessage({ text: 'Error al guardar: ' + (error.message || 'Intente nuevamente'), type: 'error' });
+    } finally {
       saveInProgressRef.current = false;
       setSaving(false);
-    } finally {
-      if (!savedSuccessfully) {
-        saveInProgressRef.current = false;
-        setSaving(false);
-      }
     }
   };
 
   const renderCellContent = (empId: string, date: Date) => {
-    const shift = shifts[`${empId}_${formatDate(date)}`];
-    const employee = employees.find(e => e.id === empId);
-    const isSunday = date.getDay() === 0;
+    const activeShift = getActiveShift(employees.find(e => e.id === empId)!, date);
+    if (!activeShift) return null;
 
-    let activeShift = shift;
-    let isBase = false;
-
-    if (!activeShift && employee?.default_schedule) {
-      const base = employee.default_schedule[date.getDay().toString()];
-      if (base) {
-        activeShift = { type: base.type, segments: base.segments } as any;
-        isBase = true;
-      }
-    }
-
-    if (!activeShift) {
-      if (isSunday) {
-        return (
-          <div className="flex flex-col items-center">
-            <span className="bg-slate-100 text-slate-400 border border-slate-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
-              Descanso
-            </span>
-          </div>
-        );
-      }
-      return <span className="text-slate-300 text-[10px]">—</span>;
-    }
-
-    // Definición de estilos dinámicos
-    const getShiftStyles = (theme: 'amber' | 'indigo' | 'emerald' | 'red' | 'slate' | 'violet' | 'zinc') => {
-      const colors = {
-        amber: "bg-amber-100/80 text-amber-700 border-amber-200",
-        indigo: "bg-indigo-100/80 text-indigo-700 border-indigo-200",
-        emerald: "bg-emerald-100/80 text-emerald-700 border-emerald-200",
-        red: "bg-red-100/80 text-red-700 border-red-200",
-        slate: "bg-slate-100/80 text-slate-500 border-slate-200",
-        violet: "bg-violet-100/80 text-violet-700 border-violet-200",
-        zinc: "bg-zinc-700 text-white border-zinc-800 shadow-inner"
-      };
-      
-      const stateClass = isBase 
-        ? "border-dashed opacity-100" 
-        : "border-solid shadow-sm ring-1 ring-black/5 scale-[1.02] z-10 opacity-100";
-      
-      return `${colors[theme]} ${stateClass} px-2 py-1 rounded-md transition-all`;
-    };
-
-    if (activeShift.type === 'compensatory') {
-      return (
-        <div className="flex flex-col items-center">
-          <span className={`${getShiftStyles('violet')} text-[9px] font-black uppercase tracking-widest`}>
-            Franco Comp.
-          </span>
-        </div>
-      );
-    }
-
-    if (activeShift.type === 'suspension') {
-      return (
-        <div className="flex flex-col items-center">
-          <span className={`${getShiftStyles('zinc')} text-[9px] font-black uppercase tracking-widest`}>
-            SUSPENDIDO
-          </span>
-        </div>
-      );
-    }
+    let bgColor = 'bg-slate-50 border-slate-100 text-slate-400';
+    let icon = <Clock className="w-3 h-3 mr-1" />;
 
     if (activeShift.type === 'off') {
-      return (
-        <div className="flex flex-col items-center">
-          <span className={`${getShiftStyles('slate')} text-[9px] font-black uppercase tracking-widest`}>
-            Descanso
-          </span>
-        </div>
-      );
+      bgColor = 'bg-amber-50 border-amber-100 text-amber-600';
+      icon = <History className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'compensatory') {
+      bgColor = 'bg-indigo-50 border-indigo-100 text-indigo-600';
+      icon = <History className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'suspension') {
+      bgColor = 'bg-red-50 border-red-100 text-red-600';
+      icon = <AlertTriangle className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'vacation') {
+      bgColor = 'bg-emerald-50 border-emerald-100 text-emerald-600';
+      icon = <CalendarIcon className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'medical') {
+      bgColor = 'bg-rose-50 border-rose-100 text-rose-600';
+      icon = <AlertTriangle className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'double') {
+      bgColor = 'bg-violet-600 border-violet-400 text-white shadow-md ring-2 ring-violet-500/20';
+      icon = <Clock className="w-3 h-3 mr-1" />;
+    } else {
+      bgColor = 'bg-indigo-600 border-indigo-400 text-white shadow-sm';
     }
 
-    if (activeShift.type === 'vacation' || activeShift.type === 'medical') {
-      const theme = activeShift.type === 'vacation' ? 'emerald' : 'red';
-      return (
-        <div className="flex flex-col items-center">
-          <span className={`${getShiftStyles(theme)} text-[9px] font-black uppercase tracking-widest`}>
-            {activeShift.type === 'vacation' ? 'Vacaciones' : 'Licencia Médica'}
-          </span>
-        </div>
-      );
-    }
-
-    if (activeShift.type === 'continuous') {
-      return (
-        <div className="flex flex-col items-center">
-          <span className={`${getShiftStyles('amber')} text-[10px] font-bold`}>
-            {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
-          </span>
-        </div>
-      );
-    }
-    if (activeShift.type === 'split') {
-      return (
-        <div className="flex flex-col gap-1 items-center">
-          <span className={`${getShiftStyles('indigo')} text-[9px] font-bold py-0.5`}>
-            {activeShift.segments[0]?.start} - {activeShift.segments[0]?.end}
-          </span>
-          <span className={`${getShiftStyles('indigo')} text-[9px] font-bold py-0.5`}>
-            {activeShift.segments[1]?.start} - {activeShift.segments[1]?.end}
-          </span>
-        </div>
-      );
-    }
-
+    return (
+      <div className={`inline-flex items-center px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${bgColor}`}>
+        {icon}
+        {getShiftText(employees.find(e => e.id === empId)!, date)}
+      </div>
+    );
   };
 
-  // Sector name for print header
-  const sectorLabel = selectedSector === 'all'
-    ? 'Todos los sectores'
-    : (sectorMap[selectedSector] || selectedSector);
-
-  const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+  const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
 
   return (
-    <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
-      {/* ── PRINT-ONLY HEADER ── */}
-      <div className="print-header" style={{ display: 'none' }}>
-        <div className="print-header-top">
-          <div>
-            <span className="print-company">Control de Asistencias</span>
-            <span className="print-doc">Cronograma Semanal</span>
-          </div>
-          <div className="print-meta">
-            <span>{weekLabel}</span>
-            <span>Sector: {sectorLabel}</span>
-            <span>Impreso: {new Date().toLocaleDateString('es-ES')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── SCREEN HEADER ── */}
+    <div className="flex flex-col h-full bg-slate-50/30 p-4 sm:p-8 space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+      {/* ── HEADER ── */}
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
-        <div className="space-y-1">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center">
-            Cronograma <span className="ml-2 text-indigo-600">Semanal</span>
-          </h2>
-          <p className="text-slate-500 font-medium">
-            Planificación y asignación de turnos. {(currentUser.role === 'administrador' || currentUser.role === 'superusuario') ? 'Vista Global' : 'Tus sectores a cargo'}
-          </p>
+        <div className="space-y-2">
+          <div className="flex items-center space-x-3">
+            <div className="p-3 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-200">
+              <CalendarIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight uppercase">Cronograma</h1>
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">{weekLabel}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {/* ── SEARCH BAR ── */}
-          <div className="relative no-print">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-white border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all w-full sm:w-[250px]"
-            />
-          </div>
-
-          {((currentUser.role === 'administrador' || currentUser.role === 'superusuario') || (currentUser.role === 'encargado' && (currentUser.managed_sectors || []).length > 0)) && (
-            <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector:</span>
-              <select
-                value={selectedSector}
-                onChange={(e) => setSelectedSector(e.target.value)}
-                className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
-              >
-                <option value="all">Todos mis sectores</option>
-                {sectors
-                  .filter(s => sectorMap[s] !== undefined || s === 'General')
-                  .filter(s => {
-                    if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return true;
-                    // Solo listar sectores a cargo
-                    const mySectorIds = new Set<string>();
-                    if (currentUser.sector_id) mySectorIds.add(currentUser.sector_id);
-                    (currentUser.managed_sectors || []).forEach(id => mySectorIds.add(id));
-                    return mySectorIds.has(s);
-                  })
-                  .map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tipo:</span>
-            <select
-              value={selectedEmploymentType}
-              onChange={(e) => setSelectedEmploymentType(e.target.value as 'all' | 'efectivo' | 'jornalero')}
-              className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
-            >
-              <option value="all">Todo el Personal</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="jornalero">Jornalero</option>
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center bg-white rounded-2xl shadow-sm border border-slate-100 p-1">
             <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-            <span className="px-3 sm:px-4 text-xs font-black uppercase tracking-widest text-slate-500 min-w-[150px] text-center">
-              {currentWeekStart.toLocaleDateString()} - {addDays(currentWeekStart, 6).toLocaleDateString()}
-            </span>
+            <div className="px-4 text-sm font-black text-slate-700 uppercase tracking-tight">Semana Actual</div>
             <button onClick={handleNextWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
           </div>
 
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Buscar por nombre o DNI..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-11 pr-6 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm min-w-[240px]"
+            />
+          </div>
+
+          <select 
+            value={selectedSector} 
+            onChange={(e) => setSelectedSector(e.target.value)}
+            className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm"
+          >
+            <option value="all">TODOS LOS SECTORES</option>
+            {sectors.map(s => <option key={s} value={s}>{sectorMap[s] || s}</option>)}
+          </select>
+
+          <select 
+            value={selectedEmploymentType} 
+            onChange={(e) => setSelectedEmploymentType(e.target.value as any)}
+            className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm uppercase"
+          >
+            <option value="all">TIPO DE EMPLEO (TODOS)</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="jornalero">Jornalero</option>
+          </select>
+
           <button
             onClick={handlePrint}
-            className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-600 transition-all shadow-lg no-print"
+            className="flex items-center space-x-2 px-6 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-900 transition-all shadow-lg no-print"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir / PDF</span>
+            <span>Imprimir</span>
           </button>
           <button
             onClick={handleExportExcel}
@@ -1110,7 +1002,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       {/* ── MODAL ── */}
       {isModalOpen && selectedTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md sm:max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-xl font-black text-slate-800">Asignar Turno</h3>
@@ -1122,16 +1014,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-5 gap-2 p-1 bg-slate-100 rounded-xl">
-                {(['continuous', 'split', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const)
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 p-1.5 bg-slate-100/80 rounded-2xl">
+                {(['continuous', 'split', 'double', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const)
                   .filter(t => t !== 'medical' || currentUser.role !== 'encargado')
                   .map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 px-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`py-3 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all ${
+                      editForm.type === t 
+                        ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                    }`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'off' ? 'Descanso' : t === 'compensatory' ? 'Franco C.' : t === 'suspension' ? 'Suspendido' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
+                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'double' ? 'Doble' : t === 'off' ? 'Descanso' : t === 'compensatory' ? 'Franco C.' : t === 'suspension' ? 'Suspendido' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
                   </button>
                 ))}
               </div>
@@ -1149,7 +1045,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                 </div>
               )}
 
-              {editForm.type === 'split' && (
+              {(editForm.type === 'split' || editForm.type === 'double') && (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Turno 1</span>

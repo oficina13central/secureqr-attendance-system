@@ -160,6 +160,7 @@ export const attendanceService = {
 
         if (scheduleType === 'off') throw new Error('off_day');
         if (scheduleType === 'vacation') throw new Error('vacation');
+        if (scheduleType === 'medical') throw new Error('medical');
 
         const { data: existingToday, error: fetchError } = await supabase
             .from('attendance_records')
@@ -177,7 +178,7 @@ export const attendanceService = {
         const placeholderRecord = (existingToday || []).find(r => r.check_in === null);
 
         if (scheduleType === 'continuous' && validEntriesCount >= 1) return null;
-        if (scheduleType === 'split' && validEntriesCount >= 2) return null;
+        if ((scheduleType === 'split' || scheduleType === 'double') && validEntriesCount >= 2) return null;
 
         let status: 'en_horario' | 'tarde' | 'sin_presentismo' = 'en_horario';
         let minutesLate = 0;
@@ -276,6 +277,8 @@ export const attendanceService = {
     },
 
     async createPlaceholderRecord(employeeId: string, employeeName: string, date: string, maxPlaceholdersForDate = 1): Promise<AttendanceRecord | null> {
+        if (date < '2026-04-20') return null;
+
         const { data: existingPlaceholders } = await supabase
             .from('attendance_records')
             .select('id')
@@ -317,6 +320,7 @@ export const attendanceService = {
         const rules = await settingsService.getRules();
         console.log(`Starting syncPastAbsences for ${employees.length} employees (${days} days)...`);
         
+        const todayStr = getLocalDateString(today);
         for (let i = 0; i <= days; i++) {
             const checkDate = new Date();
             checkDate.setDate(today.getDate() - i);
@@ -418,7 +422,7 @@ export const attendanceService = {
                 const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
                 const existingAutoAbsences = existingEmpRecords.filter(r =>
                     !r.check_in &&
-                    r.status === 'ausence' &&
+                    r.status === 'ausente' &&
                     isAutomaticAbsenceReason(r.manual_reason)
                 ).length;
                 const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);

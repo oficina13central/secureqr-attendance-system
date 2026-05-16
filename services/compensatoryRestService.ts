@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import { CompensatoryRestLog, Holiday, Profile } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
 
-const hasDatePassed = (date: string): boolean => date <= getLocalDateString();
+const hasDatePassed = (date: string): boolean => date < getLocalDateString();
 
 type CompRestShift = {
   employee_id: string;
@@ -36,7 +36,7 @@ export type CompRestReconcileSummary = {
   details: CompRestReconcileDetail[];
 };
 
-const workShiftTypes = new Set(['continuous', 'split']);
+const workShiftTypes = new Set(['continuous', 'split', 'double']);
 
 const createEmptySummary = (): CompRestReconcileSummary => ({
   created: 0,
@@ -128,7 +128,7 @@ const isNightShiftIntoRestrictedDay = (shift: CompRestShift, creditDate: string)
   const [endHour] = lastSegment.end.split(':').map(Number);
   if (Number.isNaN(startHour) || Number.isNaN(endHour)) return false;
 
-  return addDaysToDateString(shift.date, 1) === creditDate && startHour >= 19 && endHour < startHour;
+  return addDaysToDateString(shift.date, 1) === creditDate && startHour >= 19 && (endHour < startHour || endHour >= 3);
 };
 
 const getShiftCreditDate = (shift: CompRestShift, holidayDates: Set<string>): string | null => {
@@ -251,10 +251,7 @@ const hasWorkedOnDate = async (
   employeeDni: string | null | undefined,
   date: string
 ): Promise<boolean> => {
-  const nextDate = new Date(`${date}T12:00:00`);
-  nextDate.setDate(nextDate.getDate() + 1);
-  const nextDateStr = getLocalDateString(nextDate);
-
+  const nextDateStr = addDaysToDateString(date, 1);
   const validIds = new Set(
     [employeeId, employeeDni]
       .map(normalizeIdentity)
@@ -352,25 +349,6 @@ const getCompensatoryUsageStateForDate = async (
   }
 
   return null;
-};
-
-const hasUsageCancellationForDate = async (employeeId: string, date: string): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from('compensatory_rest_ledger')
-    .select('id')
-    .eq('employee_id', employeeId)
-    .eq('amount', 1)
-    .eq('type', 'adjustment')
-    .ilike('reason', `%${date}%`)
-    .ilike('reason', '%Cancelación%')
-    .limit(1);
-
-  if (error) {
-    console.error('Error checking compensatory rest usage cancellation:', error);
-    return false;
-  }
-
-  return !!data && data.length > 0;
 };
 
 const buildExistingAutomaticCreditSet = (logs: Array<{ employee_id: string; reason?: string | null }>) => {
@@ -549,7 +527,7 @@ export const compensatoryRestService = {
     segments: any[],
     managerName: string = 'System Auto'
   ): Promise<boolean> {
-    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension' || shiftType === 'vacation' || shiftType === 'medical') return false;
+    if (shiftType === 'off' || shiftType === 'compensatory' || shiftType === 'suspension') return false;
 
     const { data: emp } = await supabase
       .from('profiles')
@@ -576,13 +554,14 @@ export const compensatoryRestService = {
         if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
 
         const lastSegment = segments[segments.length - 1];
-        if (lastSegment.start && lastSegment.end) {
-          const [sh] = lastSegment.start.split(':').map(Number);
-          const [eh] = lastSegment.end.split(':').map(Number);
-          // Turno nocturno: arranca >= 19:00 y cruza medianoche (hora fin < hora inicio)
-          if (sh >= 19 && eh < sh) {
-            const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
-            return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
+        if (lastSegment.end) {
+          const [h] = lastSegment.end.split(':').map(Number);
+          if (h >= 3) {
+            const [sh] = lastSegment.start.split(':').map(Number);
+            if (h < sh || h >= 3) {
+              const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
+              return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
+            }
           }
         }
       }
@@ -790,30 +769,6 @@ export const compensatoryRestService = {
     }
   },
 
-  async payRestDays(employeeId: string, amount: number, managerName: string, reason: string): Promise<boolean> {
-    return this.addLog({
-      employee_id: employeeId,
-      amount: -Math.abs(amount),
-      type: 'payment',
-      reason: reason || 'Liquidacion de francos compensatorios',
-      manager_name: managerName
-    });
-  },
-
-  async adjustBalance(employeeId: string, finalBalance: number, managerName: string, reason: string): Promise<boolean> {
-    const current = await this.getBalance(employeeId);
-    const diff = finalBalance - current;
-    if (diff === 0) return true;
-
-    return this.addLog({
-      employee_id: employeeId,
-      amount: diff,
-      type: 'adjustment',
-      reason: reason || 'Ajuste manual de saldo',
-      manager_name: managerName
-    });
-  },
-
   async getAutomaticCreditsForDate(date: string): Promise<{ id: string; employee_id: string }[]> {
     const { data, error } = await supabase
       .from('compensatory_rest_ledger')
@@ -849,5 +804,29 @@ export const compensatoryRestService = {
     );
 
     return credits.length;
+  },
+
+  async payRestDays(employeeId: string, amount: number, managerName: string, reason: string): Promise<boolean> {
+    return this.addLog({
+      employee_id: employeeId,
+      amount: -Math.abs(amount),
+      type: 'payment',
+      reason: reason || 'Liquidacion de francos compensatorios',
+      manager_name: managerName
+    });
+  },
+
+  async adjustBalance(employeeId: string, finalBalance: number, managerName: string, reason: string): Promise<boolean> {
+    const current = await this.getBalance(employeeId);
+    const diff = finalBalance - current;
+    if (diff === 0) return true;
+
+    return this.addLog({
+      employee_id: employeeId,
+      amount: diff,
+      type: 'adjustment',
+      reason: reason || 'Ajuste manual de saldo',
+      manager_name: managerName
+    });
   }
 };

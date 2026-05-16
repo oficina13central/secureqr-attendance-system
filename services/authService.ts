@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient';
 
+const TERMINAL_SESSION_STORAGE_KEY = 'secureqr_terminal_session';
+
 export const authService = {
     async signIn(email: string, password: string) {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -11,6 +13,7 @@ export const authService = {
     },
 
     async signOut() {
+        localStorage.removeItem(TERMINAL_SESSION_STORAGE_KEY);
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     },
@@ -134,6 +137,20 @@ export const authService = {
         } catch (error) {
             console.error('Error fetching session (timeout or connection):', error);
             return null;
+        }
+    },
+
+    async getSessionStatus() {
+        try {
+            const sessionPromise = supabase.auth.getSession();
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+            const { data: { session } } = await (Promise.race([sessionPromise, timeoutPromise]) as any);
+            return session
+                ? { status: 'active' as const, session }
+                : { status: 'empty' as const, session: null };
+        } catch (error) {
+            console.error('Error checking session status (timeout or connection):', error);
+            return { status: 'recovering' as const, session: null, error };
         }
     },
 
