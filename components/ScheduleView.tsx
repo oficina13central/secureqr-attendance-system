@@ -1002,7 +1002,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       {/* ── MODAL ── */}
       {isModalOpen && selectedTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md sm:max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-xl font-black text-slate-800">Asignar Turno</h3>
@@ -1014,14 +1014,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 p-1.5 bg-slate-100/80 rounded-2xl">
                 {(['continuous', 'split', 'double', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const)
                   .filter(t => t !== 'medical' || currentUser.role !== 'encargado')
                   .map((t) => (
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-2 px-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all truncate ${editForm.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`py-3 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all ${
+                      editForm.type === t 
+                        ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                    }`}
                   >
                     {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'double' ? 'Doble' : t === 'off' ? 'Descanso' : t === 'compensatory' ? 'Franco C.' : t === 'suspension' ? 'Suspendido' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
                   </button>
