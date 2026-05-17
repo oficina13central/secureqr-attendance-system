@@ -672,7 +672,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       bgColor = 'bg-amber-50 border-amber-100 text-amber-600';
       icon = <History className="w-3 h-3 mr-1" />;
     } else if (activeShift.type === 'compensatory') {
-      bgColor = 'bg-indigo-50 border-indigo-100 text-indigo-600';
+      bgColor = 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-md ring-2 ring-fuchsia-500/20';
       icon = <History className="w-3 h-3 mr-1" />;
     } else if (activeShift.type === 'suspension') {
       bgColor = 'bg-red-50 border-red-100 text-red-600';
