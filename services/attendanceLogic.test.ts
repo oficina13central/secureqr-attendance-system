@@ -188,7 +188,7 @@ const cases: Array<{ name: string; run: () => void }> = [
         }
     },
     {
-        name: 'off, vacation and medical schedules map to descanso, vacaciones and licencia_medica',
+        name: 'non-working schedules map to their justified attendance statuses',
         run: () => {
             assert.deepEqual(
                 resolveRecalculatedRecord(
@@ -200,6 +200,28 @@ const cases: Array<{ name: string; run: () => void }> = [
                     new Date('2026-04-25T10:00:00')
                 ),
                 { shouldDelete: false, status: 'descanso', minutesLate: 0 }
+            );
+            assert.deepEqual(
+                resolveRecalculatedRecord(
+                    { date: '2026-04-24', check_in: null, status: 'ausente', minutes_late: 0 },
+                    { type: 'compensatory' },
+                    0,
+                    rules,
+                    '2026-04-25',
+                    new Date('2026-04-25T10:00:00')
+                ),
+                { shouldDelete: false, status: 'compensatorio', minutesLate: 0 }
+            );
+            assert.deepEqual(
+                resolveRecalculatedRecord(
+                    { date: '2026-04-24', check_in: null, status: 'ausente', minutes_late: 0 },
+                    { type: 'suspension' },
+                    0,
+                    rules,
+                    '2026-04-25',
+                    new Date('2026-04-25T10:00:00')
+                ),
+                { shouldDelete: false, status: 'suspendido', minutesLate: 0 }
             );
             assert.deepEqual(
                 resolveRecalculatedRecord(

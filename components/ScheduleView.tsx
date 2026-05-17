@@ -295,6 +295,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     if (!activeShift) return isSunday ? 'Descanso' : '';
     if (activeShift.type === 'off') return 'Descanso';
+    if (activeShift.type === 'compensatory') return 'Franco Comp.';
+    if (activeShift.type === 'suspension') return 'Suspendido';
     if (activeShift.type === 'vacation') return 'Vacaciones';
     if (activeShift.type === 'medical') return 'Licencia Medica';
     if (activeShift.type === 'continuous') {
@@ -487,6 +489,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     setMessage(null);
     let savedSuccessfully = false;
     let createdCompCredit = false;
+    let changedCompRestUsage = false;
 
     try {
       const now = new Date();
@@ -559,13 +562,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
           // 1. Manejo de Consumo (-1)
           if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
-            await compensatoryRestService.addCompensatoryUsageIfDue(
+            changedCompRestUsage = await compensatoryRestService.addCompensatoryUsageIfDue(
               selectedTarget.empId,
               dateKey,
               currentUser.full_name || 'Admin'
             );
           } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
-            await compensatoryRestService.reverseCompensatoryUsageIfApplied(
+            changedCompRestUsage = await compensatoryRestService.reverseCompensatoryUsageIfApplied(
               selectedTarget.empId,
               dateKey,
               currentUser.full_name || 'Admin'
@@ -589,7 +592,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
         setShifts(newShiftsMap);
 
-        if (createdCompCredit && setEmployees) {
+        if ((createdCompCredit || changedCompRestUsage) && setEmployees) {
           const updatedEmployees = await personnelService.getAll();
           setEmployees(updatedEmployees);
         }

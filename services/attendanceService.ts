@@ -14,6 +14,16 @@ const isAutomaticAbsenceReason = (reason?: string | null) => {
     return normalized.includes('ausencia') && normalized.includes('turno finalizado');
 };
 
+type JustifiedAbsenceStatus = 'vacaciones' | 'licencia_medica' | 'compensatorio' | 'suspendido';
+
+const getJustifiedStatusForSchedule = (type?: string | null): JustifiedAbsenceStatus | null => {
+    if (type === 'vacation') return 'vacaciones';
+    if (type === 'medical') return 'licencia_medica';
+    if (type === 'compensatory') return 'compensatorio';
+    if (type === 'suspension') return 'suspendido';
+    return null;
+};
+
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
         const { data, error } = await supabase
@@ -159,6 +169,8 @@ export const attendanceService = {
                            ((activeSchedule?.segments?.length || 0) > 1 ? 'split' : 'continuous');
 
         if (scheduleType === 'off') throw new Error('off_day');
+        if (scheduleType === 'compensatory') throw new Error('compensatory_rest');
+        if (scheduleType === 'suspension') throw new Error('suspended');
         if (scheduleType === 'vacation') throw new Error('vacation');
         if (scheduleType === 'medical') throw new Error('medical');
 
@@ -238,7 +250,7 @@ export const attendanceService = {
         return data;
     },
 
-    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | 'vacaciones' | 'licencia_medica' = 'ausente', manualReason?: string): Promise<AttendanceRecord | null> {
+    async recordAbsence(employeeId: string, employeeName: string, date: string, status: 'ausente' | JustifiedAbsenceStatus = 'ausente', manualReason?: string): Promise<AttendanceRecord | null> {
         // CANDADO DE SEGURIDAD: No permitir generar ausencias antes de la fecha de inicio real
         if (date < '2026-04-20') {
             console.warn(`Intento de generar ausencia bloqueado para fecha pre-operativa: ${date}`);
@@ -384,15 +396,12 @@ export const attendanceService = {
                     today
                 );
 
-                const status: 'vacaciones' | 'licencia_medica' | null =
-                    activeSchedule.type === 'vacation' ? 'vacaciones' :
-                    activeSchedule.type === 'medical' ? 'licencia_medica' :
-                    null;
+                const status = getJustifiedStatusForSchedule(activeSchedule.type);
 
                 if (status) {
                     const missingJustifiedCount = Math.max(0, visualDueCount - existingEmpRecords.length);
                     if (missingJustifiedCount > 0) {
-                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status);
                     }
                     continue;
                 }
@@ -506,15 +515,12 @@ export const attendanceService = {
                     new Date()
                 );
 
-                const status: 'vacaciones' | 'licencia_medica' | null =
-                    activeSchedule.type === 'vacation' ? 'vacaciones' :
-                    activeSchedule.type === 'medical' ? 'licencia_medica' :
-                    null;
+                const status = getJustifiedStatusForSchedule(activeSchedule.type);
 
                 if (status) {
                     const visualDueCount = getDueRecordCount(activeSchedule, dateStr, todayStr, new Date(), 120);
                     if (existingEmpRecords.length < visualDueCount) {
-                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status as any);
+                        await this.recordAbsence(emp.id, emp.full_name, dateStr, status);
                     }
                     continue;
                 }
@@ -888,7 +894,7 @@ export const attendanceService = {
             
             for (const record of records) {
                 if (record.date < '2026-04-20') continue;
-                if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones') continue;
+                if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones' || record.status === 'compensatorio' || record.status === 'suspendido') continue;
                 
                 const rDate = new Date(`${record.date}T12:00:00`);
                 const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));

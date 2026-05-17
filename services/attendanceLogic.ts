@@ -10,7 +10,7 @@ export type ScheduleSegmentLike = {
 };
 
 export type ScheduleLike = {
-    type?: 'continuous' | 'split' | 'double' | 'off' | 'vacation' | 'medical' | 'compensatory';
+    type?: 'continuous' | 'split' | 'double' | 'off' | 'vacation' | 'medical' | 'compensatory' | 'suspension';
     segments?: ScheduleSegmentLike[];
 };
 
@@ -134,7 +134,7 @@ export const getDueRecordCount = (
     gracePeriod: number
 ) => {
     if (!schedule || schedule.type === 'off') return 0;
-    if (schedule.type === 'vacation' || schedule.type === 'medical') return 1;
+    if (schedule.type === 'vacation' || schedule.type === 'medical' || schedule.type === 'compensatory' || schedule.type === 'suspension') return 1;
 
     const segments = schedule.segments || [];
     if (segments.length === 0) return 0;
@@ -154,7 +154,7 @@ export const getClosedSegmentCount = (
     now: Date
 ) => {
     if (!schedule || schedule.type === 'off') return 0;
-    if (schedule.type === 'vacation' || schedule.type === 'medical') return 1;
+    if (schedule.type === 'vacation' || schedule.type === 'medical' || schedule.type === 'compensatory' || schedule.type === 'suspension') return 1;
 
     const segments = schedule.segments || [];
     if (segments.length === 0) return 0;
@@ -187,6 +187,8 @@ export const resolveRecalculatedRecord = (
     if (!schedule) return { shouldDelete: false, status, minutesLate };
 
     if (schedule.type === 'off') return { shouldDelete: false, status: 'descanso', minutesLate: 0 };
+    if (schedule.type === 'compensatory') return { shouldDelete: false, status: 'compensatorio', minutesLate: 0 };
+    if (schedule.type === 'suspension') return { shouldDelete: false, status: 'suspendido', minutesLate: 0 };
     if (schedule.type === 'vacation') return { shouldDelete: false, status: 'vacaciones', minutesLate: 0 };
     if (schedule.type === 'medical') return { shouldDelete: false, status: 'licencia_medica', minutesLate: 0 };
 

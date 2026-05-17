@@ -80,8 +80,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         return { status: 'error' as const, message: 'No tenés entrada registrada' };
       case 'off_day':
         return { status: 'error' as const, message: 'Tenés descanso asignado' };
+      case 'compensatory_rest':
+        return { status: 'error' as const, message: 'Tenés franco compensatorio asignado' };
+      case 'suspended':
+        return { status: 'error' as const, message: 'Tenés suspensión asignada' };
       case 'vacation':
         return { status: 'error' as const, message: 'Estás de vacaciones' };
+      case 'medical':
+        return { status: 'error' as const, message: 'Tenés licencia médica asignada' };
       case 'daily_limit_reached':
         return { status: 'duplicate' as const, message: 'Ya completaste los registros permitidos de hoy' };
       case 'user_not_found':
@@ -683,7 +689,11 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
                   {attendanceMsg === 'No tenés entrada registrada'
                     ? 'Debe registrar su ingreso antes de poder marcar la salida.'
-                    : attendanceMsg === 'Tenés descanso asignado' || attendanceMsg === 'Estás de vacaciones'
+                    : attendanceMsg === 'Tenés descanso asignado' ||
+                      attendanceMsg === 'Tenés franco compensatorio asignado' ||
+                      attendanceMsg === 'Tenés suspensión asignada' ||
+                      attendanceMsg === 'Estás de vacaciones' ||
+                      attendanceMsg === 'Tenés licencia médica asignada'
                     ? 'No podés registrar asistencia en tus días libres asignados.'
                     : attendanceMsg === 'QR no válido, revise su tarjeta'
                     ? 'El código leído no es válido o no corresponde a una credencial activa.'
