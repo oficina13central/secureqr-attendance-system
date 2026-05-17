@@ -20,6 +20,10 @@ export interface Profile {
   email: string;
   role: string; // Dynamic role ID
   employment_type?: 'efectivo' | 'jornalero';
+  hire_date?: string | null;
+  contract_type?: string | null;
+  job_position?: string | null;
+  job_category?: string | null;
   sector_id?: string;
   dni?: string;
   photo_url?: string;
@@ -92,10 +96,12 @@ export interface Holiday {
 export interface EmployeeDocument {
   id: string;
   employee_id: string;
-  type: 'medical' | 'suspension' | 'identity' | 'other';
+  type: 'medical' | 'suspension' | 'identity' | 'contract' | 'certificate' | 'training' | 'other';
   file_url: string;
   file_name: string;
   description: string;
+  expires_at?: string | null;
+  is_required?: boolean | null;
   created_at: string;
 }
 

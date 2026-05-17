@@ -17,7 +17,9 @@ import {
   Search,
   UploadCloud,
   ChevronRight,
-  Download
+  Download,
+  Briefcase,
+  Building2
 } from 'lucide-react';
 import { compensatoryRestService } from '../services/compensatoryRestService';
 import { attendanceService } from '../services/attendanceService';
@@ -52,6 +54,26 @@ const formatDateLong = (date: string) =>
 const formatLeaveRange = (range: LeaveRange) => {
   if (range.start === range.end) return formatDateLong(range.start);
   return `Desde ${formatDateLong(range.start)} hasta ${formatDateLong(range.end)}`;
+};
+
+const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
+
+const getContractTypeLabel = (type?: string | null) => {
+  if (type === 'permanent') return 'Permanente';
+  if (type === 'temporary') return 'Temporal';
+  if (type === 'contractor') return 'Contratista';
+  if (type === 'internship') return 'Pasantia';
+  return 'Sin definir';
+};
+
+const getDocumentTypeLabel = (type?: string) => {
+  if (type === 'medical') return 'Medico';
+  if (type === 'suspension') return 'Disciplinario';
+  if (type === 'identity') return 'Identidad';
+  if (type === 'contract') return 'Contrato';
+  if (type === 'certificate') return 'Certificado';
+  if (type === 'training') return 'Capacitacion';
+  return 'Otro';
 };
 
 const groupConsecutiveDates = (records: AttendanceRecord[]): LeaveRange[] => {
@@ -102,8 +124,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   const isRestricted = roleLower.includes('encargado') && !isAdmin;
   
   const [employee, setEmployee] = useState<Profile | null>(null);
-  const [activeTab, setActiveTab] = useState<'stats' | 'francos' | 'docs'>(!isRestricted ? 'stats' : 'francos');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'francos' | 'docs'>(!isRestricted ? 'profile' : 'francos');
   const [loading, setLoading] = useState(true);
+  const [sectorName, setSectorName] = useState('Sin sector');
   
   // Date Range for stats
   const [dateRange, setDateRange] = useState({
@@ -122,6 +145,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   // Actions states
   const [amount, setAmount] = useState<number>(1);
   const [reason, setReason] = useState('');
+  const [documentForm, setDocumentForm] = useState({
+    type: 'other' as EmployeeDocument['type'],
+    description: '',
+    expires_at: '',
+    is_required: false
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -139,6 +168,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     setLoading(true);
     const { data: empData } = await supabase.from('profiles').select('*').eq('id', employeeId).single();
     setEmployee(empData);
+    if (empData?.sector_id) {
+      const { data: sectorData } = await supabase.from('sectors').select('name').eq('id', empData.sector_id).maybeSingle();
+      setSectorName(sectorData?.name || empData.sector_id || 'Sin sector');
+    } else {
+      setSectorName('Sin sector');
+    }
     
     const [logs, docs, score] = await Promise.all([
       compensatoryRestService.getLogs(employeeId),
@@ -295,15 +330,18 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       const { data: { publicUrl } } = supabase.storage.from('employee-documents').getPublicUrl(fileName);
       await supabase.from('employee_documents').insert([{
         employee_id: employeeId,
-        type: 'other',
+        type: documentForm.type,
         file_url: publicUrl,
         file_name: file.name,
-        description: reason || 'Documento cargado'
+        description: documentForm.description || reason || 'Documento cargado',
+        expires_at: documentForm.expires_at || null,
+        is_required: documentForm.is_required
       }]);
       
       const { data: newDocs } = await supabase.from('employee_documents').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false });
       setDocuments(newDocs || []);
       setReason('');
+      setDocumentForm({ type: 'other', description: '', expires_at: '', is_required: false });
     }
     setUploading(false);
   };
@@ -333,6 +371,27 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     }
     doc.text(`FRANCOS: ${employee.compensatory_rest_balance || 0} jornadas`, pageW - margin - 4, y + 27, { align: 'right' });
     y += 48;
+
+    // Labor profile
+    doc.setTextColor(30, 30, 60);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text('DATOS LABORALES', margin, y); y += 7;
+    const laborData = [
+      ['Ingreso', employee.hire_date || 'Sin definir', 'Contratacion', getContractTypeLabel(employee.contract_type)],
+      ['Tipo', getEmploymentTypeLabel(employee.employment_type), 'Sector', sectorName],
+      ['Puesto', employee.job_position || 'Sin definir', 'Categoria', employee.job_category || 'Sin definir'],
+    ];
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    laborData.forEach(([l1, v1, l2, v2]) => {
+      doc.setFillColor(248, 250, 252); doc.roundedRect(margin, y, 82, 10, 2, 2, 'F');
+      doc.setTextColor(100,116,139); doc.text(String(l1), margin + 3, y + 4);
+      doc.setTextColor(30,41,59); doc.setFont('helvetica','bold'); doc.text(String(v1), margin + 78, y + 4, { align: 'right', maxWidth: 45 }); doc.setFont('helvetica','normal');
+      doc.setFillColor(248, 250, 252); doc.roundedRect(margin + 88, y, 82, 10, 2, 2, 'F');
+      doc.setTextColor(100,116,139); doc.text(String(l2), margin + 91, y + 4);
+      doc.setTextColor(30,41,59); doc.setFont('helvetica','bold'); doc.text(String(v2), margin + 166, y + 4, { align: 'right', maxWidth: 45 }); doc.setFont('helvetica','normal');
+      y += 12;
+    });
+    y += 4;
 
     // Stats section
     doc.setTextColor(30, 30, 60);
@@ -492,7 +551,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 mt-2 text-indigo-100 font-bold text-xs md:text-sm">
                   <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> DNI: {employee.dni}</span>
                   <span className="hidden md:block w-1 h-1 bg-white/30 rounded-full" />
-                  <span>{employee.role?.toUpperCase()}</span>
+                  <span>{employee.job_position || employee.role?.toUpperCase()}</span>
+                  <span className="hidden md:block w-1 h-1 bg-white/30 rounded-full" />
+                  <span>{sectorName}</span>
                 </div>
               </div>
             </div>
@@ -545,6 +606,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         <div className="flex border-b border-slate-100 px-4 md:px-8 bg-slate-50/50 overflow-x-auto no-scrollbar">
           <div className="flex min-w-max">
             {[
+              { id: 'profile', label: 'Legajo', icon: Briefcase, hidden: isRestricted },
               { id: 'stats', label: '📊 Estadísticas', icon: TrendingUp, hidden: isRestricted },
               { id: 'francos', label: '🏦 Banco de Francos', icon: CreditCard },
               { id: 'docs', label: '📂 Documentos/Fotos', icon: Camera, hidden: isRestricted },
@@ -562,6 +624,101 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/30">
+
+          {activeTab === 'profile' && employee && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Briefcase className="w-6 h-6 text-indigo-600" />
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">Datos laborales</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Informacion base del legajo</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      ['Nombre completo', employee.full_name],
+                      ['DNI', employee.dni || 'Sin definir'],
+                      ['Fecha de ingreso', employee.hire_date ? formatDateLong(employee.hire_date) : 'Sin definir'],
+                      ['Tipo de contratacion', getContractTypeLabel(employee.contract_type)],
+                      ['Tipo de personal', getEmploymentTypeLabel(employee.employment_type)],
+                      ['Sector actual', sectorName],
+                      ['Puesto', employee.job_position || 'Sin definir'],
+                      ['Categoria', employee.job_category || 'Sin definir'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+                        <p className="text-sm font-black text-slate-700 mt-1">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Building2 className="w-6 h-6 text-indigo-600" />
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">Resumen</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Estado laboral</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                      <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Estado</span>
+                      <span className="text-xs font-black text-emerald-700">Activo</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+                      <span className="text-xs font-black text-indigo-700 uppercase tracking-widest">Documentos</span>
+                      <span className="text-xs font-black text-indigo-700">{documents.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                      <span className="text-xs font-black text-amber-700 uppercase tracking-widest">Vencidos</span>
+                      <span className="text-xs font-black text-amber-700">
+                        {documents.filter(doc => doc.expires_at && doc.expires_at < new Date().toISOString().substring(0, 10)).length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <Calendar className="w-5 h-5 text-sky-600" />
+                    <h3 className="text-lg font-black text-slate-800">Historial de licencias</h3>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status))).length === 0 ? (
+                      <p className="text-sm font-bold text-slate-400">Sin licencias registradas en el rango actual.</p>
+                    ) : groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status))).map(range => (
+                      <div key={`${range.start}_${range.end}`} className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                        <p className="text-sm font-black text-slate-700">{formatLeaveRange(range)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{range.count} dia{range.count !== 1 ? 's' : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <ShieldAlert className="w-5 h-5 text-rose-600" />
+                    <h3 className="text-lg font-black text-slate-800">Historial disciplinario</h3>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {documents.filter(doc => doc.type === 'suspension').length === 0 ? (
+                      <p className="text-sm font-bold text-slate-400">Sin antecedentes disciplinarios cargados.</p>
+                    ) : documents.filter(doc => doc.type === 'suspension').map(doc => (
+                      <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3 hover:bg-rose-100">
+                        <p className="text-sm font-black text-rose-700">{doc.description || doc.file_name}</p>
+                        <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}</p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {activeTab === 'stats' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
@@ -741,7 +898,44 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   </div>
                   <div>
                     <p className="font-black text-slate-700">Subir Documento</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Fotos de certificados o sanciones</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Contratos, certificados, sanciones o constancias</p>
+                  </div>
+                  <div className="w-full space-y-3 text-left">
+                    <select
+                      value={documentForm.type}
+                      onChange={event => setDocumentForm(prev => ({ ...prev, type: event.target.value as EmployeeDocument['type'] }))}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700"
+                    >
+                      <option value="identity">{getDocumentTypeLabel('identity')}</option>
+                      <option value="contract">{getDocumentTypeLabel('contract')}</option>
+                      <option value="medical">{getDocumentTypeLabel('medical')}</option>
+                      <option value="suspension">{getDocumentTypeLabel('suspension')}</option>
+                      <option value="certificate">{getDocumentTypeLabel('certificate')}</option>
+                      <option value="training">{getDocumentTypeLabel('training')}</option>
+                      <option value="other">{getDocumentTypeLabel('other')}</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={documentForm.description}
+                      onChange={event => setDocumentForm(prev => ({ ...prev, description: event.target.value }))}
+                      placeholder="Descripcion para auditoria"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700"
+                    />
+                    <input
+                      type="date"
+                      value={documentForm.expires_at}
+                      onChange={event => setDocumentForm(prev => ({ ...prev, expires_at: event.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700"
+                    />
+                    <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                      <input
+                        type="checkbox"
+                        checked={documentForm.is_required}
+                        onChange={event => setDocumentForm(prev => ({ ...prev, is_required: event.target.checked }))}
+                        className="w-4 h-4 rounded text-indigo-600"
+                      />
+                      Documento obligatorio
+                    </label>
                   </div>
                   <input type="file" onChange={handleFileUpload} className="hidden" id="file-upload" />
                   <label htmlFor="file-upload" className="cursor-pointer px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-500/20">
@@ -759,9 +953,22 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       </div>
                     </div>
                     <div className="p-6">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">{new Date(doc.created_at).toLocaleDateString()}</p>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{getDocumentTypeLabel(doc.type)}</p>
+                        {doc.is_required && (
+                          <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 text-[8px] font-black uppercase tracking-widest">Obligatorio</span>
+                        )}
+                      </div>
                       <p className="font-black text-slate-700 truncate">{doc.file_name}</p>
                       <p className="text-xs text-slate-400 font-medium mt-1">{doc.description}</p>
+                      <div className="mt-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+                        <span className="text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</span>
+                        {doc.expires_at && (
+                          <span className={doc.expires_at < new Date().toISOString().substring(0, 10) ? 'text-rose-600' : 'text-emerald-600'}>
+                            Vence {doc.expires_at}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

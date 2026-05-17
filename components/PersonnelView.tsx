@@ -52,6 +52,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
 
     const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
+    const getContractTypeLabel = (type?: string | null) => {
+        if (type === 'permanent') return 'Permanente';
+        if (type === 'temporary') return 'Temporal';
+        if (type === 'contractor') return 'Contratista';
+        if (type === 'internship') return 'Pasantia';
+        return 'Sin definir';
+    };
 
     // Helper: get all sector IDs this user can manage (own sector + managed_sectors)
     const getAccessibleSectorIds = (user: Profile): string[] => {
@@ -126,6 +133,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         dni: '',
         role: 'encargado',
         employment_type: 'efectivo',
+        hire_date: '',
+        contract_type: 'permanent',
+        job_position: '',
+        job_category: '',
         sector_id: '',
         managed_sectors: []
     });
@@ -149,7 +160,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', employment_type: 'efectivo', sector_id: '', managed_sectors: [] });
+        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', employment_type: 'efectivo', hire_date: '', contract_type: 'permanent', job_position: '', job_category: '', sector_id: '', managed_sectors: [] });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -227,6 +238,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     dni: formData.dni || '',
                     role: formData.role as string,
                     employment_type: formData.employment_type || 'efectivo',
+                    hire_date: formData.hire_date || null,
+                    contract_type: formData.contract_type || null,
+                    job_position: formData.job_position || null,
+                    job_category: formData.job_category || null,
                     sector_id: formData.sector_id || null,
                     managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_${formData.id}`
@@ -245,6 +260,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     dni: formData.dni || '',
                     role: formData.role as string,
                     employment_type: formData.employment_type || 'efectivo',
+                    hire_date: formData.hire_date || null,
+                    contract_type: formData.contract_type || null,
+                    job_position: formData.job_position || null,
+                    job_category: formData.job_category || null,
                     sector_id: formData.sector_id || 'General',
                     managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_PENDING`
@@ -831,8 +850,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     </div>
                                 </div>
 
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tipo de Personal</label>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tipo de Personal</label>
                                     <select
                                         value={formData.employment_type || 'efectivo'}
                                         onChange={e => setFormData({ ...formData, employment_type: e.target.value as 'efectivo' | 'jornalero' })}
@@ -841,6 +860,54 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                         <option value="efectivo">Efectivo</option>
                                         <option value="jornalero">Jornalero</option>
                                     </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha de Ingreso</label>
+                                        <input
+                                            type="date"
+                                            value={formData.hire_date || ''}
+                                            onChange={e => setFormData({ ...formData, hire_date: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contratacion</label>
+                                        <select
+                                            value={formData.contract_type || 'permanent'}
+                                            onChange={e => setFormData({ ...formData, contract_type: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        >
+                                            <option value="permanent">{getContractTypeLabel('permanent')}</option>
+                                            <option value="temporary">{getContractTypeLabel('temporary')}</option>
+                                            <option value="contractor">{getContractTypeLabel('contractor')}</option>
+                                            <option value="internship">{getContractTypeLabel('internship')}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Puesto</label>
+                                        <input
+                                            type="text"
+                                            value={formData.job_position || ''}
+                                            onChange={e => setFormData({ ...formData, job_position: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. Operador"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Categoria</label>
+                                        <input
+                                            type="text"
+                                            value={formData.job_category || ''}
+                                            onChange={e => setFormData({ ...formData, job_category: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. Administrativo A"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Panel de sectores adicionales */}
