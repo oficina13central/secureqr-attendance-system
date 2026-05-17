@@ -28,7 +28,7 @@ const normalizeDate = (value: string) => value.substring(0, 10);
 
 const toDateTime = (date: string, time?: string | null) => {
   if (!time) return null;
-  return `${normalizeDate(date)}T${time}:00`;
+  return `${normalizeDate(date)}T${time}:00-03:00`;
 };
 
 const getAttendanceCorrectionSummary = (request: HrRequest) => {
