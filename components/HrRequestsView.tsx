@@ -12,6 +12,7 @@ import {
   Send,
   Upload,
   User,
+  UserCheck,
   XCircle
 } from 'lucide-react';
 import { Profile, HrRequest, HrRequestStatus, HrRequestType } from '../types';
@@ -45,6 +46,17 @@ const requestTypes: Array<{ id: HrRequestType; label: string; disabled?: boolean
 ];
 
 const getToday = () => new Date().toISOString().substring(0, 10);
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return 'Sin fecha';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(date);
+};
 
 const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser }) => {
   const [requests, setRequests] = useState<HrRequest[]>([]);
@@ -453,10 +465,49 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
                         <FileText className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
                         <span>{request.reason}</span>
                       </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                        <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Creada</p>
+                          <p className="text-xs font-black text-slate-700 mt-1">{formatDateTime(request.created_at)}</p>
+                          <p className="text-[11px] font-bold text-slate-500 mt-1 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            <span className="truncate">{request.requested_by_name}</span>
+                          </p>
+                        </div>
+                        {request.status === 'pending' ? (
+                          <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Estado actual</p>
+                            <p className="text-xs font-black text-amber-700 mt-1">Pendiente de resolucion</p>
+                            <p className="text-[11px] font-bold text-amber-600 mt-1">Esperando aprobacion o rechazo</p>
+                          </div>
+                        ) : (
+                          <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                              {request.status === 'approved' ? 'Aprobada' : request.status === 'rejected' ? 'Rechazada' : 'Cerrada'}
+                            </p>
+                            <p className="text-xs font-black text-slate-700 mt-1">{formatDateTime(request.resolved_at)}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-1 flex items-center gap-1">
+                              <UserCheck className="w-3 h-3" />
+                              <span className="truncate">{request.resolved_by_name || 'Sin responsable'}</span>
+                            </p>
+                          </div>
+                        )}
+                        {request.applied_at && (
+                          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Aplicada en sistema</p>
+                            <p className="text-xs font-black text-emerald-700 mt-1">{formatDateTime(request.applied_at)}</p>
+                            <p className="text-[11px] font-bold text-emerald-600 mt-1 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Impacto operativo registrado</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
                       {request.resolution_comment && (
-                        <p className="text-xs text-slate-500 font-bold bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
-                          Resolucion: {request.resolution_comment}
-                        </p>
+                        <div className="text-xs text-slate-500 font-bold bg-white border border-slate-100 rounded-2xl px-4 py-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Comentario de resolucion</p>
+                          <p>{request.resolution_comment}</p>
+                        </div>
                       )}
                     </div>
 
