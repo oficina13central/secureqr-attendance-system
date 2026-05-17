@@ -177,11 +177,11 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
 
         // Other statuses (manual, etc)
         const record = records[0];
-        if (record.status === 'ausente') {
+        if (record.status === 'ausente' || record.status === 'ausente_justificada') {
             return (
                 <div className="flex flex-col items-center">
-                    <span className="bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
-                        <UserX className="w-3 h-3" /> Ausente
+                    <span className={`${record.status === 'ausente_justificada' ? 'bg-sky-100 text-sky-700 border-sky-200' : 'bg-rose-100 text-rose-700 border-rose-200'} border px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm`}>
+                        <UserX className="w-3 h-3" /> {record.status === 'ausente_justificada' ? 'Justificada' : 'Ausente'}
                     </span>
                 </div>
             );

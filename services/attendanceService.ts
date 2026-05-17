@@ -894,7 +894,7 @@ export const attendanceService = {
             
             for (const record of records) {
                 if (record.date < '2026-04-20') continue;
-                if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones' || record.status === 'compensatorio' || record.status === 'suspendido') continue;
+                if (record.status === 'en_horario' || record.status === 'manual' || record.status === 'presente' || record.status === 'descanso' || record.status === 'vacaciones' || record.status === 'compensatorio' || record.status === 'suspendido' || record.status === 'ausente_justificada') continue;
                 
                 const rDate = new Date(`${record.date}T12:00:00`);
                 const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));

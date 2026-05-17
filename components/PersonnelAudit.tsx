@@ -1142,13 +1142,14 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                 <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${['en_horario', 'presente'].includes(record.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     record.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         record.status === 'ausente' ? 'bg-red-50 text-red-600 border-red-100' :
+                                                            record.status === 'ausente_justificada' ? 'bg-sky-50 text-sky-700 border-sky-100' :
                                                             record.status === 'vacaciones' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                                                 record.status === 'licencia_medica' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
                                                                     record.status === 'descanso' ? 'bg-slate-100 text-slate-500 border-slate-200' :
                                                                         record.status === 'manual' ? 'bg-purple-50 text-purple-600 border-purple-100' :
                                                                         'bg-red-100 text-red-700 border-red-200'
                                                     }`}>
-                                                    {record.status === 'sin_presentismo' ? 'Llegada Tarde' : record.status.replace(/_/g, ' ')}
+                                                    {record.status === 'sin_presentismo' ? 'Llegada Tarde' : record.status === 'ausente_justificada' ? 'Ausencia Justificada' : record.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
                                             <td className="py-4 text-right text-sm font-black text-slate-700">

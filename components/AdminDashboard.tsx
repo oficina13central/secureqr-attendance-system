@@ -373,6 +373,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     if (record.status === 'vacaciones') return 'Vacaciones';
     if (record.status === 'licencia_medica') return 'Licencia Médica';
     if (record.status === 'descanso') return 'Descanso';
+    if (record.status === 'ausente_justificada') return 'Ausencia Justificada';
 
     return 'Sin Turno';
   };
@@ -393,7 +394,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       const empId = emp.id.toLowerCase();
       const empRecords = records.filter(r => r.date === today && r.employee_id?.toLowerCase() === empId);
       const realEntriesCount = empRecords.filter(r => r.check_in).length;
-      const hasStatusRecord = empRecords.some(r => ['vacaciones', 'licencia_medica', 'descanso', 'ausente', 'pendiente'].includes(r.status));
+      const hasStatusRecord = empRecords.some(r => ['vacaciones', 'licencia_medica', 'descanso', 'ausente', 'ausente_justificada', 'pendiente'].includes(r.status));
 
       // Usamos el mismo mapa de búsqueda con IDs normalizados
       let shift = scheduleMap.get(`${empId}_${today}`);
@@ -1129,10 +1130,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                         (r.status === 'en_horario' || r.status === 'presente') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                         r.status === 'tarde' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                         r.status === 'sin_presentismo' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                        r.status === 'ausente_justificada' ? 'bg-sky-50 text-sky-700 border-sky-100' :
                         'bg-slate-50 text-slate-500 border-slate-200'
                       }`}>
                         {r.status === 'en_horario' || r.status === 'presente' ? 'En Horario' :
                          r.status === 'sin_presentismo' ? 'Llegada Tarde' : 
+                         r.status === 'ausente_justificada' ? 'Ausencia Justificada' :
                          (r.status || '').replace('_', ' ')}
                       </span>
                     ))}

@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   date TEXT NOT NULL,
   check_in TEXT,
   check_out TEXT,
-  status TEXT CHECK(status IN ('presente', 'en_horario', 'tarde', 'ausente', 'manual', 'sin_presentismo', 'pendiente', 'descanso', 'vacaciones', 'licencia_medica')) NOT NULL,
+  status TEXT CHECK(status IN ('presente', 'en_horario', 'tarde', 'ausente', 'ausente_justificada', 'manual', 'sin_presentismo', 'pendiente', 'descanso', 'vacaciones', 'licencia_medica', 'compensatorio', 'suspendido')) NOT NULL,
   minutes_late INTEGER DEFAULT 0,
   manual_reason TEXT
 );
@@ -70,6 +70,31 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   new_value TEXT,
   reason TEXT,
   timestamp TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hr_requests (
+  id TEXT PRIMARY KEY,
+  employee_id UUID REFERENCES profiles(id),
+  employee_name TEXT NOT NULL,
+  sector_id TEXT REFERENCES sectors(id),
+  request_type TEXT CHECK(request_type IN ('attendance_correction', 'absence_justification', 'vacation_request', 'medical_leave_request')) NOT NULL,
+  status TEXT CHECK(status IN ('pending', 'approved', 'rejected', 'cancelled')) NOT NULL DEFAULT 'pending',
+  target_date TEXT NOT NULL,
+  end_date TEXT,
+  attendance_record_id TEXT REFERENCES attendance_records(id),
+  requested_check_in TEXT,
+  requested_check_out TEXT,
+  reason TEXT NOT NULL,
+  attachment_url TEXT,
+  requested_by_id UUID REFERENCES profiles(id),
+  requested_by_name TEXT NOT NULL,
+  resolved_by_id UUID REFERENCES profiles(id),
+  resolved_by_name TEXT,
+  resolution_comment TEXT,
+  resolved_at TEXT,
+  applied_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
 );
 
 
@@ -104,6 +129,7 @@ INSERT INTO permissions (id, name, category) VALUES
 ('VIEW_SECTOR_PERSONNEL', 'Ver personal de su sector', 'Personal'),
 ('MANAGE_SECTOR_SCHEDULES', 'Gestionar cronogramas de su sector', 'Cronogramas'),
 ('MANUAL_ATTENDANCE', 'Marcación manual', 'Asistencia'),
+('MANAGE_HR_REQUESTS', 'Gestionar solicitudes RRHH', 'RRHH'),
 ('SCAN_QR', 'Escaneo de QR', 'Terminal'),
 ('VIEW_DASHBOARD', 'Ver panel general', 'Auditoría'),
 ('MANAGE_SETTINGS', 'Acceso a ajustes', 'Sistema'),
@@ -131,5 +157,7 @@ ON CONFLICT (key) DO NOTHING;
 -- Role Permissions
 INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('terminal', 'SCAN_QR'),
-('encargado', 'SELF_VIEW')
+('encargado', 'SELF_VIEW'),
+('superusuario', 'MANAGE_HR_REQUESTS'),
+('administrador', 'MANAGE_HR_REQUESTS')
 ON CONFLICT DO NOTHING;

@@ -16,7 +16,8 @@ import {
   CreditCard,
   BookOpen,
   RefreshCw,
-  Download
+  Download,
+  ClipboardCheck
 } from 'lucide-react';
 import TerminalView from './components/TerminalView';
 import AdminDashboard from './components/AdminDashboard';
@@ -29,6 +30,7 @@ import FraudAnalysis from './components/FraudAnalysis';
 import UserManagementView from './components/UserManagementView';
 import MyCredentialView from './components/MyCredentialView';
 import ManualView from './components/ManualView';
+import HrRequestsView from './components/HrRequestsView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
@@ -36,7 +38,7 @@ import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
 
-type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal' | 'manual';
+type AdminSubView = 'dashboard' | 'audit_personnel' | 'schedule' | 'personnel' | 'hr_requests' | 'audit' | 'settings' | 'fraud' | 'users' | 'my_credential' | 'terminal' | 'manual';
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -349,6 +351,7 @@ const App: React.FC = () => {
     'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
     'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
     'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
+    'hr_requests': ['MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE'],
     'audit': ['VIEW_AUDIT_LOGS'],
     'settings': ['MANAGE_SETTINGS'],
     'fraud': ['VIEW_AUDIT_LOGS'],
@@ -398,6 +401,7 @@ const App: React.FC = () => {
       case 'audit_personnel': return <PersonnelAudit employees={employees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'schedule': return <ScheduleView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
+      case 'hr_requests': return <HrRequestsView employees={employees} currentUser={currentUser!} />;
       case 'audit': return <AuditView />;
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'fraud': return <FraudAnalysis />;
@@ -581,6 +585,7 @@ const App: React.FC = () => {
                 { id: 'my_credential', label: 'Mi Credencial (QR)', icon: CreditCard },
                 { id: 'schedule', label: 'Cronogramas', icon: Calendar },
                 { id: 'personnel', label: 'Personal', icon: Users },
+                { id: 'hr_requests', label: 'Solicitudes RRHH', icon: ClipboardCheck },
                 { id: 'audit', label: 'Logs de Sistema', icon: History },
                 { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users },
                 { id: 'fraud', label: 'Auditoría Automática', icon: ShieldCheck },

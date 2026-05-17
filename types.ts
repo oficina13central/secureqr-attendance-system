@@ -49,7 +49,7 @@ export interface AttendanceRecord {
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'en_horario' | 'tarde' | 'ausente' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica' | 'presente' | 'compensatorio' | 'suspendido';
+  status: 'en_horario' | 'tarde' | 'ausente' | 'ausente_justificada' | 'manual' | 'sin_presentismo' | 'pendiente' | 'descanso' | 'vacaciones' | 'licencia_medica' | 'presente' | 'compensatorio' | 'suspendido';
   minutes_late: number;
   manual_reason?: string;
   assigned_time?: string;
@@ -97,4 +97,32 @@ export interface EmployeeDocument {
   file_name: string;
   description: string;
   created_at: string;
+}
+
+export type HrRequestType = 'attendance_correction' | 'absence_justification' | 'vacation_request' | 'medical_leave_request';
+export type HrRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface HrRequest {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  sector_id?: string | null;
+  request_type: HrRequestType;
+  status: HrRequestStatus;
+  target_date: string;
+  end_date?: string | null;
+  attendance_record_id?: string | null;
+  requested_check_in?: string | null;
+  requested_check_out?: string | null;
+  reason: string;
+  attachment_url?: string | null;
+  requested_by_id?: string | null;
+  requested_by_name: string;
+  resolved_by_id?: string | null;
+  resolved_by_name?: string | null;
+  resolution_comment?: string | null;
+  resolved_at?: string | null;
+  applied_at?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 }
