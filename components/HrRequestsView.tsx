@@ -12,7 +12,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { Profile, HrRequest, HrRequestStatus, HrRequestType } from '../types';
-import { hrRequestService, getRequestTypeLabel } from '../services/hrRequestService';
+import { hrRequestService, getRequestTypeLabel, canAccessHrRequest } from '../services/hrRequestService';
 import { auditService } from '../services/auditService';
 
 type HrRequestsViewProps = {
@@ -85,9 +85,7 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   );
 
   const canAccessRequest = (request: HrRequest) => {
-    if (isAdminScope) return true;
-    if (isManagerScope) return !!request.sector_id && accessibleSectorIds.has(request.sector_id);
-    return request.employee_id === currentUser.id || request.requested_by_id === currentUser.id;
+    return canAccessHrRequest(request, currentUser);
   };
 
   const loadRequests = async () => {

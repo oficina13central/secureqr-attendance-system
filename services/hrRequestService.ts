@@ -235,6 +235,18 @@ export const getRequestTypeLabel = (type: HrRequestType) => {
   return 'Licencia medica';
 };
 
+export const canAccessHrRequest = (
+  request: Pick<HrRequest, 'employee_id' | 'sector_id' | 'requested_by_id'>,
+  user: Profile
+) => {
+  if (user.role === 'administrador' || user.role === 'superusuario') return true;
+  if (user.role === 'encargado') {
+    const sectorIds = new Set([user.sector_id, ...(user.managed_sectors || [])].filter(Boolean));
+    return !!request.sector_id && sectorIds.has(request.sector_id);
+  }
+  return request.employee_id === user.id || request.requested_by_id === user.id;
+};
+
 export const hrRequestService = {
   async getAll(): Promise<HrRequest[]> {
     const { data, error } = await supabase
@@ -248,6 +260,20 @@ export const hrRequestService = {
     }
 
     return data || [];
+  },
+
+  async countPendingForUser(user: Profile): Promise<number> {
+    const { data, error } = await supabase
+      .from('hr_requests')
+      .select('employee_id, sector_id, requested_by_id')
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error counting pending HR requests:', error);
+      return 0;
+    }
+
+    return (data || []).filter(request => canAccessHrRequest(request as any, user)).length;
   },
 
   async create(input: CreateHrRequestInput): Promise<HrRequest> {

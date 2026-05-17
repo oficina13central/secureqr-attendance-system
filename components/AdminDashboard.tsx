@@ -17,6 +17,7 @@ import {
   Sun,
   Cloud,
   Wind,
+  ClipboardCheck,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -36,6 +37,7 @@ import { sectorService, Sector } from '../services/sectorService';
 import { supabase } from '../services/supabaseClient';
 import { scheduleService } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
+import { hrRequestService } from '../services/hrRequestService';
 
 const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -71,10 +73,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [weather, setWeather] = useState<WeatherState | null>(null);
   const [dailyWeather, setDailyWeather] = useState<Record<string, DailyWeatherContext>>({});
   const [weatherError, setWeatherError] = useState(false);
+  const [pendingHrRequestsCount, setPendingHrRequestsCount] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
+  const canResolveHrRequests = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -128,6 +132,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     };
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (!canResolveHrRequests) return;
+
+    const loadPendingCount = async () => {
+      const count = await hrRequestService.countPendingForUser(currentUser);
+      setPendingHrRequestsCount(count);
+    };
+
+    loadPendingCount();
+  }, [canResolveHrRequests, currentUser]);
 
   useEffect(() => {
     const loadWeather = async () => {
@@ -814,6 +829,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clima Operativo</p>
                 <p className="text-sm font-black text-slate-500">{weatherError ? 'No disponible' : 'Cargando...'}</p>
               </div>
+            )}
+            {canResolveHrRequests && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'hr_requests' }))}
+                className={`rounded-2xl border px-4 py-3 shadow-sm text-left transition-all active:scale-95 ${
+                  pendingHrRequestsCount > 0
+                    ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                    : 'bg-white border-slate-100 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl ${pendingHrRequestsCount > 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    <ClipboardCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Solicitudes RRHH</p>
+                    <p className={`text-lg font-black leading-none ${pendingHrRequestsCount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                      {pendingHrRequestsCount} pendientes
+                    </p>
+                  </div>
+                </div>
+              </button>
             )}
           </div>
         </div>

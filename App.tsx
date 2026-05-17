@@ -34,6 +34,7 @@ import HrRequestsView from './components/HrRequestsView';
 import { Profile } from './types';
 import { personnelService } from './services/personnelService';
 import { authService } from './services/authService';
+import { hrRequestService } from './services/hrRequestService';
 import { supabase } from './services/supabaseClient';
 import Login from './components/Login';
 import { Session } from '@supabase/supabase-js';
@@ -151,6 +152,7 @@ const App: React.FC = () => {
   const [terminalSessionSnapshot, setTerminalSessionSnapshot] = useState<TerminalSessionSnapshot | null>(() => getStoredTerminalSession());
   const [recoveringTerminalSession, setRecoveringTerminalSession] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingHrRequestsCount, setPendingHrRequestsCount] = useState(0);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -301,6 +303,28 @@ const App: React.FC = () => {
     };
     fetchEmployees();
   }, [session]);
+
+  React.useEffect(() => {
+    if (!currentUser || currentUser.role === 'terminal') {
+      setPendingHrRequestsCount(0);
+      return;
+    }
+
+    const loadPendingHrRequestsCount = async () => {
+      const count = await hrRequestService.countPendingForUser(currentUser);
+      setPendingHrRequestsCount(count);
+    };
+
+    loadPendingHrRequestsCount();
+    const intervalId = window.setInterval(loadPendingHrRequestsCount, 60000);
+    const handleFocus = () => loadPendingHrRequestsCount();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentUser]);
 
   React.useEffect(() => {
     const handleChangeView = (e: any) => {
@@ -622,7 +646,12 @@ const App: React.FC = () => {
                     }`}
                   >
                     {React.createElement(item.icon, { className: `w-5 h-5 shrink-0 ${adminSubView === item.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}` })}
-                    <span className="text-left">{item.label}</span>
+                    <span className="text-left flex-1">{item.label}</span>
+                    {item.id === 'hr_requests' && pendingHrRequestsCount > 0 && (
+                      <span className={`ml-auto min-w-6 h-6 px-2 rounded-full flex items-center justify-center text-[10px] font-black ${adminSubView === item.id ? 'bg-white text-indigo-600' : 'bg-amber-400 text-slate-950'}`}>
+                        {pendingHrRequestsCount > 99 ? '99+' : pendingHrRequestsCount}
+                      </span>
+                    )}
                   </button>
                 ))}
             </nav>
