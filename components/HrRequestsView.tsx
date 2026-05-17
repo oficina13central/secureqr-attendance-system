@@ -37,8 +37,8 @@ const requestStatusClass: Record<HrRequestStatus, string> = {
 const requestTypes: Array<{ id: HrRequestType; label: string; disabled?: boolean }> = [
   { id: 'attendance_correction', label: 'Correccion de fichada' },
   { id: 'absence_justification', label: 'Justificacion de ausencia' },
-  { id: 'vacation_request', label: 'Vacaciones', disabled: true },
-  { id: 'medical_leave_request', label: 'Licencia medica', disabled: true }
+  { id: 'vacation_request', label: 'Vacaciones' },
+  { id: 'medical_leave_request', label: 'Licencia medica' }
 ];
 
 const getToday = () => new Date().toISOString().substring(0, 10);
@@ -56,9 +56,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
     employeeId: '',
     requestType: 'attendance_correction' as HrRequestType,
     targetDate: getToday(),
+    endDate: getToday(),
     requestedCheckIn: '',
     requestedCheckOut: '',
-    reason: ''
+    reason: '',
+    attachmentUrl: ''
   });
 
   const canResolve = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
@@ -123,6 +125,10 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
       showFeedback('Ingrese al menos una hora de entrada o salida', 'error');
       return;
     }
+    if ((form.requestType === 'vacation_request' || form.requestType === 'medical_leave_request') && form.endDate < form.targetDate) {
+      showFeedback('La fecha hasta no puede ser anterior a la fecha desde', 'error');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -132,9 +138,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         sector_id: selectedEmployee.sector_id || null,
         request_type: form.requestType,
         target_date: form.targetDate,
+        end_date: form.requestType === 'vacation_request' || form.requestType === 'medical_leave_request' ? form.endDate : null,
         requested_check_in: form.requestType === 'attendance_correction' ? form.requestedCheckIn || null : null,
         requested_check_out: form.requestType === 'attendance_correction' ? form.requestedCheckOut || null : null,
         reason: form.reason.trim(),
+        attachment_url: form.requestType === 'medical_leave_request' ? form.attachmentUrl.trim() || null : null,
         requested_by_id: currentUser.id,
         requested_by_name: currentUser.full_name
       });
@@ -149,7 +157,7 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
       });
 
       setRequests(prev => [created, ...prev]);
-      setForm(prev => ({ ...prev, requestedCheckIn: '', requestedCheckOut: '', reason: '' }));
+      setForm(prev => ({ ...prev, requestedCheckIn: '', requestedCheckOut: '', reason: '', attachmentUrl: '' }));
       showFeedback('Solicitud creada correctamente', 'success');
     } catch (error: any) {
       showFeedback(`Error al crear solicitud: ${error.message || 'intente nuevamente'}`, 'error');
@@ -217,6 +225,8 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
             <option value="all">Todos los tipos</option>
             <option value="attendance_correction">Correccion de fichada</option>
             <option value="absence_justification">Justificacion de ausencia</option>
+            <option value="vacation_request">Vacaciones</option>
+            <option value="medical_leave_request">Licencia medica</option>
           </select>
         </div>
       </header>
@@ -254,9 +264,16 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{form.requestType === 'vacation_request' || form.requestType === 'medical_leave_request' ? 'Desde' : 'Fecha'}</label>
             <input type="date" value={form.targetDate} onChange={event => setForm(prev => ({ ...prev, targetDate: event.target.value }))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700" />
           </div>
+
+          {(form.requestType === 'vacation_request' || form.requestType === 'medical_leave_request') && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hasta</label>
+              <input type="date" value={form.endDate} onChange={event => setForm(prev => ({ ...prev, endDate: event.target.value }))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700" />
+            </div>
+          )}
 
           {form.requestType === 'attendance_correction' && (
             <div className="grid grid-cols-2 gap-3">
@@ -268,6 +285,19 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salida</label>
                 <input type="time" value={form.requestedCheckOut} onChange={event => setForm(prev => ({ ...prev, requestedCheckOut: event.target.value }))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700" />
               </div>
+            </div>
+          )}
+
+          {form.requestType === 'medical_leave_request' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comprobante URL</label>
+              <input
+                type="url"
+                value={form.attachmentUrl}
+                onChange={event => setForm(prev => ({ ...prev, attachmentUrl: event.target.value }))}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700"
+                placeholder="https://..."
+              />
             </div>
           )}
 
@@ -314,10 +344,13 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
                       <div>
                         <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{request.employee_name}</h3>
                         <div className="flex flex-wrap items-center gap-4 mt-1 text-xs font-bold text-slate-400">
-                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {request.target_date}</span>
+                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {request.target_date}{request.end_date ? ` al ${request.end_date}` : ''}</span>
                           <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {request.requested_by_name}</span>
                           {request.request_type === 'attendance_correction' && (
                             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {request.requested_check_in || '--:--'} / {request.requested_check_out || '--:--'}</span>
+                          )}
+                          {request.attachment_url && (
+                            <a href={request.attachment_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-700 underline">Comprobante</a>
                           )}
                         </div>
                       </div>

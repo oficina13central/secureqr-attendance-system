@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient';
 import { auditService } from './auditService';
+import { attendanceService } from './attendanceService';
+import { scheduleService, ShiftData, ShiftType } from './scheduleService';
 import { HrRequest, HrRequestStatus, HrRequestType, Profile } from '../types';
 
 type CreateHrRequestInput = {
@@ -29,6 +31,26 @@ const normalizeDate = (value: string) => value.substring(0, 10);
 const toDateTime = (date: string, time?: string | null) => {
   if (!time) return null;
   return `${normalizeDate(date)}T${time}:00-03:00`;
+};
+
+const addDaysToDateString = (date: string, days: number) => {
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().substring(0, 10);
+};
+
+const getDatesInRange = (startDate: string, endDate?: string | null) => {
+  const start = normalizeDate(startDate);
+  const end = normalizeDate(endDate || startDate);
+  const dates: string[] = [];
+  let current = start;
+
+  while (current <= end) {
+    dates.push(current);
+    current = addDaysToDateString(current, 1);
+  }
+
+  return dates;
 };
 
 const getAttendanceCorrectionSummary = (request: HrRequest) => {
@@ -132,6 +154,35 @@ const applyAbsenceJustification = async (request: HrRequest, resolverName: strin
   if (error) throw error;
 };
 
+const applyLeaveRequest = async (request: HrRequest, resolverName: string) => {
+  const shiftType: ShiftType = request.request_type === 'vacation_request' ? 'vacation' : 'medical';
+  const dates = getDatesInRange(request.target_date, request.end_date);
+  const now = new Date().toISOString();
+
+  const shifts: ShiftData[] = dates.map(date => ({
+    id: `${request.employee_id}_${date}`,
+    employee_id: request.employee_id,
+    date,
+    type: shiftType,
+    segments: [],
+    last_modified_by: resolverName,
+    last_modified_at: now
+  }));
+
+  const saved = await scheduleService.save(shifts);
+  const savedArray = Array.isArray(saved) ? saved : [saved];
+  if (savedArray.length === 0 || savedArray.some(item => !item)) {
+    throw new Error('No se pudo guardar el cronograma aprobado');
+  }
+
+  await attendanceService.recalculateAttendance(
+    request.employee_id,
+    dates[0],
+    dates[dates.length - 1],
+    resolverName
+  );
+};
+
 const resolveRequest = async (
   { request, resolver, comment }: ResolveRequestInput,
   status: Extract<HrRequestStatus, 'approved' | 'rejected'>
@@ -143,6 +194,8 @@ const resolveRequest = async (
       await applyAttendanceCorrection(request, resolver.full_name);
     } else if (request.request_type === 'absence_justification') {
       await applyAbsenceJustification(request, resolver.full_name);
+    } else if (request.request_type === 'vacation_request' || request.request_type === 'medical_leave_request') {
+      await applyLeaveRequest(request, resolver.full_name);
     }
   }
 
@@ -169,7 +222,7 @@ const resolveRequest = async (
     action: status === 'approved' ? 'Aprobacion Solicitud RRHH' : 'Rechazo Solicitud RRHH',
     old_value: request.status,
     new_value: status,
-    reason: `${getRequestTypeLabel(request.request_type)} ${request.target_date}. ${comment || request.reason}`
+    reason: `${getRequestTypeLabel(request.request_type)} ${request.target_date}${request.end_date ? ` al ${request.end_date}` : ''}. ${comment || request.reason}`
   });
 
   return data as HrRequest;
@@ -204,6 +257,7 @@ export const hrRequestService = {
       ...input,
       status: 'pending' as const,
       target_date: normalizeDate(input.target_date),
+      end_date: input.end_date ? normalizeDate(input.end_date) : null,
       created_at: now,
       updated_at: now
     };
