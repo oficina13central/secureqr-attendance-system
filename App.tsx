@@ -258,8 +258,9 @@ const App: React.FC = () => {
     return () => window.clearInterval(intervalId);
   }, [recoverSession, recoveringTerminalSession]);
 
-  async function fetchProfile(userId: string) {
-    setLoadingAuth(true);
+  async function fetchProfile(userId: string, options: { showLoading?: boolean } = {}) {
+    const showLoading = options.showLoading ?? !currentUser;
+    if (showLoading) setLoadingAuth(true);
     try {
       const profile = await authService.getUserProfile(userId);
       setCurrentUser(profile);
@@ -277,7 +278,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Failed to fetch profile:", err);
     } finally {
-      setLoadingAuth(false);
+      if (showLoading) setLoadingAuth(false);
     }
   }
 

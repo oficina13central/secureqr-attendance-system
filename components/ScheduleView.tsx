@@ -36,6 +36,23 @@ interface ScheduleViewProps {
 
 const defaultEmployees: Profile[] = [];
 const defaultUser = { full_name: 'Guest', role: 'invitado', sector_id: '' } as unknown as Profile;
+const SCHEDULE_VIEW_STATE_KEY = 'secureqr_schedule_view_state';
+
+type ScheduleViewStoredState = {
+  weekStart?: string;
+  searchTerm?: string;
+  selectedSector?: string;
+  selectedEmploymentType?: 'all' | 'efectivo' | 'jornalero';
+};
+
+const getStoredScheduleViewState = (): ScheduleViewStoredState => {
+  try {
+    const raw = sessionStorage.getItem(SCHEDULE_VIEW_STATE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
 
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
@@ -61,13 +78,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   setEmployees,
   currentUser = defaultUser
 }) => {
-  const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const stored = getStoredScheduleViewState();
+    return stored.weekStart ? new Date(`${stored.weekStart}T00:00:00`) : getStartOfWeek(new Date());
+  });
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => getStoredScheduleViewState().searchTerm || '');
   const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
-  const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>(() => getStoredScheduleViewState().selectedEmploymentType || 'all');
   const [saving, setSaving] = useState(false);
   const [reconcilingCompRest, setReconcilingCompRest] = useState(false);
   const [compRestSummary, setCompRestSummary] = useState<CompRestReconcileSummary | null>(null);
@@ -147,7 +167,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     endDate: ''
   });
 
-  const [selectedSector, setSelectedSector] = useState<string>('all');
+  const [selectedSector, setSelectedSector] = useState<string>(() => getStoredScheduleViewState().selectedSector || 'all');
+
+  useEffect(() => {
+    const state: ScheduleViewStoredState = {
+      weekStart: formatDate(currentWeekStart),
+      searchTerm,
+      selectedSector,
+      selectedEmploymentType
+    };
+    sessionStorage.setItem(SCHEDULE_VIEW_STATE_KEY, JSON.stringify(state));
+  }, [currentWeekStart, searchTerm, selectedSector, selectedEmploymentType]);
 
   const sectors = useMemo(() => {
     const unique = new Set(employees.map(e => e.sector_id || 'General'));
