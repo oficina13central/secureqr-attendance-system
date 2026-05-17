@@ -68,3 +68,34 @@ CHECK (status IN (
   'compensatorio',
   'suspendido'
 ));
+
+-- Bucket privado para comprobantes de licencias medicas.
+-- Guarda PDF o imagen y la app genera enlaces temporales para abrirlos.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'hr-request-attachments',
+  'hr-request-attachments',
+  false,
+  10485760,
+  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "authenticated_read_hr_request_attachments" ON storage.objects;
+CREATE POLICY "authenticated_read_hr_request_attachments" ON storage.objects
+FOR SELECT TO authenticated
+USING (bucket_id = 'hr-request-attachments');
+
+DROP POLICY IF EXISTS "authenticated_upload_hr_request_attachments" ON storage.objects;
+CREATE POLICY "authenticated_upload_hr_request_attachments" ON storage.objects
+FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'hr-request-attachments');
+
+DROP POLICY IF EXISTS "authenticated_update_hr_request_attachments" ON storage.objects;
+CREATE POLICY "authenticated_update_hr_request_attachments" ON storage.objects
+FOR UPDATE TO authenticated
+USING (bucket_id = 'hr-request-attachments')
+WITH CHECK (bucket_id = 'hr-request-attachments');

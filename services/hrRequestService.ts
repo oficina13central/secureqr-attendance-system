@@ -5,6 +5,7 @@ import { scheduleService, ShiftData, ShiftType } from './scheduleService';
 import { HrRequest, HrRequestStatus, HrRequestType, Profile } from '../types';
 
 type CreateHrRequestInput = {
+  id?: string;
   employee_id: string;
   employee_name: string;
   sector_id?: string | null;
@@ -27,6 +28,7 @@ type ResolveRequestInput = {
 };
 
 const normalizeDate = (value: string) => value.substring(0, 10);
+const ATTACHMENTS_BUCKET = 'hr-request-attachments';
 
 const toDateTime = (date: string, time?: string | null) => {
   if (!time) return null;
@@ -276,11 +278,44 @@ export const hrRequestService = {
     return (data || []).filter(request => canAccessHrRequest(request as any, user)).length;
   },
 
+  async uploadAttachment(file: File, requestId: string): Promise<string> {
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'file';
+    const safeName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 60) || 'comprobante';
+    const path = `${requestId}/${Date.now()}-${safeName}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+    return path;
+  },
+
+  async getAttachmentUrl(pathOrUrl: string): Promise<string> {
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+
+    const { data, error } = await supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .createSignedUrl(pathOrUrl, 60 * 10);
+
+    if (error) throw error;
+    return data.signedUrl;
+  },
+
   async create(input: CreateHrRequestInput): Promise<HrRequest> {
     const now = new Date().toISOString();
     const request = {
-      id: crypto.randomUUID(),
       ...input,
+      id: input.id || crypto.randomUUID(),
       status: 'pending' as const,
       target_date: normalizeDate(input.target_date),
       end_date: input.end_date ? normalizeDate(input.end_date) : null,

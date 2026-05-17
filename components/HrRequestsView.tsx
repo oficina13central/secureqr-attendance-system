@@ -5,9 +5,12 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  ExternalLink,
   FileText,
+  Paperclip,
   Search,
   Send,
+  Upload,
   User,
   XCircle
 } from 'lucide-react';
@@ -52,6 +55,7 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<HrRequestStatus | 'all'>('pending');
   const [typeFilter, setTypeFilter] = useState<HrRequestType | 'all'>('all');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     employeeId: '',
     requestType: 'attendance_correction' as HrRequestType,
@@ -165,7 +169,12 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
     setSaving(true);
     try {
+      const requestId = crypto.randomUUID();
+      const attachmentUrl = attachmentFile
+        ? await hrRequestService.uploadAttachment(attachmentFile, requestId)
+        : form.attachmentUrl.trim() || null;
       const created = await hrRequestService.create({
+        id: requestId,
         employee_id: selectedEmployee.id,
         employee_name: selectedEmployee.full_name,
         sector_id: selectedEmployee.sector_id || null,
@@ -175,7 +184,7 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         requested_check_in: form.requestType === 'attendance_correction' ? form.requestedCheckIn || null : null,
         requested_check_out: form.requestType === 'attendance_correction' ? form.requestedCheckOut || null : null,
         reason: form.reason.trim(),
-        attachment_url: form.requestType === 'medical_leave_request' ? form.attachmentUrl.trim() || null : null,
+        attachment_url: form.requestType === 'medical_leave_request' ? attachmentUrl : null,
         requested_by_id: currentUser.id,
         requested_by_name: currentUser.full_name
       });
@@ -191,11 +200,41 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
       setRequests(prev => [created, ...prev]);
       setForm(prev => ({ ...prev, requestedCheckIn: '', requestedCheckOut: '', reason: '', attachmentUrl: '' }));
+      setAttachmentFile(null);
       showFeedback('Solicitud creada correctamente', 'success');
     } catch (error: any) {
       showFeedback(`Error al crear solicitud: ${error.message || 'intente nuevamente'}`, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAttachmentChange = (file: File | null) => {
+    if (!file) {
+      setAttachmentFile(null);
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showFeedback('El comprobante debe ser PDF o imagen JPG, PNG o WEBP', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showFeedback('El comprobante no puede superar 10 MB', 'error');
+      return;
+    }
+
+    setAttachmentFile(file);
+    setForm(prev => ({ ...prev, attachmentUrl: '' }));
+  };
+
+  const openAttachment = async (pathOrUrl: string) => {
+    try {
+      const url = await hrRequestService.getAttachmentUrl(pathOrUrl);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error: any) {
+      showFeedback(`No se pudo abrir el comprobante: ${error.message || 'intente nuevamente'}`, 'error');
     }
   };
 
@@ -325,14 +364,30 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
           )}
 
           {form.requestType === 'medical_leave_request' && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comprobante URL</label>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comprobante</label>
+              <label className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-sm font-bold text-slate-600 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Upload className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="truncate">{attachmentFile ? attachmentFile.name : 'Subir PDF o imagen'}</span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Max 10 MB</span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  onChange={event => handleAttachmentChange(event.target.files?.[0] || null)}
+                  className="sr-only"
+                />
+              </label>
               <input
                 type="url"
                 value={form.attachmentUrl}
-                onChange={event => setForm(prev => ({ ...prev, attachmentUrl: event.target.value }))}
+                onChange={event => {
+                  setAttachmentFile(null);
+                  setForm(prev => ({ ...prev, attachmentUrl: event.target.value }));
+                }}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700"
-                placeholder="https://..."
+                placeholder="O pegar link externo https://..."
               />
             </div>
           )}
@@ -386,7 +441,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
                             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {request.requested_check_in || '--:--'} / {request.requested_check_out || '--:--'}</span>
                           )}
                           {request.attachment_url && (
-                            <a href={request.attachment_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-700 underline">Comprobante</a>
+                            <button type="button" onClick={() => openAttachment(request.attachment_url!)} className="text-indigo-600 hover:text-indigo-700 underline inline-flex items-center gap-1">
+                              <Paperclip className="w-3.5 h-3.5" />
+                              <span>Comprobante</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
                           )}
                         </div>
                       </div>
