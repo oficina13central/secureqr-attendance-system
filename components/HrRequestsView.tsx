@@ -64,6 +64,31 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   });
 
   const canResolve = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
+  const isAdminScope = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
+  const isManagerScope = currentUser.role === 'encargado';
+  const accessibleSectorIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (currentUser.sector_id) ids.add(currentUser.sector_id);
+    (currentUser.managed_sectors || []).forEach(id => ids.add(id));
+    return ids;
+  }, [currentUser.managed_sectors, currentUser.sector_id]);
+
+  const canAccessEmployee = (employee: Profile) => {
+    if (isAdminScope) return true;
+    if (isManagerScope) return !!employee.sector_id && accessibleSectorIds.has(employee.sector_id);
+    return employee.id === currentUser.id;
+  };
+
+  const scopedEmployees = useMemo(
+    () => employees.filter(canAccessEmployee),
+    [employees, isAdminScope, isManagerScope, accessibleSectorIds, currentUser.id]
+  );
+
+  const canAccessRequest = (request: HrRequest) => {
+    if (isAdminScope) return true;
+    if (isManagerScope) return !!request.sector_id && accessibleSectorIds.has(request.sector_id);
+    return request.employee_id === currentUser.id || request.requested_by_id === currentUser.id;
+  };
 
   const loadRequests = async () => {
     setLoading(true);
@@ -85,16 +110,22 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   }, []);
 
   useEffect(() => {
-    if (!form.employeeId && employees.length > 0) {
-      setForm(prev => ({ ...prev, employeeId: employees[0].id }));
+    if (scopedEmployees.length === 0) {
+      if (form.employeeId) setForm(prev => ({ ...prev, employeeId: '' }));
+      return;
     }
-  }, [employees, form.employeeId]);
 
-  const selectedEmployee = employees.find(emp => emp.id === form.employeeId);
+    if (!form.employeeId || !scopedEmployees.some(employee => employee.id === form.employeeId)) {
+      setForm(prev => ({ ...prev, employeeId: scopedEmployees[0].id }));
+    }
+  }, [scopedEmployees, form.employeeId]);
+
+  const selectedEmployee = scopedEmployees.find(emp => emp.id === form.employeeId);
 
   const filteredRequests = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return requests.filter(request => {
+      if (!canAccessRequest(request)) return false;
       const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
       const matchesType = typeFilter === 'all' || request.request_type === typeFilter;
       const matchesSearch = !search ||
@@ -104,7 +135,7 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
       return matchesStatus && matchesType && matchesSearch;
     });
-  }, [requests, searchTerm, statusFilter, typeFilter]);
+  }, [requests, searchTerm, statusFilter, typeFilter, isAdminScope, isManagerScope, accessibleSectorIds, currentUser.id]);
 
   const showFeedback = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
@@ -114,7 +145,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedEmployee) {
-      showFeedback('Seleccione un empleado', 'error');
+      showFeedback('No tiene empleados habilitados para crear solicitudes', 'error');
+      return;
+    }
+    if (!canAccessEmployee(selectedEmployee)) {
+      showFeedback('No puede crear solicitudes para empleados fuera de su alcance', 'error');
       return;
     }
     if (!form.reason.trim()) {
@@ -248,10 +283,13 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Empleado</label>
             <select value={form.employeeId} onChange={event => setForm(prev => ({ ...prev, employeeId: event.target.value }))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700">
-              {employees.map(employee => (
+              {scopedEmployees.map(employee => (
                 <option key={employee.id} value={employee.id}>{employee.full_name}</option>
               ))}
             </select>
+            {scopedEmployees.length === 0 && (
+              <p className="text-xs font-bold text-red-500">No hay empleados disponibles para su rol.</p>
+            )}
           </div>
 
           <div className="space-y-2">

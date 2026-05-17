@@ -351,7 +351,7 @@ const App: React.FC = () => {
     'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
     'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
     'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
-    'hr_requests': ['MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE'],
+    'hr_requests': ['MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE', 'VIEW_SECTOR_PERSONNEL', 'MANAGE_SECTOR_SCHEDULES', 'SELF_VIEW'],
     'audit': ['VIEW_AUDIT_LOGS'],
     'settings': ['MANAGE_SETTINGS'],
     'fraud': ['VIEW_AUDIT_LOGS'],
