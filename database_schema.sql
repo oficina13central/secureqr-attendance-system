@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS hr_requests (
   status TEXT CHECK(status IN ('pending', 'approved', 'rejected', 'cancelled')) NOT NULL DEFAULT 'pending',
   target_date TEXT NOT NULL,
   end_date TEXT,
-  attendance_record_id TEXT REFERENCES attendance_records(id),
+  attendance_record_id TEXT,
   requested_check_in TEXT,
   requested_check_out TEXT,
   reason TEXT NOT NULL,
