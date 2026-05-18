@@ -179,12 +179,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     sessionStorage.setItem(SCHEDULE_VIEW_STATE_KEY, JSON.stringify(state));
   }, [currentWeekStart, searchTerm, selectedSector, selectedEmploymentType]);
 
-  useEffect(() => {
-    return () => {
-      sessionStorage.removeItem(SCHEDULE_VIEW_STATE_KEY);
-    };
-  }, []);
-
   const sectors = useMemo(() => {
     const unique = new Set(employees.map(e => e.sector_id || 'General'));
     return Array.from(unique);
