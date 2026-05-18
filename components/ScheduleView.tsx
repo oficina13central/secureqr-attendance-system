@@ -525,6 +525,31 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const now = new Date();
       const targetDateStr = formatDate(selectedTarget.date);
 
+      // ── CONTROL DE SEGURIDAD RETROACTIVO PARA ENCARGADOS ──
+      // Si el usuario no es administrador/superusuario, validamos si la jornada original ya comenzó.
+      if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
+        const employee = employees.find(e => e.id === selectedTarget.empId);
+        if (employee) {
+          const originalShift = getActiveShift(employee, selectedTarget.date);
+          if (originalShift && 
+              originalShift.type !== 'off' && 
+              originalShift.type !== 'vacation' && 
+              originalShift.type !== 'medical' && 
+              originalShift.type !== 'suspension') {
+            const originalStartTimeStr = originalShift.segments?.[0]?.start;
+            if (originalStartTimeStr) {
+              const originalDateTime = new Date(`${targetDateStr}T${originalStartTimeStr}`);
+              if (now > originalDateTime) {
+                alert("No se puede modificar un horario de una jornada que ya ha comenzado por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
+                saveInProgressRef.current = false;
+                setSaving(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
       let startTimeStr = editForm.s1Start;
       if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59";
 
