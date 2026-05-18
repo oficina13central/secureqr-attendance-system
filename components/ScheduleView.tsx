@@ -716,7 +716,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     return (
-      <div className={`inline-flex items-center px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${bgColor}`}>
+      <div className={`inline-flex items-center px-3 py-1.5 rounded-xl border text-[11px] font-bold uppercase tracking-normal antialiased transition-all ${bgColor}`}>
         {icon}
         {getShiftText(employees.find(e => e.id === empId)!, date)}
       </div>
@@ -1020,8 +1020,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                                   : 'bg-slate-50 border-slate-200 text-slate-500'
                               }`}>
                                 <CreditCard className={`w-3 h-3 ${ (emp.compensatory_rest_balance || 0) > 0 ? 'text-indigo-200' : 'text-slate-400' }`} />
-                                <span className="text-[10px] font-black tracking-tighter whitespace-nowrap">
-                                  SALDO: <span className="text-xs">{(emp.compensatory_rest_balance || 0)}</span>
+                                <span className="text-[10px] font-bold tracking-normal antialiased whitespace-nowrap">
+                                  SALDO: <span className="text-xs font-black">{(emp.compensatory_rest_balance || 0)}</span>
                                 </span>
                               </div>
                             )}
@@ -1079,7 +1079,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-3 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all ${
+                    className={`py-3 px-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-normal antialiased transition-all ${
                       editForm.type === t 
                         ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
