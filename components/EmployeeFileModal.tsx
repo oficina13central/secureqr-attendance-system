@@ -76,6 +76,26 @@ const getDocumentTypeLabel = (type?: string) => {
   return 'Otro';
 };
 
+const getTenureLabel = (hireDate?: string | null) => {
+  if (!hireDate) return 'Sin fecha';
+  const start = parseDateAtNoon(hireDate);
+  const today = new Date();
+  if (Number.isNaN(start.getTime()) || start > today) return 'Sin fecha';
+
+  let years = today.getFullYear() - start.getFullYear();
+  let months = today.getMonth() - start.getMonth();
+  if (today.getDate() < start.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years <= 0 && months <= 0) return 'Menos de 1 mes';
+  if (years <= 0) return `${months} mes${months !== 1 ? 'es' : ''}`;
+  if (months <= 0) return `${years} ano${years !== 1 ? 's' : ''}`;
+  return `${years} ano${years !== 1 ? 's' : ''}, ${months} mes${months !== 1 ? 'es' : ''}`;
+};
+
 const groupConsecutiveDates = (records: AttendanceRecord[]): LeaveRange[] => {
   const dates = Array.from(new Set(records.map(r => r.date))).sort((a, b) => a.localeCompare(b));
   if (dates.length === 0) return [];
@@ -523,54 +543,105 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
   if (!employee) return null;
 
+  const todayKey = new Date().toISOString().substring(0, 10);
+  const expiredDocuments = documents.filter(doc => doc.expires_at && doc.expires_at < todayKey);
+  const expiringDocuments = documents.filter(doc => {
+    if (!doc.expires_at || doc.expires_at < todayKey) return false;
+    const diffDays = Math.ceil((parseDateAtNoon(doc.expires_at).getTime() - parseDateAtNoon(todayKey).getTime()) / 86400000);
+    return diffDays <= 30;
+  });
+  const missingFields = [
+    !employee.hire_date ? 'Fecha de ingreso' : null,
+    !employee.job_position ? 'Puesto' : null,
+    !employee.job_category ? 'Categoria' : null,
+    !employee.contract_type ? 'Contratacion' : null,
+    !employee.dni ? 'DNI' : null,
+  ].filter(Boolean) as string[];
+  const leaveRanges = groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status)));
+  const disciplinaryDocuments = documents.filter(doc => doc.type === 'suspension');
+  const timelineEvents = [
+    employee.hire_date ? {
+      date: employee.hire_date,
+      title: 'Ingreso laboral',
+      detail: `${getContractTypeLabel(employee.contract_type)} - ${sectorName}`,
+      tone: 'emerald'
+    } : null,
+    ...leaveRanges.slice(0, 5).map(range => ({
+      date: range.start,
+      title: 'Licencia registrada',
+      detail: `${formatLeaveRange(range)} (${range.count} dia${range.count !== 1 ? 's' : ''})`,
+      tone: 'sky'
+    })),
+    ...disciplinaryDocuments.slice(0, 5).map(doc => ({
+      date: doc.created_at.substring(0, 10),
+      title: 'Registro disciplinario',
+      detail: doc.description || doc.file_name,
+      tone: 'rose'
+    })),
+    ...documents.slice(0, 5).map(doc => ({
+      date: doc.created_at.substring(0, 10),
+      title: `Documento: ${getDocumentTypeLabel(doc.type)}`,
+      detail: doc.description || doc.file_name,
+      tone: doc.expires_at && doc.expires_at < todayKey ? 'amber' : 'slate'
+    }))
+  ]
+    .filter(Boolean)
+    .sort((a: any, b: any) => b.date.localeCompare(a.date))
+    .slice(0, 8) as Array<{ date: string; title: string; detail: string; tone: string }>;
+
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl md:rounded-[3rem] w-full max-w-5xl h-[95vh] md:h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-2xl w-full max-w-6xl h-[95vh] md:h-[92vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-4 md:p-8 text-white relative">
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-all z-10 md:hidden">
-            <X className="w-6 h-6 text-white" />
+        <div className="bg-white border-b border-slate-200 p-4 md:p-7 text-slate-900 relative">
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-all z-10 md:hidden">
+            <X className="w-6 h-6 text-slate-500" />
           </button>
 
-          <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full md:w-auto">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-[2rem] bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center overflow-hidden shadow-2xl shrink-0">
+          <div className="flex flex-col xl:flex-row justify-between items-start gap-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full min-w-0">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                 {employee.photo_url ? (
                   <img src={employee.photo_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-10 h-10 md:w-12 md:h-12 text-white/50" />
+                  <User className="w-10 h-10 md:w-12 md:h-12 text-slate-400" />
                 )}
               </div>
               <div className="text-center md:text-left flex-1 min-w-0">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2">
-                  <span className="px-2 py-0.5 bg-white/20 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md">Legajo Digital</span>
-                  <span className="px-2 py-0.5 bg-emerald-400/20 text-emerald-300 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-400/30">Activo</span>
+                  <span className="px-2 py-1 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">Expediente laboral</span>
+                  <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Activo</span>
+                  {missingFields.length > 0 && (
+                    <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-100">
+                      {missingFields.length} datos pendientes
+                    </span>
+                  )}
                 </div>
-                <h2 className="text-2xl md:text-4xl font-black tracking-tight truncate w-full">{employee.full_name}</h2>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 mt-2 text-indigo-100 font-bold text-xs md:text-sm">
+                <h2 className="text-2xl md:text-4xl font-black tracking-tight truncate w-full text-slate-900">{employee.full_name}</h2>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 mt-2 text-slate-500 font-bold text-xs md:text-sm">
                   <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> DNI: {employee.dni}</span>
-                  <span className="hidden md:block w-1 h-1 bg-white/30 rounded-full" />
+                  <span className="hidden md:block w-1 h-1 bg-slate-300 rounded-full" />
                   <span>{employee.job_position || employee.role?.toUpperCase()}</span>
-                  <span className="hidden md:block w-1 h-1 bg-white/30 rounded-full" />
+                  <span className="hidden md:block w-1 h-1 bg-slate-300 rounded-full" />
                   <span>{sectorName}</span>
                 </div>
               </div>
             </div>
             
-            <div className="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
+            <div className="flex flex-col items-center xl:items-end gap-4 w-full xl:w-auto">
               <div className="hidden md:flex items-center gap-2">
                 {!isRestricted && (
                   <button
                     onClick={handleExportPDF}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/20"
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 rounded-xl text-white text-xs font-black uppercase tracking-widest transition-all"
                   >
                     <Download className="w-4 h-4" />
                     Exportar PDF
                   </button>
                 )}
-                <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-all">
-                  <X className="w-8 h-8 text-white" />
+                <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-full transition-all">
+                  <X className="w-7 h-7 text-slate-500" />
                 </button>
               </div>
 
@@ -578,24 +649,31 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
               {!isRestricted && (
                 <button
                   onClick={handleExportPDF}
-                  className="md:hidden flex items-center justify-center gap-2 w-full px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/20"
+                  className="md:hidden flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-white text-xs font-black uppercase tracking-widest transition-all"
                 >
                   <Download className="w-4 h-4" />
                   Exportar Reporte PDF
                 </button>
               )}
 
-              <div className="grid grid-cols-2 md:flex md:items-center gap-3 w-full md:w-auto">
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:flex xl:items-stretch gap-3 w-full xl:w-auto">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center xl:text-right min-w-[120px]">
+                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400">Antiguedad</p>
+                  <p className="text-sm md:text-lg font-black text-slate-800 leading-tight mt-1">{getTenureLabel(employee.hire_date)}</p>
+                </div>
                 {scoring && managerRole !== 'encargado' && (
-                  <div className={`backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border text-center md:text-right min-w-[120px] md:min-w-[140px] shadow-xl ${scoring.color}`}>
+                  <div className={`p-3 rounded-xl border text-center xl:text-right min-w-[120px] ${scoring.color}`}>
                     <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-70">Scoring Actual</p>
-                    <p className="text-2xl md:text-4xl font-black">{scoring.score}</p>
-                    <p className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter mt-1 opacity-80">{scoring.label}</p>
+                    <p className="text-xl md:text-2xl font-black">{scoring.score}</p>
                   </div>
                 )}
-                <div className="bg-white/10 backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border border-white/20 text-center md:text-right min-w-[120px] md:min-w-[140px]">
-                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-70 text-white">Saldo de Francos</p>
-                  <p className="text-2xl md:text-4xl font-black text-white">{employee.compensatory_rest_balance || 0} <span className="text-[10px] md:text-sm opacity-50 text-white/50 uppercase">Jornadas</span></p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center xl:text-right min-w-[120px]">
+                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400">Francos</p>
+                  <p className="text-xl md:text-2xl font-black text-slate-800">{employee.compensatory_rest_balance || 0}</p>
+                </div>
+                <div className={`${expiredDocuments.length > 0 ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-700'} p-3 rounded-xl border text-center xl:text-right min-w-[120px]`}>
+                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-70">Documentos</p>
+                  <p className="text-xl md:text-2xl font-black">{expiredDocuments.length > 0 ? `${expiredDocuments.length} venc.` : documents.length}</p>
                 </div>
               </div>
             </div>
@@ -607,9 +685,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
           <div className="flex min-w-max">
             {[
               { id: 'profile', label: 'Legajo', icon: Briefcase, hidden: isRestricted },
-              { id: 'stats', label: '📊 Estadísticas', icon: TrendingUp, hidden: isRestricted },
-              { id: 'francos', label: '🏦 Banco de Francos', icon: CreditCard },
-              { id: 'docs', label: '📂 Documentos/Fotos', icon: Camera, hidden: isRestricted },
+              { id: 'stats', label: 'Asistencia', icon: TrendingUp, hidden: isRestricted },
+              { id: 'francos', label: 'Francos', icon: CreditCard },
+              { id: 'docs', label: 'Documentos', icon: Camera, hidden: isRestricted },
             ].filter(t => !t.hidden).map(tab => (
               <button
                 key={tab.id}
@@ -627,13 +705,36 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
           {activeTab === 'profile' && employee && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+              {(missingFields.length > 0 || expiredDocuments.length > 0 || expiringDocuments.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {missingFields.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4">
+                      <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Legajo incompleto</p>
+                      <p className="text-sm font-bold text-amber-800 mt-1">{missingFields.join(', ')}</p>
+                    </div>
+                  )}
+                  {expiredDocuments.length > 0 && (
+                    <div className="bg-rose-50 border border-rose-100 rounded-2xl px-5 py-4">
+                      <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Documentos vencidos</p>
+                      <p className="text-sm font-bold text-rose-800 mt-1">{expiredDocuments.length} requieren revision</p>
+                    </div>
+                  )}
+                  {expiringDocuments.length > 0 && (
+                    <div className="bg-sky-50 border border-sky-100 rounded-2xl px-5 py-4">
+                      <p className="text-[10px] font-black text-sky-700 uppercase tracking-widest">Por vencer</p>
+                      <p className="text-sm font-bold text-sky-800 mt-1">{expiringDocuments.length} en los proximos 30 dias</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <Briefcase className="w-6 h-6 text-indigo-600" />
+                    <Briefcase className="w-6 h-6 text-slate-700" />
                     <div>
                       <h3 className="text-xl font-black text-slate-800">Datos laborales</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Informacion base del legajo</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ficha principal del expediente</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -647,7 +748,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       ['Puesto', employee.job_position || 'Sin definir'],
                       ['Categoria', employee.job_category || 'Sin definir'],
                     ].map(([label, value]) => (
-                      <div key={label} className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                      <div key={label} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
                         <p className="text-sm font-black text-slate-700 mt-1">{value}</p>
                       </div>
@@ -655,27 +756,31 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <Building2 className="w-6 h-6 text-indigo-600" />
+                    <Building2 className="w-6 h-6 text-slate-700" />
                     <div>
                       <h3 className="text-xl font-black text-slate-800">Resumen</h3>
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Estado laboral</p>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
                       <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Estado</span>
                       <span className="text-xs font-black text-emerald-700">Activo</span>
                     </div>
-                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                      <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Antiguedad</span>
+                      <span className="text-xs font-black text-slate-700">{getTenureLabel(employee.hire_date)}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
                       <span className="text-xs font-black text-indigo-700 uppercase tracking-widest">Documentos</span>
                       <span className="text-xs font-black text-indigo-700">{documents.length}</span>
                     </div>
-                    <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                    <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                       <span className="text-xs font-black text-amber-700 uppercase tracking-widest">Vencidos</span>
                       <span className="text-xs font-black text-amber-700">
-                        {documents.filter(doc => doc.expires_at && doc.expires_at < new Date().toISOString().substring(0, 10)).length}
+                        {expiredDocuments.length}
                       </span>
                     </div>
                   </div>
@@ -683,7 +788,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-5">
                     <Calendar className="w-5 h-5 text-sky-600" />
                     <h3 className="text-lg font-black text-slate-800">Historial de licencias</h3>
@@ -692,7 +797,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                     {groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status))).length === 0 ? (
                       <p className="text-sm font-bold text-slate-400">Sin licencias registradas en el rango actual.</p>
                     ) : groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status))).map(range => (
-                      <div key={`${range.start}_${range.end}`} className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                      <div key={`${range.start}_${range.end}`} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                         <p className="text-sm font-black text-slate-700">{formatLeaveRange(range)}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{range.count} dia{range.count !== 1 ? 's' : ''}</p>
                       </div>
@@ -700,7 +805,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-5">
                     <ShieldAlert className="w-5 h-5 text-rose-600" />
                     <h3 className="text-lg font-black text-slate-800">Historial disciplinario</h3>
@@ -709,12 +814,44 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                     {documents.filter(doc => doc.type === 'suspension').length === 0 ? (
                       <p className="text-sm font-bold text-slate-400">Sin antecedentes disciplinarios cargados.</p>
                     ) : documents.filter(doc => doc.type === 'suspension').map(doc => (
-                      <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3 hover:bg-rose-100">
+                      <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 hover:bg-rose-100">
                         <p className="text-sm font-black text-rose-700">{doc.description || doc.file_name}</p>
                         <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}</p>
                       </a>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <History className="w-5 h-5 text-slate-700" />
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">Linea de tiempo del legajo</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Eventos laborales, documentos, licencias y registros</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {timelineEvents.length === 0 ? (
+                    <p className="text-sm font-bold text-slate-400">Todavia no hay eventos suficientes para mostrar.</p>
+                  ) : timelineEvents.map((event, index) => (
+                    <div key={`${event.date}_${event.title}_${index}`} className="grid grid-cols-[110px_1fr] gap-4">
+                      <div className="text-right">
+                        <p className="text-xs font-black text-slate-500">{event.date}</p>
+                      </div>
+                      <div className="relative pl-5 pb-4 border-l border-slate-200">
+                        <span className={`absolute -left-1.5 top-1 w-3 h-3 rounded-full ${
+                          event.tone === 'emerald' ? 'bg-emerald-500' :
+                          event.tone === 'sky' ? 'bg-sky-500' :
+                          event.tone === 'rose' ? 'bg-rose-500' :
+                          event.tone === 'amber' ? 'bg-amber-500' :
+                          'bg-slate-400'
+                        }`} />
+                        <p className="text-sm font-black text-slate-800">{event.title}</p>
+                        <p className="text-xs font-bold text-slate-500 mt-1">{event.detail}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -890,9 +1027,9 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
           {activeTab === 'docs' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
                 {/* Upload Card */}
-                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center gap-4 hover:border-indigo-300 transition-all group">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col text-center gap-4 h-fit">
                   <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-all">
                     <UploadCloud className="w-8 h-8" />
                   </div>
@@ -943,35 +1080,67 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   </label>
                 </div>
 
-                {/* Docs Gallery */}
-                {documents.map(doc => (
-                  <div key={doc.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden group">
-                    <div className="aspect-video bg-slate-200 overflow-hidden relative">
-                      <img src={doc.file_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                        <a href={doc.file_url} target="_blank" className="px-4 py-2 bg-white text-slate-800 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl">Ver Completo</a>
-                      </div>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">Matriz documental</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{documents.length} documentos cargados</p>
                     </div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{getDocumentTypeLabel(doc.type)}</p>
-                        {doc.is_required && (
-                          <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 text-[8px] font-black uppercase tracking-widest">Obligatorio</span>
-                        )}
-                      </div>
-                      <p className="font-black text-slate-700 truncate">{doc.file_name}</p>
-                      <p className="text-xs text-slate-400 font-medium mt-1">{doc.description}</p>
-                      <div className="mt-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-                        <span className="text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</span>
-                        {doc.expires_at && (
-                          <span className={doc.expires_at < new Date().toISOString().substring(0, 10) ? 'text-rose-600' : 'text-emerald-600'}>
-                            Vence {doc.expires_at}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {expiredDocuments.length > 0 && (
+                        <span className="px-3 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-black uppercase tracking-widest">{expiredDocuments.length} vencidos</span>
+                      )}
+                      {expiringDocuments.length > 0 && (
+                        <span className="px-3 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase tracking-widest">{expiringDocuments.length} por vencer</span>
+                      )}
                     </div>
                   </div>
-                ))}
+
+                  <div className="divide-y divide-slate-100">
+                    {documents.length === 0 ? (
+                      <div className="p-10 text-center text-slate-400 font-bold">No hay documentos cargados.</div>
+                    ) : documents.map(doc => {
+                      const isExpired = !!doc.expires_at && doc.expires_at < todayKey;
+                      const isExpiring = !!doc.expires_at && !isExpired && Math.ceil((parseDateAtNoon(doc.expires_at).getTime() - parseDateAtNoon(todayKey).getTime()) / 86400000) <= 30;
+                      return (
+                        <div key={doc.id} className="p-5 hover:bg-slate-50 transition-colors">
+                          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-widest">{getDocumentTypeLabel(doc.type)}</span>
+                                {doc.is_required && (
+                                  <span className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] font-black uppercase tracking-widest">Obligatorio</span>
+                                )}
+                                {isExpired ? (
+                                  <span className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-black uppercase tracking-widest">Vencido</span>
+                                ) : isExpiring ? (
+                                  <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-black uppercase tracking-widest">Por vencer</span>
+                                ) : (
+                                  <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black uppercase tracking-widest">Vigente</span>
+                                )}
+                              </div>
+                              <p className="font-black text-slate-800 truncate">{doc.description || doc.file_name}</p>
+                              <p className="text-xs font-bold text-slate-400 mt-1 truncate">{doc.file_name}</p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-4 shrink-0">
+                              <div className="text-left sm:text-right">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cargado</p>
+                                <p className="text-xs font-black text-slate-700">{new Date(doc.created_at).toLocaleDateString()}</p>
+                              </div>
+                              <div className="text-left sm:text-right min-w-[90px]">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vencimiento</p>
+                                <p className={`text-xs font-black ${isExpired ? 'text-rose-700' : isExpiring ? 'text-amber-700' : 'text-slate-700'}`}>{doc.expires_at || 'No aplica'}</p>
+                              </div>
+                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest text-center">
+                                Ver
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -993,3 +1162,4 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 };
 
 export default EmployeeFileModal;
+
