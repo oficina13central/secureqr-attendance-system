@@ -337,6 +337,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('change-view', handleChangeView);
   }, []);
 
+  React.useEffect(() => {
+    if (mainView !== 'admin' || adminSubView !== 'schedule') {
+      sessionStorage.removeItem('secureqr_schedule_view_state');
+    }
+  }, [mainView, adminSubView]);
+
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 6) {

@@ -525,6 +525,31 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const now = new Date();
       const targetDateStr = formatDate(selectedTarget.date);
 
+      // ── CONTROL DE SEGURIDAD RETROACTIVO PARA ENCARGADOS ──
+      // Si el usuario no es administrador/superusuario, validamos si la jornada original ya comenzó.
+      if (currentUser.role !== 'administrador' && currentUser.role !== 'superusuario') {
+        const employee = employees.find(e => e.id === selectedTarget.empId);
+        if (employee) {
+          const originalShift = getActiveShift(employee, selectedTarget.date);
+          if (originalShift && 
+              originalShift.type !== 'off' && 
+              originalShift.type !== 'vacation' && 
+              originalShift.type !== 'medical' && 
+              originalShift.type !== 'suspension') {
+            const originalStartTimeStr = originalShift.segments?.[0]?.start;
+            if (originalStartTimeStr) {
+              const originalDateTime = new Date(`${targetDateStr}T${originalStartTimeStr}`);
+              if (now > originalDateTime) {
+                alert("No se puede modificar un horario de una jornada que ya ha comenzado por políticas de integridad del sistema. Por favor, contacte a un administrador para excepciones.");
+                saveInProgressRef.current = false;
+                setSaving(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
       let startTimeStr = editForm.s1Start;
       if (!startTimeStr || editForm.type === 'vacation') startTimeStr = "23:59";
 
@@ -691,7 +716,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     return (
-      <div className={`inline-flex items-center px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${bgColor}`}>
+      <div className={`inline-flex items-center px-3 py-1.5 rounded-xl border text-[11px] font-bold uppercase tracking-normal antialiased transition-all ${bgColor}`}>
         {icon}
         {getShiftText(employees.find(e => e.id === empId)!, date)}
       </div>
@@ -995,8 +1020,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                                   : 'bg-slate-50 border-slate-200 text-slate-500'
                               }`}>
                                 <CreditCard className={`w-3 h-3 ${ (emp.compensatory_rest_balance || 0) > 0 ? 'text-indigo-200' : 'text-slate-400' }`} />
-                                <span className="text-[10px] font-black tracking-tighter whitespace-nowrap">
-                                  SALDO: <span className="text-xs">{(emp.compensatory_rest_balance || 0)}</span>
+                                <span className="text-[10px] font-bold tracking-normal antialiased whitespace-nowrap">
+                                  SALDO: <span className="text-xs font-black">{(emp.compensatory_rest_balance || 0)}</span>
                                 </span>
                               </div>
                             )}
@@ -1054,7 +1079,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   <button
                     key={t}
                     onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
-                    className={`py-3 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all ${
+                    className={`py-3 px-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-normal antialiased transition-all ${
                       editForm.type === t 
                         ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
