@@ -104,7 +104,7 @@ export interface Holiday {
 export interface EmployeeDocument {
   id: string;
   employee_id: string;
-  type: 'medical' | 'suspension' | 'identity' | 'contract' | 'certificate' | 'training' | 'other';
+  type: 'medical' | 'medical_exam' | 'epp_delivery' | 'suspension' | 'identity' | 'contract' | 'certificate' | 'training' | 'other';
   file_url: string;
   file_name: string;
   description: string;

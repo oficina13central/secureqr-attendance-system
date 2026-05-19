@@ -68,6 +68,8 @@ const getContractTypeLabel = (type?: string | null) => {
 
 const getDocumentTypeLabel = (type?: string) => {
   if (type === 'medical') return 'Medico';
+  if (type === 'medical_exam') return 'Examen medico';
+  if (type === 'epp_delivery') return 'Entrega EPP';
   if (type === 'suspension') return 'Disciplinario';
   if (type === 'identity') return 'Identidad';
   if (type === 'contract') return 'Contrato';
@@ -566,6 +568,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   ].filter(Boolean) as string[];
   const leaveRanges = groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status)));
   const disciplinaryDocuments = documents.filter(doc => doc.type === 'suspension');
+  const eppDocuments = documents.filter(doc => doc.type === 'epp_delivery');
+  const medicalExamDocuments = documents.filter(doc => doc.type === 'medical_exam');
   const timelineEvents = [
     employee.hire_date ? {
       date: employee.hire_date,
@@ -584,6 +588,18 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       title: 'Registro disciplinario',
       detail: doc.description || doc.file_name,
       tone: 'rose'
+    })),
+    ...eppDocuments.slice(0, 5).map(doc => ({
+      date: doc.created_at.substring(0, 10),
+      title: 'Entrega de EPP',
+      detail: doc.description || doc.file_name,
+      tone: 'emerald'
+    })),
+    ...medicalExamDocuments.slice(0, 5).map(doc => ({
+      date: doc.created_at.substring(0, 10),
+      title: 'Constancia de examen medico',
+      detail: doc.description || doc.file_name,
+      tone: 'sky'
     })),
     ...documents.slice(0, 5).map(doc => ({
       date: doc.created_at.substring(0, 10),
@@ -794,6 +810,14 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       <span className="text-xs font-black text-indigo-700 uppercase tracking-widest">Documentos</span>
                       <span className="text-xs font-black text-indigo-700">{documents.length}</span>
                     </div>
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+                      <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">EPP</span>
+                      <span className="text-xs font-black text-emerald-700">{eppDocuments.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
+                      <span className="text-xs font-black text-sky-700 uppercase tracking-widest">Examenes</span>
+                      <span className="text-xs font-black text-sky-700">{medicalExamDocuments.length}</span>
+                    </div>
                     <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                       <span className="text-xs font-black text-amber-700 uppercase tracking-widest">Vencidos</span>
                       <span className="text-xs font-black text-amber-700">
@@ -834,6 +858,42 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 hover:bg-rose-100">
                         <p className="text-sm font-black text-rose-700">{doc.description || doc.file_name}</p>
                         <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}</p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <ShieldAlert className="w-5 h-5 text-emerald-600" />
+                    <h3 className="text-lg font-black text-slate-800">Entrega de EPP</h3>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {eppDocuments.length === 0 ? (
+                      <p className="text-sm font-bold text-slate-400">Sin constancias de EPP cargadas.</p>
+                    ) : eppDocuments.map(doc => (
+                      <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 hover:bg-emerald-100">
+                        <p className="text-sm font-black text-emerald-700">{doc.description || doc.file_name}</p>
+                        <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}{doc.expires_at ? ` - vence ${doc.expires_at}` : ''}</p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <FileText className="w-5 h-5 text-sky-600" />
+                    <h3 className="text-lg font-black text-slate-800">Examenes medicos</h3>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {medicalExamDocuments.length === 0 ? (
+                      <p className="text-sm font-bold text-slate-400">Sin constancias de examenes medicos cargadas.</p>
+                    ) : medicalExamDocuments.map(doc => (
+                      <a key={doc.id} href={doc.file_url} target="_blank" rel="noreferrer" className="block bg-sky-50 border border-sky-100 rounded-xl px-4 py-3 hover:bg-sky-100">
+                        <p className="text-sm font-black text-sky-700">{doc.description || doc.file_name}</p>
+                        <p className="text-[10px] font-bold text-sky-500 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}{doc.expires_at ? ` - vence ${doc.expires_at}` : ''}</p>
                       </a>
                     ))}
                   </div>
@@ -1063,6 +1123,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                       <option value="identity">{getDocumentTypeLabel('identity')}</option>
                       <option value="contract">{getDocumentTypeLabel('contract')}</option>
                       <option value="medical">{getDocumentTypeLabel('medical')}</option>
+                      <option value="medical_exam">{getDocumentTypeLabel('medical_exam')}</option>
+                      <option value="epp_delivery">{getDocumentTypeLabel('epp_delivery')}</option>
                       <option value="suspension">{getDocumentTypeLabel('suspension')}</option>
                       <option value="certificate">{getDocumentTypeLabel('certificate')}</option>
                       <option value="training">{getDocumentTypeLabel('training')}</option>

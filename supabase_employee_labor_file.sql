@@ -26,6 +26,8 @@ ALTER TABLE public.employee_documents
 ADD CONSTRAINT employee_documents_type_check
 CHECK (type IN (
   'medical',
+  'medical_exam',
+  'epp_delivery',
   'suspension',
   'identity',
   'contract',
