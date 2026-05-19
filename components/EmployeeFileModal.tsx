@@ -383,7 +383,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     doc.setFontSize(18); doc.setFont('helvetica', 'bold');
     doc.text(employee.full_name.toUpperCase(), margin + 4, y + 18);
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-    doc.text(`DNI: ${employee.dni || 'N/A'}  •  Rol: ${employee.role?.toUpperCase() || 'N/A'}`, margin + 4, y + 27);
+    doc.text(`DNI: ${employee.dni || 'N/A'}  •  CUIL: ${employee.cuil || 'N/A'}  •  Rol: ${employee.role?.toUpperCase() || 'N/A'}`, margin + 4, y + 27);
     doc.text(`Fecha de exportación: ${new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, margin + 4, y + 33);
     if (scoring) {
       doc.setFontSize(9); doc.setFont('helvetica', 'bold');
@@ -397,9 +397,13 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     doc.setFontSize(10); doc.setFont('helvetica', 'bold');
     doc.text('DATOS LABORALES', margin, y); y += 7;
     const laborData = [
+      ['CUIL', employee.cuil || 'Sin definir', 'Nacimiento', employee.birth_date || 'Sin definir'],
+      ['Telefono', employee.phone || 'Sin definir', 'Estado civil', employee.marital_status || 'Sin definir'],
+      ['Direccion', employee.address || 'Sin definir', 'Nacionalidad', employee.nationality || 'Sin definir'],
+      ['Emergencia', employee.emergency_contact_name || 'Sin definir', 'Tel. emergencia', employee.emergency_contact_phone || 'Sin definir'],
       ['Ingreso', employee.hire_date || 'Sin definir', 'Contratacion', getContractTypeLabel(employee.contract_type)],
-      ['Tipo', getEmploymentTypeLabel(employee.employment_type), 'Sector', sectorName],
-      ['Puesto', employee.job_position || 'Sin definir', 'Categoria', employee.job_category || 'Sin definir'],
+      ['Sector', sectorName, 'Puesto', employee.job_position || 'Sin definir'],
+      ['Categoria', employee.job_category || 'Sin definir', 'Tipo', getEmploymentTypeLabel(employee.employment_type)],
     ];
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     laborData.forEach(([l1, v1, l2, v2]) => {
@@ -555,7 +559,10 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
     !employee.job_position ? 'Puesto' : null,
     !employee.job_category ? 'Categoria' : null,
     !employee.contract_type ? 'Contratacion' : null,
+    !employee.cuil ? 'CUIL' : null,
     !employee.dni ? 'DNI' : null,
+    !employee.phone ? 'Telefono' : null,
+    !employee.address ? 'Direccion' : null,
   ].filter(Boolean) as string[];
   const leaveRanges = groupConsecutiveDates(allRecords.filter(r => ['vacaciones', 'licencia_medica'].includes(r.status)));
   const disciplinaryDocuments = documents.filter(doc => doc.type === 'suspension');
@@ -621,6 +628,8 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                 <h2 className="text-2xl md:text-4xl font-black tracking-tight truncate w-full text-slate-900">{employee.full_name}</h2>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 mt-2 text-slate-500 font-bold text-xs md:text-sm">
                   <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> DNI: {employee.dni}</span>
+                  <span className="hidden md:block w-1 h-1 bg-slate-300 rounded-full" />
+                  <span>CUIL: {employee.cuil || 'Sin definir'}</span>
                   <span className="hidden md:block w-1 h-1 bg-slate-300 rounded-full" />
                   <span>{employee.job_position || employee.role?.toUpperCase()}</span>
                   <span className="hidden md:block w-1 h-1 bg-slate-300 rounded-full" />
@@ -741,6 +750,14 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                     {[
                       ['Nombre completo', employee.full_name],
                       ['DNI', employee.dni || 'Sin definir'],
+                      ['CUIL', employee.cuil || 'Sin definir'],
+                      ['Fecha de nacimiento', employee.birth_date ? formatDateLong(employee.birth_date) : 'Sin definir'],
+                      ['Estado civil', employee.marital_status || 'Sin definir'],
+                      ['Nacionalidad', employee.nationality || 'Sin definir'],
+                      ['Telefono', employee.phone || 'Sin definir'],
+                      ['Direccion', employee.address || 'Sin definir'],
+                      ['Contacto emergencia', employee.emergency_contact_name || 'Sin definir'],
+                      ['Tel. emergencia', employee.emergency_contact_phone || 'Sin definir'],
                       ['Fecha de ingreso', employee.hire_date ? formatDateLong(employee.hire_date) : 'Sin definir'],
                       ['Tipo de contratacion', getContractTypeLabel(employee.contract_type)],
                       ['Tipo de personal', getEmploymentTypeLabel(employee.employment_type)],

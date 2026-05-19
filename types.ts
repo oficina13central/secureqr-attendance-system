@@ -26,6 +26,14 @@ export interface Profile {
   job_category?: string | null;
   sector_id?: string;
   dni?: string;
+  cuil?: string | null;
+  birth_date?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  marital_status?: string | null;
+  nationality?: string | null;
   photo_url?: string;
   qr_token?: string;
   roles?: Role; // Joined data

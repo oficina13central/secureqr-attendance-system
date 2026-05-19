@@ -60,6 +60,8 @@ const EmployeeFilesView: React.FC<EmployeeFilesViewProps> = ({ employees, curren
       const matchesSearch = !term ||
         employee.full_name.toLowerCase().includes(term) ||
         (employee.dni || '').includes(term) ||
+        (employee.cuil || '').includes(term) ||
+        (employee.phone || '').includes(term) ||
         (employee.job_position || '').toLowerCase().includes(term) ||
         (employee.job_category || '').toLowerCase().includes(term);
 
@@ -88,7 +90,7 @@ const EmployeeFilesView: React.FC<EmployeeFilesViewProps> = ({ employees, curren
             <input
               value={searchTerm}
               onChange={event => setSearchTerm(event.target.value)}
-              placeholder="Buscar empleado, DNI, puesto..."
+              placeholder="Buscar empleado, DNI, CUIL, puesto..."
               className="w-full sm:w-80 pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm"
             />
           </div>
@@ -115,7 +117,7 @@ const EmployeeFilesView: React.FC<EmployeeFilesViewProps> = ({ employees, curren
         </div>
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin puesto/categoria</p>
-          <p className="text-3xl font-black text-rose-600 mt-1">{filteredEmployees.filter(emp => !emp.job_position || !emp.job_category).length}</p>
+          <p className="text-3xl font-black text-rose-600 mt-1">{filteredEmployees.filter(emp => !emp.job_position || !emp.job_category || !emp.cuil || !emp.phone).length}</p>
         </div>
       </section>
 
@@ -134,7 +136,10 @@ const EmployeeFilesView: React.FC<EmployeeFilesViewProps> = ({ employees, curren
                 !employee.hire_date,
                 !employee.job_position,
                 !employee.job_category,
-                !employee.contract_type
+                !employee.contract_type,
+                !employee.cuil,
+                !employee.phone,
+                !employee.address
               ].filter(Boolean).length;
 
               return (
@@ -157,6 +162,8 @@ const EmployeeFilesView: React.FC<EmployeeFilesViewProps> = ({ employees, curren
                         <h3 className="font-black text-slate-800 uppercase tracking-tight truncate">{employee.full_name}</h3>
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs font-bold text-slate-400">
                           <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> DNI {employee.dni || 'N/A'}</span>
+                          <span>CUIL {employee.cuil || 'N/A'}</span>
+                          <span>Tel. {employee.phone || 'N/A'}</span>
                           <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> {employee.sector_id || 'Sin sector'}</span>
                           <span>{getEmploymentTypeLabel(employee.employment_type)}</span>
                         </div>

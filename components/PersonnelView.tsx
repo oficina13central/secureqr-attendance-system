@@ -131,6 +131,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         full_name: '',
         email: '',
         dni: '',
+        cuil: '',
+        birth_date: '',
+        address: '',
+        phone: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
+        marital_status: '',
+        nationality: 'Argentina',
         role: 'encargado',
         employment_type: 'efectivo',
         hire_date: '',
@@ -160,7 +168,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', dni: '', role: 'encargado', employment_type: 'efectivo', hire_date: '', contract_type: 'permanent', job_position: '', job_category: '', sector_id: '', managed_sectors: [] });
+        setFormData({ full_name: '', email: '', dni: '', cuil: '', birth_date: '', address: '', phone: '', emergency_contact_name: '', emergency_contact_phone: '', marital_status: '', nationality: 'Argentina', role: 'encargado', employment_type: 'efectivo', hire_date: '', contract_type: 'permanent', job_position: '', job_category: '', sector_id: '', managed_sectors: [] });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -236,6 +244,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     full_name: formData.full_name!,
                     email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
+                    cuil: formData.cuil || null,
+                    birth_date: formData.birth_date || null,
+                    address: formData.address || null,
+                    phone: formData.phone || null,
+                    emergency_contact_name: formData.emergency_contact_name || null,
+                    emergency_contact_phone: formData.emergency_contact_phone || null,
+                    marital_status: formData.marital_status || null,
+                    nationality: formData.nationality || null,
                     role: formData.role as string,
                     employment_type: formData.employment_type || 'efectivo',
                     hire_date: formData.hire_date || null,
@@ -258,6 +274,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     full_name: formData.full_name || 'Nuevo Empleado',
                     email: formData.email || (formData.dni ? `${formData.dni}@oficina13.com` : ''),
                     dni: formData.dni || '',
+                    cuil: formData.cuil || null,
+                    birth_date: formData.birth_date || null,
+                    address: formData.address || null,
+                    phone: formData.phone || null,
+                    emergency_contact_name: formData.emergency_contact_name || null,
+                    emergency_contact_phone: formData.emergency_contact_phone || null,
+                    marital_status: formData.marital_status || null,
+                    nationality: formData.nationality || null,
                     role: formData.role as string,
                     employment_type: formData.employment_type || 'efectivo',
                     hire_date: formData.hire_date || null,
@@ -787,7 +811,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             )}
 
                             <form id="employee-form" onSubmit={handleSaveEmployee} className="space-y-4">
-                                {/* Nombre y DNI en grid de 2 columnas */}
+                                {/* Nombre, DNI y CUIL */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nombre Completo</label>
@@ -809,6 +833,101 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                             onChange={e => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })}
                                             className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
                                             placeholder="Ej. 12345678"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">CUIL</label>
+                                    <input
+                                        type="text"
+                                        value={formData.cuil || ''}
+                                        onChange={e => setFormData({ ...formData, cuil: e.target.value.replace(/[^\d-]/g, '') })}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        placeholder="Ej. 20-12345678-3"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha de Nacimiento</label>
+                                        <input
+                                            type="date"
+                                            value={formData.birth_date || ''}
+                                            onChange={e => setFormData({ ...formData, birth_date: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Estado Civil</label>
+                                        <select
+                                            value={formData.marital_status || ''}
+                                            onChange={e => setFormData({ ...formData, marital_status: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        >
+                                            <option value="">Sin definir</option>
+                                            <option value="soltero">Soltero/a</option>
+                                            <option value="casado">Casado/a</option>
+                                            <option value="conviviente">Conviviente</option>
+                                            <option value="divorciado">Divorciado/a</option>
+                                            <option value="viudo">Viudo/a</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Telefono</label>
+                                        <input
+                                            type="text"
+                                            value={formData.phone || ''}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. 11 1234-5678"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nacionalidad</label>
+                                        <input
+                                            type="text"
+                                            value={formData.nationality || ''}
+                                            onChange={e => setFormData({ ...formData, nationality: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Ej. Argentina"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Direccion</label>
+                                    <input
+                                        type="text"
+                                        value={formData.address || ''}
+                                        onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        placeholder="Calle, numero, localidad"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contacto Emergencia</label>
+                                        <input
+                                            type="text"
+                                            value={formData.emergency_contact_name || ''}
+                                            onChange={e => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Nombre y vinculo"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tel. Emergencia</label>
+                                        <input
+                                            type="text"
+                                            value={formData.emergency_contact_phone || ''}
+                                            onChange={e => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                            placeholder="Telefono"
                                         />
                                     </div>
                                 </div>
