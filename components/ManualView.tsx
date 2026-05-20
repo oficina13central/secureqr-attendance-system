@@ -126,6 +126,54 @@ const ManualView: React.FC = () => {
                 </div>
              </div>
           </div>
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-6">
+            <div>
+              <h3 className="text-xl font-black text-slate-800">Cálculo de Puntos</h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">
+                El scoring parte de 999 puntos y descuenta eventos de asistencia de los últimos 90 días.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Eventos que descuentan</p>
+                <div className="space-y-2 text-sm font-bold text-slate-700">
+                  <p>Llegada tarde: <span className="text-indigo-600">20 pts + minutos tarde</span></p>
+                  <p>Sin presentismo: <span className="text-indigo-600">100 pts + minutos tarde</span></p>
+                  <p>Ausencia injustificada: <span className="text-indigo-600">250 pts</span></p>
+                  <p>Licencia médica: <span className="text-indigo-600">20 pts, tope 100 pts</span></p>
+                </div>
+              </div>
+
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Peso por antigüedad</p>
+                <div className="space-y-2 text-sm font-bold text-slate-700">
+                  <p>Últimos 30 días: <span className="text-emerald-600">100%</span></p>
+                  <p>31 a 60 días: <span className="text-amber-600">60%</span></p>
+                  <p>61 a 90 días: <span className="text-orange-600">30%</span></p>
+                  <p>Más de 90 días: <span className="text-slate-500">no cuenta</span></p>
+                </div>
+              </div>
+
+              <div className="p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Rangos de clase</p>
+                <div className="grid grid-cols-2 gap-y-2 text-sm font-black text-slate-700">
+                  <span>990-999</span><span>Clase 0</span>
+                  <span>950-989</span><span>Clase 1</span>
+                  <span>750-949</span><span>Clase 2</span>
+                  <span>500-749</span><span>Clase 3</span>
+                  <span>250-499</span><span>Clase 4</span>
+                  <span>0-249</span><span>Clase 5</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 bg-emerald-50 rounded-2xl border-l-4 border-emerald-500">
+              <p className="text-sm font-bold text-emerald-900">
+                Ejemplo: una llegada tarde reciente de 15 minutos descuenta 35 puntos (20 + 15), por lo que el puntaje baja de 999 a 964.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
