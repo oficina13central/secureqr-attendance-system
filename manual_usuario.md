@@ -108,6 +108,39 @@ El sistema califica automáticamente el comportamiento de asistencia en los últ
     *   🔴 **Clase 4 (Alerta)**: Problemas persistentes de conducta.
     *   🌑 **Clase 5 (Crónica)**: Nivel crítico de incumplimiento.
 
+**Descuentos por evento:**
+
+| Evento registrado | Descuento aplicado |
+| --- | ---: |
+| Llegada tarde (`tarde`) | 20 puntos + minutos de tardanza |
+| Sin presentismo (`sin_presentismo`) | 100 puntos + minutos de tardanza |
+| Ausencia injustificada (`ausente`) | 250 puntos |
+| Licencia médica (`licencia_medica`) | 20 puntos por evento, con tope de 100 puntos en el período |
+
+No descuentan puntos los registros en horario, presentes, manuales, descansos, vacaciones, compensatorios, suspensiones y ausencias justificadas.
+
+**Peso por antigüedad del evento:**
+
+| Antigüedad | Peso sobre el descuento |
+| --- | ---: |
+| Últimos 30 días | 100% |
+| De 31 a 60 días | 60% |
+| De 61 a 90 días | 30% |
+| Más de 90 días | No cuenta |
+
+**Rangos de clase:**
+
+| Puntaje final | Clase |
+| ---: | --- |
+| 990 a 999 | Clase 0 (Altamente Puntual) |
+| 950 a 989 | Clase 1 (Excelente) |
+| 750 a 949 | Clase 2 (Estable) |
+| 500 a 749 | Clase 3 (Regular) |
+| 250 a 499 | Clase 4 (Alerta) |
+| 0 a 249 | Clase 5 (Crónica) |
+
+Ejemplo: una llegada tarde reciente de 15 minutos descuenta 35 puntos (`20 + 15`), por lo que el puntaje baja de 999 a 964.
+
 
 ```mermaid
 gitGraph
