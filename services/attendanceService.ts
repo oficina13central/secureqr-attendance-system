@@ -543,14 +543,14 @@ export const attendanceService = {
     async resolveEmployeeId(id: string, name: string): Promise<string | null> {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(id)) {
-            const { data: exists } = await supabase.from('profiles').select('id').eq('id', id).maybeSingle();
+            const { data: exists } = await supabase.from('profiles').select('id').eq('id', id).is('deleted_at', null).maybeSingle();
             if (exists) return id;
         }
         if (id && id !== 'PENDING') {
-            const { data: byDni } = await supabase.from('profiles').select('id').eq('dni', id).maybeSingle();
+            const { data: byDni } = await supabase.from('profiles').select('id').eq('dni', id).is('deleted_at', null).maybeSingle();
             if (byDni) return byDni.id;
         }
-        const { data } = await supabase.from('profiles').select('id').ilike('full_name', name).maybeSingle();
+        const { data } = await supabase.from('profiles').select('id').ilike('full_name', name).is('deleted_at', null).maybeSingle();
         return data?.id || null;
     },
 

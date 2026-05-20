@@ -451,6 +451,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         .from('profiles')
         .select('full_name')
         .eq('dni', manualDni.trim())
+        .is('deleted_at', null)
         .maybeSingle();
       
       const employeeName = data?.full_name || "Usuario";

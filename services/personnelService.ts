@@ -2,18 +2,25 @@ import { supabase } from './supabaseClient';
 import { Profile } from '../types';
 
 export const personnelService = {
-    async getAll(): Promise<Profile[]> {
-        const { data, error } = await supabase
+    async getAll(includeArchived = false): Promise<Profile[]> {
+        let query = supabase
             .from('profiles')
             .select('*')
-            .or('is_employee.eq.true,is_employee.is.null') // Default true or null for personnel
+            .or('is_employee.eq.true,is_employee.is.null')
             .order('full_name', { ascending: true });
+
+        if (!includeArchived) {
+            query = query.is('deleted_at', null);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error fetching profiles:', error);
-            // Si la columna is_employee no existe en DB aún (fallback)
             if (error.code === '42703') {
-                const retry = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+                let retryQuery = supabase.from('profiles').select('*').order('full_name', { ascending: true });
+                if (!includeArchived) retryQuery = retryQuery.is('deleted_at', null);
+                const retry = await retryQuery;
                 return retry.data || [];
             }
             return [];
@@ -48,6 +55,24 @@ export const personnelService = {
             throw new Error(`[${error.code}] ${error.message} \n(Details: ${error.details || 'N/A'})`);
         }
         return data;
+    },
+
+    async archive(id: string, reason: string): Promise<Profile | null> {
+        return this.update(id, {
+            deleted_at: new Date().toISOString(),
+            is_suspended: true,
+            suspended_until: null,
+            suspended_reason: `Baja archivada: ${reason}`
+        });
+    },
+
+    async restore(id: string): Promise<Profile | null> {
+        return this.update(id, {
+            deleted_at: null,
+            is_suspended: false,
+            suspended_until: null,
+            suspended_reason: null
+        });
     },
 
     async delete(id: string): Promise<boolean> {

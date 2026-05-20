@@ -13,7 +13,9 @@ import {
     Pencil,
     Download,
     CalendarDays,
-    Save
+    Save,
+    Archive,
+    RotateCcw
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
@@ -50,6 +52,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
     const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
     const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
+    const [archivedEmployees, setArchivedEmployees] = useState<Profile[]>([]);
+    const [selectedStatus, setSelectedStatus] = useState<'active' | 'archived' | 'all'>('active');
 
     const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
     const getContractTypeLabel = (type?: string | null) => {
@@ -80,18 +84,33 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         fetchData();
     }, []);
 
+    const refreshArchivedEmployees = React.useCallback(async () => {
+        const allPersonnel = await personnelService.getAll(true);
+        setArchivedEmployees(allPersonnel.filter(emp => !!emp.deleted_at));
+    }, []);
+
+    React.useEffect(() => {
+        refreshArchivedEmployees();
+    }, [refreshArchivedEmployees]);
+
+    const visiblePersonnel = React.useMemo(() => {
+        if (selectedStatus === 'archived') return archivedEmployees;
+        if (selectedStatus === 'all') return [...employees, ...archivedEmployees];
+        return employees;
+    }, [employees, archivedEmployees, selectedStatus]);
+
     React.useEffect(() => {
         const fetchScores = async () => {
-            if (employees.length === 0) return;
-            const employeeIds = employees.map(emp => emp.id);
+            if (visiblePersonnel.length === 0) return;
+            const employeeIds = visiblePersonnel.map(emp => emp.id);
             const scoresMap = await attendanceService.calculateBulkScoring(employeeIds);
             setScoringData(scoresMap);
         };
         fetchScores();
-    }, [employees]);
+    }, [visiblePersonnel]);
 
     const filteredEmployees = React.useMemo(() => {
-        let list = employees;
+        let list = visiblePersonnel;
 
         // Apply security filter for managers
         // Filtro de seguridad: Gestión Global vs Vista de Sector
@@ -122,7 +141,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             
             return matchesSearch && matchesClass && matchesSector && matchesEmploymentType;
         });
-    }, [employees, searchTerm, selectedClass, selectedSector, selectedEmploymentType, sectors, scoringData, currentUser]);
+    }, [visiblePersonnel, searchTerm, selectedClass, selectedSector, selectedEmploymentType, sectors, scoringData, currentUser]);
+
+    const cardDownloadEmployees = React.useMemo(
+        () => filteredEmployees.filter(emp => !emp.deleted_at),
+        [filteredEmployees]
+    );
 
     // Initial Data is now passed via props from App.tsx
 
@@ -325,25 +349,49 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
     };
 
-    const handleDeleteEmployee = async (id: string) => {
-        const employeeToDelete = employees.find(e => e.id === id);
-        if (window.confirm(`¿Está seguro de eliminar a ${employeeToDelete?.full_name}?`)) {
-            const success = await personnelService.delete(id);
-            if (success) {
+    const handleArchiveEmployee = async (id: string) => {
+        const employeeToArchive = visiblePersonnel.find(e => e.id === id);
+        if (!employeeToArchive) return;
+        if (window.confirm(`Archivar a ${employeeToArchive.full_name}? Su historial y legajo se conservaran.`)) {
+            const reason = window.prompt('Motivo de baja / archivo:', 'Renuncia');
+            if (reason === null) return;
+            const cleanReason = reason.trim() || 'Baja archivada sin motivo detallado';
+            const archived = await personnelService.archive(id, cleanReason);
+            if (archived) {
                 setEmployees(employees.filter(emp => emp.id !== id));
+                setArchivedEmployees(prev => [archived, ...prev.filter(emp => emp.id !== id)].sort((a, b) => a.full_name.localeCompare(b.full_name)));
 
                 // Log to Audit
-                if (employeeToDelete) {
-                    await auditService.logAction({
-                        manager_name: currentUser.full_name,
-                        employee_name: employeeToDelete.full_name,
-                        action: 'Baja de Empleado',
-                        old_value: employeeToDelete.role,
-                        new_value: 'Eliminado',
-                        reason: 'Eliminación manual'
-                    });
-                }
+                await auditService.logAction({
+                    manager_name: currentUser.full_name,
+                    employee_name: employeeToArchive.full_name,
+                    action: 'Archivo de Empleado',
+                    old_value: employeeToArchive.role,
+                    new_value: 'Archivado',
+                    reason: cleanReason
+                });
             }
+        }
+    };
+
+    const handleRestoreEmployee = async (id: string) => {
+        const employeeToRestore = archivedEmployees.find(e => e.id === id);
+        if (!employeeToRestore) return;
+        if (!window.confirm(`Restaurar a ${employeeToRestore.full_name} como personal activo?`)) return;
+
+        const restored = await personnelService.restore(id);
+        if (restored) {
+            setArchivedEmployees(prev => prev.filter(emp => emp.id !== id));
+            setEmployees([...employees, restored].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+
+            await auditService.logAction({
+                manager_name: currentUser.full_name,
+                employee_name: employeeToRestore.full_name,
+                action: 'Restauracion de Empleado',
+                old_value: 'Archivado',
+                new_value: 'Activo',
+                reason: 'Restauracion manual desde archivo'
+            });
         }
     };
 
@@ -365,16 +413,16 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     };
 
     const handleDownloadAll = async () => {
-        if (filteredEmployees.length === 0) return;
+        if (cardDownloadEmployees.length === 0) return;
         
-        const confirmMsg = filteredEmployees.length > 50 
-            ? `Vas a descargar ${filteredEmployees.length} carnets. Esto puede tardar un momento. ¿Continuar?`
-            : `Descargar ${filteredEmployees.length} carnets en un archivo ZIP?`;
+        const confirmMsg = cardDownloadEmployees.length > 50 
+            ? `Vas a descargar ${cardDownloadEmployees.length} carnets. Esto puede tardar un momento. ¿Continuar?`
+            : `Descargar ${cardDownloadEmployees.length} carnets en un archivo ZIP?`;
             
         if (!window.confirm(confirmMsg)) return;
 
         setIsDownloading(true);
-        setDownloadProgress({ current: 0, total: filteredEmployees.length });
+        setDownloadProgress({ current: 0, total: cardDownloadEmployees.length });
 
         try {
             const zip = new JSZip();
@@ -394,9 +442,9 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             let successCount = 0;
             let errorCount = 0;
 
-            for (let i = 0; i < filteredEmployees.length; i++) {
-                const emp = filteredEmployees[i];
-                setDownloadProgress({ current: i + 1, total: filteredEmployees.length });
+            for (let i = 0; i < cardDownloadEmployees.length; i++) {
+                const emp = cardDownloadEmployees[i];
+                setDownloadProgress({ current: i + 1, total: cardDownloadEmployees.length });
 
                 try {
                     // 1. Fetch QR as Base64
@@ -572,7 +620,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 <div className="flex items-center space-x-3">
                     <button
                         onClick={handleDownloadAll}
-                        disabled={isDownloading || filteredEmployees.length === 0}
+                        disabled={isDownloading || cardDownloadEmployees.length === 0}
                         className={`flex items-center space-x-2 px-6 py-3 rounded-2xl text-sm font-bold shadow-sm transition-all active:scale-95 ${
                             isDownloading 
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
@@ -621,6 +669,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             className="w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-medium text-slate-700 placeholder-slate-400 transition-all cursor-text text-left"
                             style={{ WebkitAppearance: 'none' }}
                         />
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <select
+                            value={selectedStatus}
+                            onChange={(e) => setSelectedStatus(e.target.value as 'active' | 'archived' | 'all')}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+                            style={{ minWidth: '180px' }}
+                        >
+                            <option value="active">Personal activo</option>
+                            <option value="archived">Archivo de bajas</option>
+                            <option value="all">Activos + archivo</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
                     </div>
                     <div className="relative w-full sm:w-auto">
                         <select
@@ -688,13 +751,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {filteredEmployees.map((emp) => (
-                                <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <tr key={emp.id} className={`hover:bg-slate-50/50 transition-colors group ${emp.deleted_at ? 'bg-slate-50/70 opacity-75' : ''}`}>
                                     <td className="px-8 py-4">
                                         <div className="flex items-center space-x-3">
                                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600">
                                                 {emp.full_name.charAt(0)}
                                             </div>
-                                            <span className="font-bold text-slate-700">{emp.full_name}</span>
+                                            <div className="min-w-0">
+                                                <span className="block font-bold text-slate-700">{emp.full_name}</span>
+                                                {emp.deleted_at && (
+                                                    <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                                        <Archive className="w-3 h-3" />
+                                                        Archivado
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-4 text-sm font-medium text-slate-500">
@@ -740,34 +811,46 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                     <Users className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={() => openEditModal(emp)}
-                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                title="Editar"
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteEmployee(emp.id)}
-                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Eliminar"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => openScheduleModal(emp)}
-                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                                title="Horario Habitual (Plantilla)"
-                                            >
-                                                <CalendarDays className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setShowCardModal(emp)}
-                                                className="text-indigo-600 hover:text-indigo-800 font-bold text-xs uppercase tracking-wider flex items-center space-x-1"
-                                            >
-                                                <CreditCard className="w-4 h-4 mr-1" />
-                                                Ver Carnet
-                                            </button>
+                                            {emp.deleted_at ? (
+                                                <button
+                                                    onClick={() => handleRestoreEmployee(emp.id)}
+                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                    title="Restaurar como activo"
+                                                >
+                                                    <RotateCcw className="w-4 h-4" />
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => openEditModal(emp)}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleArchiveEmployee(emp.id)}
+                                                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                        title="Archivar baja"
+                                                    >
+                                                        <Archive className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openScheduleModal(emp)}
+                                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                        title="Horario Habitual (Plantilla)"
+                                                    >
+                                                        <CalendarDays className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setShowCardModal(emp)}
+                                                        className="text-indigo-600 hover:text-indigo-800 font-bold text-xs uppercase tracking-wider flex items-center space-x-1"
+                                                    >
+                                                        <CreditCard className="w-4 h-4 mr-1" />
+                                                        Ver Carnet
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
