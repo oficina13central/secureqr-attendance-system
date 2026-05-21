@@ -557,6 +557,9 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             }
 
             const totalLateMinutes = monthRecords.reduce((sum, r) => sum + (r.minutes_late || 0), 0);
+            const presentismoEventLateMinutes = monthRecords
+                .filter(r => r.status === 'sin_presentismo')
+                .reduce((sum, r) => sum + (r.minutes_late || 0), 0);
             const absences = monthRecords.filter(r => r.status === 'ausente').length;
             const lostPresentismo = monthRecords.filter(r => r.status === 'sin_presentismo').length;
             const onTime = monthRecords.filter(r => ['en_horario', 'manual', 'presente'].includes(r.status)).length;
@@ -578,6 +581,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 employmentType: emp.employment_type || 'efectivo',
                 sector: sectorName,
                 totalLateMinutes,
+                presentismoEventLateMinutes,
                 absences,
                 lostPresentismo,
                 presents: onTime + late + severeLate,
@@ -663,22 +667,24 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         const lostByEvent = data.lostPresentismo > 0;
         const lostByAccumulatedMinutes = data.totalLateMinutes > monthlyLimit;
 
-        if (lostByEvent && lostByAccumulatedMinutes) {
-            return `Evento y acumulado (${data.lostPresentismo} evento/s, ${data.totalLateMinutes} min)`;
-        }
-        if (lostByEvent) return `Por evento (${data.lostPresentismo})`;
-        if (lostByAccumulatedMinutes) return `Por acumulado (${data.totalLateMinutes} min)`;
+        if (lostByEvent && lostByAccumulatedMinutes) return 'Evento y acumulado';
+        if (lostByEvent) return 'Por evento';
+        if (lostByAccumulatedMinutes) return 'Por acumulado';
         return 'No';
     };
 
     const handleExport = () => {
-        const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
+        const monthlyLimit = rules?.max_mensual || 15;
+        const headers = ["Empleado", "Sector", "Min. tarde total", "Min. tarde eventos", "Eventos presentismo", "Min. acumulado mes", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
         headers.splice(1, 0, "Tipo");
         const rows = auditDataFiltered.map(d => [
             d.name,
             getEmploymentTypeLabel(d.employmentType),
             d.sector,
             d.totalLateMinutes,
+            d.presentismoEventLateMinutes,
+            d.lostPresentismo,
+            d.totalLateMinutes > monthlyLimit ? d.totalLateMinutes : 0,
             d.absences,
             getPresentismoLossLabel(d),
             Math.round(d.compliance)
