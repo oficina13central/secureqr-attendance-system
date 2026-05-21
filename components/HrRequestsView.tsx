@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Archive,
   Calendar,
   CheckCircle2,
   ClipboardCheck,
@@ -65,7 +66,8 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const [actionId, setActionId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<HrRequestStatus | 'all'>('pending');
+  const [trayFilter, setTrayFilter] = useState<'active' | 'archive' | 'all'>('active');
+  const [statusFilter, setStatusFilter] = useState<HrRequestStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<HrRequestType | 'all'>('all');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [form, setForm] = useState({
@@ -136,10 +138,24 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
   const selectedEmployee = scopedEmployees.find(emp => emp.id === form.employeeId);
 
+  const accessibleRequests = useMemo(
+    () => requests.filter(request => canAccessRequest(request)),
+    [requests, isAdminScope, isManagerScope, accessibleSectorIds, currentUser.id]
+  );
+
+  const requestCounts = useMemo(() => ({
+    active: accessibleRequests.filter(request => request.status === 'pending').length,
+    archive: accessibleRequests.filter(request => request.status !== 'pending').length,
+    all: accessibleRequests.length
+  }), [accessibleRequests]);
+
   const filteredRequests = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    return requests.filter(request => {
-      if (!canAccessRequest(request)) return false;
+    return accessibleRequests.filter(request => {
+      const matchesTray =
+        trayFilter === 'all' ||
+        (trayFilter === 'active' && request.status === 'pending') ||
+        (trayFilter === 'archive' && request.status !== 'pending');
       const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
       const matchesType = typeFilter === 'all' || request.request_type === typeFilter;
       const matchesSearch = !search ||
@@ -147,9 +163,9 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         request.reason.toLowerCase().includes(search) ||
         getRequestTypeLabel(request.request_type).toLowerCase().includes(search);
 
-      return matchesStatus && matchesType && matchesSearch;
+      return matchesTray && matchesStatus && matchesType && matchesSearch;
     });
-  }, [requests, searchTerm, statusFilter, typeFilter, isAdminScope, isManagerScope, accessibleSectorIds, currentUser.id]);
+  }, [accessibleRequests, searchTerm, trayFilter, statusFilter, typeFilter]);
 
   const showFeedback = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
@@ -315,6 +331,34 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         </div>
       </header>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { id: 'active' as const, label: 'Bandeja activa', count: requestCounts.active, icon: ClipboardCheck },
+          { id: 'archive' as const, label: 'Historial', count: requestCounts.archive, icon: Archive },
+          { id: 'all' as const, label: 'Todas', count: requestCounts.all, icon: FileText }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setTrayFilter(tab.id);
+              setStatusFilter('all');
+            }}
+            className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all ${
+              trayFilter === tab.id
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20'
+                : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span>{tab.label}</span>
+            <span className={`px-2 py-0.5 rounded-lg ${trayFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {message && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 font-bold text-sm ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
           {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
@@ -418,7 +462,9 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Bandeja</p>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                {trayFilter === 'active' ? 'Bandeja activa' : trayFilter === 'archive' ? 'Historial / archivo' : 'Todas las solicitudes'}
+              </p>
               <h2 className="text-xl font-black text-slate-800">{filteredRequests.length} solicitudes</h2>
             </div>
             {!canResolve && (
