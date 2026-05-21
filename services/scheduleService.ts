@@ -78,8 +78,13 @@ export const scheduleService = {
 
         if (error) {
             console.error('Error saving schedule(s):', error);
-            return Array.isArray(shifts) ? [] : null;
+            throw error;
         }
+
+        if (!data || data.length !== shiftsToSave.length) {
+            throw new Error('No se pudo confirmar el guardado del cronograma.');
+        }
+
         return Array.isArray(shifts) ? data : data[0];
     }
 };

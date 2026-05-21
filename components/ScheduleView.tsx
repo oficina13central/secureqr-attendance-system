@@ -84,6 +84,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   });
   const [shifts, setShifts] = useState<Record<string, ShiftData>>({});
   const [sectorMap, setSectorMap] = useState<Record<string, string>>({});
+  const [holidayMap, setHolidayMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState(() => getStoredScheduleViewState().searchTerm || '');
   const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
@@ -111,8 +112,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       setIsCompRestEnabled(!!rules.enable_compensatory_rest);
     };
 
+    const fetchHolidays = async () => {
+      const data = await compensatoryRestService.getHolidays();
+      const map: Record<string, string> = {};
+      data.forEach(h => {
+        map[h.date] = h.name;
+      });
+      setHolidayMap(map);
+    };
+
     fetchSectors();
     checkMasterConfig();
+    fetchHolidays();
   }, []);
 
   useEffect(() => {
@@ -223,6 +234,41 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
     return days;
   }, [currentWeekStart]);
+
+  const getSpecialDayInfo = (date: Date) => {
+    const dateKey = formatDate(date);
+    const holidayName = holidayMap[dateKey];
+    if (holidayName) {
+      return {
+        isSpecial: true,
+        label: 'Feriado',
+        name: holidayName,
+        headerClass: 'bg-rose-50 border-rose-100',
+        cellClass: 'bg-rose-50/45 hover:bg-rose-100/70 border-l-rose-100',
+        textClass: 'text-rose-600'
+      };
+    }
+
+    if (date.getDay() === 0) {
+      return {
+        isSpecial: true,
+        label: 'Domingo',
+        name: 'Domingo',
+        headerClass: 'bg-amber-50 border-amber-100',
+        cellClass: 'bg-amber-50/45 hover:bg-amber-100/70 border-l-amber-100',
+        textClass: 'text-amber-600'
+      };
+    }
+
+    return {
+      isSpecial: false,
+      label: '',
+      name: '',
+      headerClass: '',
+      cellClass: '',
+      textClass: 'text-indigo-500'
+    };
+  };
 
   const handlePrevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
   const handleNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
@@ -977,14 +1023,29 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="w-[190px] min-w-[190px] sm:w-[260px] sm:min-w-[260px] px-4 sm:px-6 py-5 sm:py-6 text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 sticky left-0 bg-slate-50 z-10">Empleado</th>
-                {weekDays.map(d => (
-                  <th key={d.toISOString()} className="px-2 py-5 sm:py-6 text-center border-b border-slate-100 min-w-[104px]">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                      <span className="text-xl font-black text-slate-700">{d.getDate()}</span>
-                    </div>
-                  </th>
-                ))}
+                {weekDays.map(d => {
+                  const specialDay = getSpecialDayInfo(d);
+                  const holidayName = holidayMap[formatDate(d)];
+
+                  return (
+                    <th key={d.toISOString()} className={`px-2 py-5 sm:py-6 text-center border-b border-slate-100 min-w-[104px] ${specialDay.headerClass}`}>
+                      <div className="flex flex-col items-center">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${specialDay.textClass}`}>{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                        <span className="text-xl font-black text-slate-700">{d.getDate()}</span>
+                        {specialDay.isSpecial && (
+                          <span className={`mt-1 max-w-[92px] truncate rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-normal ${specialDay.textClass} bg-white/70`}>
+                            {specialDay.label}
+                          </span>
+                        )}
+                        {holidayName && (
+                          <span className="mt-1 max-w-[92px] truncate text-[9px] font-bold text-rose-500 normal-case tracking-normal">
+                            {holidayName}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -1035,13 +1096,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                     const shiftStart = new Date(`${dateKey}T23:59:00`);
                     const isPast = now > shiftStart;
                     const shiftKey = `${emp.id}_${dateKey}`;
+                    const specialDay = getSpecialDayInfo(d);
 
                     return (
                       <td
                         key={dateKey}
                         onClick={() => handleCellClick(emp, d)}
-                        title={shifts[shiftKey] ? `Modificado por: ${shifts[shiftKey].last_modified_by} en ${new Date(shifts[shiftKey].last_modified_at).toLocaleString()}` : 'Sin asignar'}
-                        className={`px-2 py-4 text-center cursor-pointer hover:bg-indigo-50 transition-colors border-l border-dashed border-slate-100 relative ${isPast ? 'opacity-70' : ''}`}
+                        title={[
+                          specialDay.isSpecial ? `${specialDay.label}: ${specialDay.name}` : '',
+                          shifts[shiftKey] ? `Modificado por: ${shifts[shiftKey].last_modified_by} en ${new Date(shifts[shiftKey].last_modified_at).toLocaleString()}` : 'Sin asignar'
+                        ].filter(Boolean).join(' | ')}
+                        className={`px-2 py-4 text-center cursor-pointer hover:bg-indigo-50 transition-colors border-l border-dashed border-slate-100 relative ${specialDay.cellClass} ${isPast ? 'opacity-70' : ''}`}
                       >
                         {renderCellContent(emp.id, d)}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 pointer-events-none no-print">

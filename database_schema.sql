@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS schedules (
   id TEXT PRIMARY KEY,
   employee_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
-  type TEXT CHECK(type IN ('continuous', 'split', 'off', 'vacation', 'medical')) NOT NULL,
+  type TEXT CHECK(type IN ('continuous', 'split', 'double', 'off', 'vacation', 'medical', 'compensatory', 'suspension')) NOT NULL,
   segments JSONB NOT NULL,
   last_modified_by TEXT,
   last_modified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
