@@ -18,6 +18,7 @@ import {
   Cloud,
   Wind,
   ClipboardCheck,
+  CreditCard,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -74,7 +75,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [dailyWeather, setDailyWeather] = useState<Record<string, DailyWeatherContext>>({});
   const [weatherError, setWeatherError] = useState(false);
   const [pendingHrRequestsCount, setPendingHrRequestsCount] = useState(0);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'compensatory' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
@@ -433,6 +434,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             check_out: null,
             minutes_late: 0
           });
+        } else if (shift.type === 'compensatory' || shift.type === 'suspension') {
+          if (realEntriesCount > 0 || hasStatusRecord) return;
+          virtualAbsences.push({
+            employee_id: emp.id,
+            employee_name: emp.full_name,
+            date: today,
+            status: shift.type === 'compensatory' ? 'compensatorio' : 'suspendido',
+            check_in: null,
+            check_out: null,
+            minutes_late: 0
+          });
         } else if (shift.type === 'vacation' || shift.type === 'medical') {
           if (realEntriesCount > 0 || hasStatusRecord) return;
           virtualAbsences.push({
@@ -517,6 +529,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       
       if (shift) {
         if (shift.type === 'off') return { ...r, status: 'descanso' };
+        if (shift.type === 'compensatory') return { ...r, status: 'compensatorio' };
+        if (shift.type === 'suspension') return { ...r, status: 'suspendido' };
         if (shift.type === 'vacation') return { ...r, status: 'vacaciones' };
         if (shift.type === 'medical') return { ...r, status: 'licencia_medica' };
       }
@@ -606,6 +620,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         if (activeFilter === 'present') return ['en_horario', 'presente', 'manual'].includes(r.status);
         if (activeFilter === 'history_all') return ['en_horario', 'presente', 'manual', 'tarde', 'sin_presentismo'].includes(r.status);
         if (activeFilter === 'off') return r.status === 'descanso';
+        if (activeFilter === 'compensatory') return r.status === 'compensatorio';
         if (activeFilter === 'vacation') return r.status === 'vacaciones';
         if (activeFilter === 'medical') return r.status === 'licencia_medica';
         return true;
@@ -688,6 +703,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       tardes: countUniqueByStatus(['tarde', 'sin_presentismo']),
       ausentes: countUniqueByStatus('ausente'),
       descansos: countUniqueByStatus('descanso'),
+      compensatorios: countUniqueByStatus('compensatorio'),
       vacaciones: countUniqueByStatus('vacaciones'),
       licencias: countUniqueByStatus('licencia_medica'),
       trabajandoAhora: new Set(workingNowRecords.map(r => r.employee_id?.toLowerCase())).size
@@ -856,13 +872,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 xl:grid-cols-9 gap-3 md:gap-4">
           {[
             { id: 'working', label: 'Trabajando Ahora', value: stats.trabajandoAhora, icon: Briefcase, color: 'text-green-600', bg: 'bg-green-50', activeColor: 'ring-green-600 bg-green-100', pulse: true },
             { id: 'present', label: 'En Horario', value: stats.presentes, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'ring-emerald-500 bg-emerald-100' },
             { id: 'late', label: 'Tardanzas', value: stats.tardes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', activeColor: 'ring-amber-500 bg-amber-100' },
             { id: 'absent', label: 'Ausencias', value: stats.ausentes, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'ring-rose-500 bg-rose-100' },
             { id: 'off', label: 'Descansos', value: stats.descansos, icon: CalendarCheck, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'ring-slate-500 bg-slate-100' },
+            { id: 'compensatory', label: 'Francos Comp.', value: stats.compensatorios, icon: CreditCard, color: 'text-violet-500', bg: 'bg-violet-50', activeColor: 'ring-violet-500 bg-violet-100' },
             { id: 'vacation', label: 'Vacaciones', value: stats.vacaciones, icon: Palmtree, color: 'text-sky-500', bg: 'bg-sky-50', activeColor: 'ring-sky-500 bg-sky-100' },
             { id: 'medical', label: 'Lic. Médica', value: stats.licencias, icon: HeartPulse, color: 'text-cyan-500', bg: 'bg-cyan-50', activeColor: 'ring-cyan-500 bg-cyan-100' },
             { id: 'all', label: 'Totales', value: authorizedEmployees.length, icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50', activeColor: 'ring-indigo-500 bg-indigo-100' },
