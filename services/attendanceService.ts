@@ -24,6 +24,8 @@ const getJustifiedStatusForSchedule = (type?: string | null): JustifiedAbsenceSt
     return null;
 };
 
+const normalizeIdentity = (value?: string | null) => (value || '').trim().toLowerCase();
+
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
         const { data, error } = await supabase
@@ -861,13 +863,6 @@ export const attendanceService = {
         const startDate = getLocalDateString(pastDate);
         const endDate = getLocalDateString(now);
 
-        const { data: allRecords, error } = await supabase
-            .from('attendance_records')
-            .select('employee_id, date, status, minutes_late')
-            .in('employee_id', employeeIds)
-            .gte('date', startDate)
-            .lte('date', endDate);
-
         const scoresMap: Record<string, { score: number, category: number, label: string, color: string }> = {};
         
         // Initialize map
@@ -875,13 +870,61 @@ export const attendanceService = {
             scoresMap[id] = { score: 999, category: 0, label: 'Clase 0 (Altamente Puntual)', color: 'bg-purple-100 text-purple-700 border-purple-200' };
         });
 
-        if (error || !allRecords || allRecords.length === 0) return scoresMap;
+        const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, dni')
+            .in('id', employeeIds);
+
+        if (profilesError) {
+            console.error('Error fetching profiles for scoring:', profilesError);
+        }
+
+        const identityToEmployeeId = new Map<string, string>();
+        employeeIds.forEach(id => identityToEmployeeId.set(normalizeIdentity(id), id));
+        (profiles || []).forEach((profile: any) => {
+            const identities = [profile.id, profile.full_name, profile.dni].map(normalizeIdentity).filter(Boolean);
+            identities.forEach(identity => identityToEmployeeId.set(identity, profile.id));
+        });
+
+        const allRecords: Array<{ employee_id?: string | null; employee_name?: string | null; date: string; status: string; minutes_late?: number | null }> = [];
+        let page = 0;
+        const limit = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('attendance_records')
+                .select('employee_id, employee_name, date, status, minutes_late')
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .range(page * limit, (page + 1) * limit - 1);
+
+            if (error) {
+                console.error('Error fetching records for scoring:', error);
+                return scoresMap;
+            }
+
+            if (data && data.length > 0) {
+                allRecords.push(...data);
+                page++;
+                hasMore = data.length === limit;
+            } else {
+                hasMore = false;
+            }
+        }
+
+        if (allRecords.length === 0) return scoresMap;
 
         // Group records by employee
         const recordsByEmployee: Record<string, any[]> = {};
         allRecords.forEach(record => {
-            if (!recordsByEmployee[record.employee_id]) recordsByEmployee[record.employee_id] = [];
-            recordsByEmployee[record.employee_id].push(record);
+            const matchedEmployeeId =
+                identityToEmployeeId.get(normalizeIdentity(record.employee_id)) ||
+                identityToEmployeeId.get(normalizeIdentity(record.employee_name));
+
+            if (!matchedEmployeeId) return;
+            if (!recordsByEmployee[matchedEmployeeId]) recordsByEmployee[matchedEmployeeId] = [];
+            recordsByEmployee[matchedEmployeeId].push(record);
         });
 
         // Calculate score for each employee
