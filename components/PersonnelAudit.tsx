@@ -664,13 +664,16 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     const getPresentismoLossLabel = (data: any) => {
         const monthlyLimit = rules?.max_mensual || 15;
+        const lostByAbsence = data.absences > 0;
         const lostByEvent = data.lostPresentismo > 0;
         const lostByAccumulatedMinutes = data.totalLateMinutes > monthlyLimit;
+        const reasons = [];
 
-        if (lostByEvent && lostByAccumulatedMinutes) return 'Evento y acumulado';
-        if (lostByEvent) return 'Por evento';
-        if (lostByAccumulatedMinutes) return 'Por acumulado';
-        return 'No';
+        if (lostByAbsence) reasons.push('ausencia');
+        if (lostByEvent) reasons.push('evento');
+        if (lostByAccumulatedMinutes) reasons.push('acumulado');
+
+        return reasons.length > 0 ? `Por ${reasons.join(' y ')}` : 'No';
     };
 
     const handleExport = () => {
