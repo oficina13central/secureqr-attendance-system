@@ -658,8 +658,21 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
     };
 
+    const getPresentismoLossLabel = (data: any) => {
+        const monthlyLimit = rules?.max_mensual || 15;
+        const lostByEvent = data.lostPresentismo > 0;
+        const lostByAccumulatedMinutes = data.totalLateMinutes > monthlyLimit;
+
+        if (lostByEvent && lostByAccumulatedMinutes) {
+            return `Evento y acumulado (${data.lostPresentismo} evento/s, ${data.totalLateMinutes} min)`;
+        }
+        if (lostByEvent) return `Por evento (${data.lostPresentismo})`;
+        if (lostByAccumulatedMinutes) return `Por acumulado (${data.totalLateMinutes} min)`;
+        return 'No';
+    };
+
     const handleExport = () => {
-        const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdió el Presentismo", "Eficiencia (%)"];
+        const headers = ["Empleado", "Sector", "Minutos Tarde", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
         headers.splice(1, 0, "Tipo");
         const rows = auditDataFiltered.map(d => [
             d.name,
@@ -667,7 +680,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             d.sector,
             d.totalLateMinutes,
             d.absences,
-            d.lostPresentismo,
+            getPresentismoLossLabel(d),
             Math.round(d.compliance)
         ]);
 
