@@ -560,6 +560,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             const presentismoEventLateMinutes = monthRecords
                 .filter(r => r.status === 'sin_presentismo')
                 .reduce((sum, r) => sum + (r.minutes_late || 0), 0);
+            const accumulatedLateMinutes = Math.max(0, totalLateMinutes - presentismoEventLateMinutes);
             const absences = monthRecords.filter(r => r.status === 'ausente').length;
             const lostPresentismo = monthRecords.filter(r => r.status === 'sin_presentismo').length;
             const onTime = monthRecords.filter(r => ['en_horario', 'manual', 'presente'].includes(r.status)).length;
@@ -582,6 +583,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 sector: sectorName,
                 totalLateMinutes,
                 presentismoEventLateMinutes,
+                accumulatedLateMinutes,
                 absences,
                 lostPresentismo,
                 presents: onTime + late + severeLate,
@@ -666,7 +668,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
         const monthlyLimit = rules?.max_mensual || 15;
         const lostByAbsence = data.absences > 0;
         const lostByEvent = data.lostPresentismo > 0;
-        const lostByAccumulatedMinutes = data.totalLateMinutes > monthlyLimit;
+        const lostByAccumulatedMinutes = data.accumulatedLateMinutes > monthlyLimit;
         const reasons = [];
 
         if (lostByAbsence) reasons.push('ausencia');
@@ -678,7 +680,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
     const handleExport = () => {
         const monthlyLimit = rules?.max_mensual || 15;
-        const headers = ["Empleado", "Sector", "Min. tarde total", "Min. tarde eventos", "Eventos presentismo", "Min. acumulado mes", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
+        const headers = ["Empleado", "Sector", "Min. tarde total", "Min. tarde eventos", "Eventos presentismo", "Min. acumulado sin eventos", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
         headers.splice(1, 0, "Tipo");
         const rows = auditDataFiltered.map(d => [
             d.name,
@@ -687,7 +689,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             d.totalLateMinutes,
             d.presentismoEventLateMinutes,
             d.lostPresentismo,
-            d.totalLateMinutes > monthlyLimit ? d.totalLateMinutes : 0,
+            d.accumulatedLateMinutes > monthlyLimit ? d.accumulatedLateMinutes : 0,
             d.absences,
             getPresentismoLossLabel(d),
             Math.round(d.compliance)
