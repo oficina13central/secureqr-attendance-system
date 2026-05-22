@@ -770,6 +770,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+  const isCurrentWeek = formatDate(currentWeekStart) === formatDate(getStartOfWeek(new Date()));
+  const weekSelectorLabel = isCurrentWeek ? 'Semana Actual' : weekLabel;
   const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
 
   return (
@@ -791,7 +793,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center bg-white rounded-2xl shadow-sm border border-slate-100 p-1">
             <button onClick={handlePrevWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-            <div className="px-4 text-sm font-black text-slate-700 uppercase tracking-tight">Semana Actual</div>
+            <div className="px-4 text-sm font-black text-slate-700 uppercase tracking-tight min-w-[140px] text-center">{weekSelectorLabel}</div>
             <button onClick={handleNextWeek} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
           </div>
 
