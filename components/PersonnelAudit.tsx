@@ -679,21 +679,34 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     };
 
     const handleExport = () => {
-        const monthlyLimit = rules?.max_mensual || 15;
-        const headers = ["Empleado", "Sector", "Min. tarde total", "Min. tarde eventos", "Eventos presentismo", "Min. acumulado sin eventos", "Ausencias", "Perdida Presentismo", "Eficiencia (%)"];
-        headers.splice(1, 0, "Tipo");
-        const rows = auditDataFiltered.map(d => [
-            d.name,
-            getEmploymentTypeLabel(d.employmentType),
-            d.sector,
-            d.totalLateMinutes,
-            d.presentismoEventLateMinutes,
-            d.lostPresentismo,
-            d.accumulatedLateMinutes > monthlyLimit ? d.accumulatedLateMinutes : 0,
-            d.absences,
-            getPresentismoLossLabel(d),
-            Math.round(d.compliance)
-        ]);
+        const headers = [
+            "Empleado",
+            "Tipo",
+            "Sector",
+            "total de Min. tarde",
+            "Eventos Perd presentismo",
+            "Min. Tarde x eventos",
+            "Min. acumulado sin eventos",
+            "Ausencias",
+            "Perdida Presentismo",
+            "Eficiencia (%)"
+        ];
+        const rows = auditDataFiltered.map(d => {
+            const accumulatedWithoutEvents = Math.max(0, d.totalLateMinutes - d.presentismoEventLateMinutes);
+
+            return [
+                d.name,
+                getEmploymentTypeLabel(d.employmentType),
+                d.sector,
+                d.totalLateMinutes,
+                d.lostPresentismo,
+                d.presentismoEventLateMinutes,
+                accumulatedWithoutEvents,
+                d.absences,
+                getPresentismoLossLabel({ ...d, accumulatedLateMinutes: accumulatedWithoutEvents }),
+                Math.round(d.compliance)
+            ];
+        });
 
         const csvContent = [
             headers.join(";"),
