@@ -140,10 +140,32 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
         );
     }
 
+    if (shift?.type === 'compensatory') {
+        return (
+            <div className="flex flex-col items-center">
+                <span className="bg-violet-100 text-violet-700 border border-violet-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                    Franco Comp.
+                </span>
+            </div>
+        );
+    }
+
+    if (shift?.type === 'suspension') {
+        return (
+            <div className="flex flex-col items-center">
+                <span className="bg-slate-200 text-slate-600 border border-slate-300 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                    Suspendido
+                </span>
+            </div>
+        );
+    }
+
     if (records && records.length > 0) {
         // Find the "worst" status or most relevant
         const hasLate = records.some(r => r.status === 'tarde' || r.status === 'sin_presentismo');
         const hasOnTime = records.some(r => r.status === 'en_horario');
+        const hasCompensatory = records.some(r => r.status === 'compensatorio');
+        const hasSuspension = records.some(r => r.status === 'suspendido');
         
         if (hasLate) {
             const lateRecord = records.find(r => r.status === 'tarde' || r.status === 'sin_presentismo');
@@ -170,6 +192,26 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                 <div className="flex flex-col items-center">
                     <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
                         <CheckCircle2 className="w-3 h-3" /> A Tiempo
+                    </span>
+                </div>
+            );
+        }
+
+        if (hasCompensatory) {
+            return (
+                <div className="flex flex-col items-center">
+                    <span className="bg-violet-100 text-violet-700 border border-violet-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                        Franco Comp.
+                    </span>
+                </div>
+            );
+        }
+
+        if (hasSuspension) {
+            return (
+                <div className="flex flex-col items-center">
+                    <span className="bg-slate-200 text-slate-600 border border-slate-300 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm">
+                        Suspendido
                     </span>
                 </div>
             );

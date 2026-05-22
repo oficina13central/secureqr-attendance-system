@@ -194,6 +194,14 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 dayRecords.forEach(record => assignedById.set(record.id, 'Descanso'));
                 return;
             }
+            if (shift.type === 'compensatory') {
+                dayRecords.forEach(record => assignedById.set(record.id, 'Franco Comp.'));
+                return;
+            }
+            if (shift.type === 'suspension') {
+                dayRecords.forEach(record => assignedById.set(record.id, 'Suspendido'));
+                return;
+            }
             if (shift.type === 'vacation') {
                 dayRecords.forEach(record => assignedById.set(record.id, 'Vacaciones'));
                 return;
@@ -507,6 +515,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
                 if (shift) {
                     if (shift.type === 'off') return { ...r, status: 'descanso' };
+                    if (shift.type === 'compensatory') return { ...r, status: 'compensatorio' };
+                    if (shift.type === 'suspension') return { ...r, status: 'suspendido' };
                     if (shift.type === 'vacation') return { ...r, status: 'vacaciones' };
                     if (shift.type === 'medical') return { ...r, status: 'licencia_medica' };
                 }
@@ -521,6 +531,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
                 if (shift && 
                     shift.type !== 'off' && 
+                    shift.type !== 'compensatory' &&
+                    shift.type !== 'suspension' &&
                     shift.type !== 'vacation' && 
                     shift.type !== 'medical' && 
                     shift.segments?.length > 0) {
@@ -1005,8 +1017,10 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
                                                 if (shift) {
                                                     if (shift.type === 'off') return 'Descanso';
+                                                    if (shift.type === 'compensatory') return 'Franco Comp.';
+                                                    if (shift.type === 'suspension') return 'Suspendido';
                                                     if (shift.type === 'vacation') return 'Vacaciones';
-                                                    if (shift.type === 'medical') return 'Licencia Médica';
+                                                        if (shift.type === 'medical') return 'Licencia Médica';
                                                     if (shift.segments?.[0]) {
                                                         return shift.segments.map((s: any) => `${s.start}-${s.end}`).join('/');
                                                     }
