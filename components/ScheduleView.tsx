@@ -494,29 +494,44 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     const daily = weekDays.map(date => {
       const activeShift = getActiveShift(emp, date);
+      const dateKey = formatDate(date);
+      const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [];
+      const dayStatusLabel = dayRecords.reduce<string | null>((label, record) => {
+        if (label || record.check_in) return label;
+        if (record.status === 'ausente' || record.status === 'ausente_justificada') return 'Ausente';
+        if (record.status === 'descanso') return 'Descanso';
+        if (record.status === 'vacaciones') return 'Vacaciones';
+        if (record.status === 'licencia_medica') return 'Licencia Medica';
+        if (record.status === 'compensatorio') return 'Franco Comp.';
+        if (record.status === 'suspendido') return 'Suspendido';
+        return label;
+      }, null);
+
+      if (!activeShift) return dayStatusLabel || (date.getDay() === 0 ? 'Descanso' : '');
+      if (activeShift.type === 'off') return 'Descanso';
+      if (activeShift.type === 'compensatory') return 'Franco Comp.';
+      if (activeShift.type === 'suspension') return 'Suspendido';
+      if (activeShift.type === 'vacation') return 'Vacaciones';
+      if (activeShift.type === 'medical') return 'Licencia Medica';
+
       const isWorkingShift = activeShift &&
-        activeShift.type !== 'off' &&
-        activeShift.type !== 'vacation' &&
-        activeShift.type !== 'medical' &&
         (activeShift.segments || []).length > 0;
 
       if (!isWorkingShift) return '';
 
       const segments = activeShift.segments || [];
       const hours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      const dateKey = formatDate(date);
-      const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [];
-      const absenceCount = dayRecords.filter(record => (
-        !record.check_in &&
-        ['ausente', 'ausente_justificada', 'vacaciones', 'licencia_medica', 'compensatorio', 'suspendido', 'descanso'].includes(record.status)
-      )).length;
       
       // Diferenciación solicitada: 
       // - Doble (double) = 2 jornadas
       // - El resto (corrido, cortado, etc) = 1 jornada
       const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
+      const absenceCount = dayRecords.filter(record => (
+        !record.check_in &&
+        (record.status === 'ausente' || record.status === 'ausente_justificada')
+      )).length;
       const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
-      if (dayJornadas <= 0) return '';
+      if (dayJornadas <= 0) return dayStatusLabel || 'Ausente';
       
       workedJornadas += dayJornadas;
       const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
