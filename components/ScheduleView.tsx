@@ -17,7 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import JSZip from 'jszip';
-import { Profile } from '../types';
+import { AttendanceRecord, Profile } from '../types';
 import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
@@ -488,7 +488,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return (endTotal - startTotal) / 60;
   };
 
-  const getScheduledWorkSummary = (emp: Profile) => {
+  const getScheduledWorkSummary = (emp: Profile, attendanceByEmployeeDate: Map<string, AttendanceRecord[]> = new Map()) => {
     let workedJornadas = 0;
     let weeklyHours = 0;
 
@@ -504,15 +504,26 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       const segments = activeShift.segments || [];
       const hours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
+      const dateKey = formatDate(date);
+      const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [];
+      const absenceCount = dayRecords.filter(record => (
+        !record.check_in &&
+        ['ausente', 'ausente_justificada', 'vacaciones', 'licencia_medica', 'compensatorio', 'suspendido', 'descanso'].includes(record.status)
+      )).length;
       
       // Diferenciación solicitada: 
       // - Doble (double) = 2 jornadas
       // - El resto (corrido, cortado, etc) = 1 jornada
-      const dayJornadas = activeShift.type === 'double' ? 2 : 1;
+      const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
+      const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
+      if (dayJornadas <= 0) return '';
       
       workedJornadas += dayJornadas;
-      weeklyHours += hours;
-      return hours.toFixed(2).replace('.', ',');
+      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
+        ? hours * (dayJornadas / scheduledJornadas)
+        : hours;
+      weeklyHours += dayHours;
+      return dayHours.toFixed(2).replace('.', ',');
     });
 
     return { workedJornadas, weeklyHours, daily };
@@ -521,6 +532,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleExportWeeklySummaryExcel = async () => {
     const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
     const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
+    const startDate = formatDate(currentWeekStart);
+    const endDate = formatDate(addDays(currentWeekStart, 6));
+    const attendanceRecords = await attendanceService.getByDateRange(startDate, endDate);
+    const attendanceByEmployeeDate = attendanceRecords.reduce((map, record) => {
+      const key = `${record.employee_id}_${record.date.substring(0, 10)}`;
+      const records = map.get(key) || [];
+      records.push(record);
+      map.set(key, records);
+      return map;
+    }, new Map<string, AttendanceRecord[]>());
 
     const dayHeaders = weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }));
     const headers = [
@@ -533,7 +554,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     ];
 
     const rows = filteredEmployees.map(emp => {
-      const summary = getScheduledWorkSummary(emp);
+      const summary = getScheduledWorkSummary(emp, attendanceByEmployeeDate);
       return [
         emp.full_name,
         getEmploymentTypeLabel(emp.employment_type),
@@ -545,7 +566,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     });
 
     await downloadXlsx(
-      `Resumen_Cronograma_${formatDate(currentWeekStart)}_${formatDate(addDays(currentWeekStart, 6))}.xlsx`,
+      `Resumen_Cronograma_${startDate}_${endDate}.xlsx`,
       'Resumen semanal',
       [
         ['Resumen semanal de cronograma', weekLabel],
