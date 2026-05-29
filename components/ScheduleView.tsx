@@ -498,6 +498,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return Number.isNaN(hour) ? 0 : hour;
   };
 
+  const isPayableDoubleShift = (type: ShiftType, segments: { start?: string; end?: string }[]) => {
+    if (type === 'double') return true;
+    return segments.length > 1 && segments.every(segment => getSegmentHours(segment) >= 7);
+  };
+
   const getScheduledWorkSummary = (
     emp: Profile, 
     attendanceByEmployeeDate: Map<string, AttendanceRecord[]> = new Map(),
@@ -530,7 +535,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const segments = activeShift.segments || [];
       if (segments.length === 0) return { isWorkingShift: false };
 
-      const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
+      const isDoubleForLiquidation = isPayableDoubleShift(activeShift.type, segments);
+      const scheduledJornadas = isDoubleForLiquidation ? Math.min(segments.length, 2) : 1;
 
       // Base records for this date
       let dayRecords = [...(attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [])];
@@ -539,7 +545,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       // an employee may check in after midnight → their record date is the NEXT day.
       // We look for early-morning records on the next day (check_in before 08:00)
       // and include them so the night segment is counted correctly.
-      const hasNightSegment = activeShift.type === 'double'
+      const hasNightSegment = isDoubleForLiquidation
         ? segments.some((segment: any) => getSegmentStartHour(segment) >= 19)
         : getSegmentStartHour(segments[0]) >= 19;
       const isMultiSegment = segments.length > 1;
@@ -563,10 +569,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       )).length;
       const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
       const totalScheduledHours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
+      const dayHours = isDoubleForLiquidation && scheduledJornadas > 0
         ? totalScheduledHours * (dayJornadas / scheduledJornadas)
         : (dayJornadas > 0 ? totalScheduledHours : 0);
-      const payableUnits = activeShift.type === 'double'
+      const payableUnits = isDoubleForLiquidation
         ? segments.slice(0, dayJornadas).map((segment: any) => ({
           effectiveDate: addDays(date, getSegmentStartHour(segment) >= 19 ? 1 : 0),
           hours: getSegmentHours(segment)
