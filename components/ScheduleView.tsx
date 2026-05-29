@@ -517,24 +517,60 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       }
 
       const dateKey = formatDate(date);
-      const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [];
       const segments = activeShift.segments || [];
-      const hours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
-      
-      const workedSegmentsCount = dayRecords.filter(record => 
-        ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(record.status)
-      ).length;
+      if (segments.length === 0) return { isWorkingShift: false };
 
-      const dayJornadas = workedSegmentsCount;
+      const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
+
+      // Base records for this date
+      let dayRecords = [...(attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [])];
+
+      // For double/split shifts that include a night segment (start >= 19:00):
+      // an employee may check in after midnight → their record date is the NEXT day.
+      // We look for early-morning records on the next day (check_in before 08:00)
+      // and include them so the night segment is counted correctly.
+      const hasNightSegment = segments.some((s: any) => {
+        if (!s.start) return false;
+        const [h] = s.start.split(':').map(Number);
+        return h >= 19;
+      });
+      const isMultiSegment = segments.length > 1;
+
+      if (hasNightSegment && isMultiSegment) {
+        const nextDay = addDays(date, 1);
+        const nextDateKey = formatDate(nextDay);
+        const nextDayRecords = attendanceByEmployeeDate.get(`${emp.id}_${nextDateKey}`) || [];
+        const afterMidnightRecords = nextDayRecords.filter((r: any) => {
+          if (!r.check_in) return false;
+          const checkInHour = new Date(r.check_in).getHours();
+          return checkInHour < 8; // before 08:00 → belongs to the night segment of this day
+        });
+        dayRecords = [...dayRecords, ...afterMidnightRecords];
+      }
+
+      // Sort check-ins chronologically and pick only positive-status records
+      const positiveRecords = dayRecords
+        .filter(r => r.check_in && ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(r.status))
+        .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+
+      // Assign each positive record to a segment in order and sum those segments' hours
+      const workedSegmentCount = Math.min(positiveRecords.length, segments.length);
+      let dayJornadas = workedSegmentCount;
+      let dayHours = 0;
+      for (let i = 0; i < workedSegmentCount; i++) {
+        dayHours += getSegmentHours(segments[i]);
+      }
+      // For jornadas count: double = up to 2, everything else = up to 1
+      dayJornadas = Math.min(dayJornadas, scheduledJornadas);
+
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
-      
+
       let isFutureShift = false;
       if (!hasCheckIn && !hasManualPresence) {
         const now = new Date();
         const shiftStart = new Date(date);
-        if (segments.length > 0 && segments[0].start) {
+        if (segments[0].start) {
           const [startHours, startMinutes] = segments[0].start.split(':').map(Number);
           shiftStart.setHours(startHours, startMinutes, 0, 0);
         } else {
@@ -545,15 +581,15 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
       }
 
-      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
-        ? hours * (Math.min(dayJornadas, scheduledJornadas) / scheduledJornadas)
-        : hours;
-
+      // isNightShift = TRUE only for PURELY night shifts (single segment starting >= 19:00).
+      // Multi-segment shifts (morning + night) count for the current day.
       let isNightShift = false;
-      if (segments.length > 0 && segments[0].start) {
+      if (!isMultiSegment && segments[0].start) {
         const [startHour] = segments[0].start.split(':').map(Number);
         if (startHour >= 19) isNightShift = true;
       }
+
+      const totalScheduledHours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
 
       const dayStatusLabel = dayRecords.reduce<string | null>((label, record) => {
         if (label || record.check_in) return label;
@@ -572,10 +608,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         dayHours,
         isFutureShift,
         isNightShift,
-        scheduledDayHours: hours.toFixed(2).replace('.', ','),
+        scheduledDayHours: totalScheduledHours.toFixed(2).replace('.', ','),
         dayStatusLabel
       };
     };
+
 
     const daily = weekDays.map(date => {
       const activeShift = getShift(date);
