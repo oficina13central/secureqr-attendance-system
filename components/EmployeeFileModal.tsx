@@ -210,38 +210,74 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
   };
 
   const fetchStats = async () => {
-    // Query directa filtrada por empleado y rango — evita descargar toda la base
+    const startObj = new Date(`${dateRange.start}T12:00:00`);
+    startObj.setDate(startObj.getDate() - 1);
+    const expandedStart = startObj.toISOString().substring(0, 10);
+
     const [attendanceRes, schedulesRes] = await Promise.all([
       supabase
         .from('attendance_records')
         .select('*')
         .eq('employee_id', employeeId)
-        .gte('date', dateRange.start)
+        .gte('date', expandedStart)
         .lte('date', dateRange.end)
         .order('date', { ascending: false }),
       supabase
         .from('schedules')
         .select('*')
         .eq('employee_id', employeeId)
-        .in('type', ['vacation', 'medical'])
+        .gte('date', expandedStart)
+        .lte('date', dateRange.end)
     ]);
     
-    const empRecords = attendanceRes.data || [];
-    const allLeaveSchedules = schedulesRes.data || [];
-    const leaveSchedules = allLeaveSchedules.filter((shift: any) => shift.date >= dateRange.start && shift.date <= dateRange.end);
+    const allSchedules = schedulesRes.data || [];
+    const rawRecords = attendanceRes.data || [];
+
+    const getEffectiveDate = (recordDate: string): string => {
+      const explicitShift = allSchedules.find(s => s.date === recordDate);
+      let shift = explicitShift;
+      if (!shift && employee?.default_schedule) {
+        const d = new Date(`${recordDate}T12:00:00`);
+        const base = employee.default_schedule[d.getDay().toString()];
+        if (base) shift = { type: base.type, segments: base.segments } as any;
+      }
+
+      if (shift && shift.segments && shift.segments.length > 0) {
+        const firstSegment = shift.segments[0];
+        if (firstSegment && firstSegment.start) {
+          const [startHour] = firstSegment.start.split(':').map(Number);
+          if (!Number.isNaN(startHour) && startHour >= 19) {
+            const d = new Date(`${recordDate}T12:00:00`);
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().substring(0, 10);
+          }
+        }
+      }
+      return recordDate;
+    };
+
+    const empRecords = rawRecords.filter(r => {
+      const effDate = getEffectiveDate(r.date);
+      return effDate >= dateRange.start && effDate <= dateRange.end;
+    });
+
+    const leaveSchedules = allSchedules.filter((shift: any) => shift.type === 'vacation' || shift.type === 'medical');
+    const filteredLeaveSchedules = leaveSchedules.filter((shift: any) => shift.date >= dateRange.start && shift.date <= dateRange.end);
+    
     const scheduleStatusByDate = new Map<string, 'vacaciones' | 'licencia_medica'>();
-    leaveSchedules.forEach((shift: any) => {
+    filteredLeaveSchedules.forEach((shift: any) => {
       if (shift.type === 'vacation') scheduleStatusByDate.set(shift.date, 'vacaciones');
       if (shift.type === 'medical') scheduleStatusByDate.set(shift.date, 'licencia_medica');
     });
 
     const normalizedRecords = empRecords.filter(r => {
-      const scheduledStatus = scheduleStatusByDate.get(r.date);
+      const effDate = getEffectiveDate(r.date);
+      const scheduledStatus = scheduleStatusByDate.get(effDate);
       return !scheduledStatus || !['ausente', 'pendiente'].includes(r.status);
     });
 
-    const existingLeaveKeys = new Set(normalizedRecords.map(r => `${r.date}_${r.status}`));
-    const scheduledLeaveRecords = leaveSchedules
+    const existingLeaveKeys = new Set(normalizedRecords.map(r => `${getEffectiveDate(r.date)}_${r.status}`));
+    const scheduledLeaveRecords = filteredLeaveSchedules
       .map((shift: any) => {
         const status = shift.type === 'vacation' ? 'vacaciones' : shift.type === 'medical' ? 'licencia_medica' : null;
         if (!status || existingLeaveKeys.has(`${shift.date}_${status}`)) return null;
@@ -258,7 +294,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       })
       .filter(Boolean) as AttendanceRecord[];
 
-    const allScheduledLeaveRecords = allLeaveSchedules
+    const allScheduledLeaveRecords = leaveSchedules
       .map((shift: any) => {
         const status = shift.type === 'vacation' ? 'vacaciones' : shift.type === 'medical' ? 'licencia_medica' : null;
         if (!status) return null;
@@ -275,7 +311,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       })
       .filter(Boolean) as AttendanceRecord[];
 
-    const recordsForStats = [...normalizedRecords, ...scheduledLeaveRecords].sort((a, b) => b.date.localeCompare(a.date));
+    const recordsForStats = [...normalizedRecords, ...scheduledLeaveRecords].sort((a, b) => {
+        const aEff = getEffectiveDate(a.date);
+        const bEff = getEffectiveDate(b.date);
+        return bEff.localeCompare(aEff);
+    });
+    
     const overlappingLeaveDetails = [
       ...getLeaveRecordsForOverlappingRanges(
         allScheduledLeaveRecords.filter(r => r.status === 'vacaciones'),
@@ -288,11 +329,17 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
         dateRange.end
       )
     ];
+    
     const detailRecordsByKey = new Map<string, AttendanceRecord>();
     [...recordsForStats, ...overlappingLeaveDetails].forEach(record => {
-      detailRecordsByKey.set(`${record.date}_${record.status}`, record);
+      const effDate = getEffectiveDate(record.date);
+      detailRecordsByKey.set(`${effDate}_${record.status}`, record);
     });
-    setAllRecords(Array.from(detailRecordsByKey.values()).sort((a, b) => b.date.localeCompare(a.date)));
+    setAllRecords(Array.from(detailRecordsByKey.values()).sort((a, b) => {
+        const aEff = getEffectiveDate(a.date);
+        const bEff = getEffectiveDate(b.date);
+        return bEff.localeCompare(aEff);
+    }));
 
     const s = {
       present: recordsForStats.filter(r => ['presente', 'en_horario', 'manual'].includes(r.status)).length,
