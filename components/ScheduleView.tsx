@@ -526,20 +526,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       // - Doble (double) = 2 jornadas
       // - El resto (corrido, cortado, etc) = 1 jornada
       const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
-      const absenceCount = dayRecords.filter(record => (
-        !record.check_in &&
-        (record.status === 'ausente' || record.status === 'ausente_justificada')
-      )).length;
-      const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
-      if (dayJornadas <= 0) return dayStatusLabel || 'Ausente';
       
-      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
-        ? hours * (dayJornadas / scheduledJornadas)
-        : hours;
+      const workedSegmentsCount = dayRecords.filter(record => 
+        ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(record.status)
+      ).length;
 
-      const hasCheckIn = dayRecords.some(r => r.check_in);
+      const dayJornadas = workedSegmentsCount;
+
+      const hasCheckIn = dayRecords.some(r => !!r.check_in);
+      const hasManualPresence = dayJornadas > 0;
+      
       let isFutureShift = false;
-      if (!hasCheckIn) {
+      if (!hasCheckIn && !hasManualPresence) {
         const now = new Date();
         const shiftStart = new Date(date);
         if (segments.length > 0 && segments[0].start) {
@@ -552,6 +550,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           isFutureShift = true;
         }
       }
+
+      if (dayJornadas <= 0) {
+         if (isFutureShift) {
+             return hours.toFixed(2).replace('.', ',');
+         } else {
+             return dayStatusLabel || 'Ausente';
+         }
+      }
+
+      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
+        ? hours * (Math.min(dayJornadas, scheduledJornadas) / scheduledJornadas)
+        : hours;
 
       if (!isFutureShift) {
         workedJornadas += dayJornadas;
