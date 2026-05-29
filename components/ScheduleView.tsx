@@ -553,15 +553,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         .filter(r => r.check_in && ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(r.status))
         .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
 
-      // Assign each positive record to a segment in order and sum those segments' hours
+      // Assign each positive record to a segment in order and sum those segments' hours.
+      // dayJornadas = number of actual worked segments (capped by segments defined in schedule).
+      // We do NOT cap by scheduledJornadas type — if an employee worked both segments of a split
+      // shift (e.g. cambio de turno), each segment counts as its own separate jornada.
       const workedSegmentCount = Math.min(positiveRecords.length, segments.length);
-      let dayJornadas = workedSegmentCount;
+      const dayJornadas = workedSegmentCount;
       let dayHours = 0;
       for (let i = 0; i < workedSegmentCount; i++) {
         dayHours += getSegmentHours(segments[i]);
       }
-      // For jornadas count: double = up to 2, everything else = up to 1
-      dayJornadas = Math.min(dayJornadas, scheduledJornadas);
 
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
@@ -657,19 +658,30 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     evaluationDays.forEach(date => {
       const calc = getDayCalculation(date);
-      if (!calc.isWorkingShift || calc.isFutureShift) return;
+      if (!calc.isWorkingShift || calc.isFutureShift || !calc.dayJornadas) return;
 
-      const effectiveDate = new Date(date);
-      if (calc.isNightShift) {
-         effectiveDate.setDate(effectiveDate.getDate() + 1);
-      }
-      
-      const effectiveDateKey = formatDate(effectiveDate);
-      const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
-      
-      if (isWithinWeek) {
-         workedJornadas += calc.dayJornadas!;
-         weeklyHours += calc.dayHours!;
+      const segments = getShift(date)?.segments || [];
+
+      // For multi-segment shifts, evaluate each segment separately for effective date
+      for (let i = 0; i < calc.dayJornadas!; i++) {
+        const seg = segments[i];
+        const segHours = seg ? getSegmentHours(seg) : (calc.dayHours! / (calc.dayJornadas || 1));
+        const segStart = seg?.start || '';
+        const segStartHour = segStart ? parseInt(segStart.split(':')[0], 10) : 0;
+        const isSegNight = segStartHour >= 19;
+
+        const effectiveDate = new Date(date);
+        if (isSegNight) {
+          effectiveDate.setDate(effectiveDate.getDate() + 1);
+        }
+
+        const effectiveDateKey = formatDate(effectiveDate);
+        const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
+
+        if (isWithinWeek) {
+          workedJornadas += 1;
+          weeklyHours += segHours;
+        }
       }
     });
 
