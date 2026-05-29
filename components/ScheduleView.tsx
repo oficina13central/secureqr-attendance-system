@@ -492,6 +492,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return (endTotal - startTotal) / 60;
   };
 
+  const getSegmentStartHour = (segment: { start?: string }) => {
+    if (!segment.start) return 0;
+    const [hour] = segment.start.split(':').map(Number);
+    return Number.isNaN(hour) ? 0 : hour;
+  };
+
   const getScheduledWorkSummary = (
     emp: Profile, 
     attendanceByEmployeeDate: Map<string, AttendanceRecord[]> = new Map(),
@@ -533,14 +539,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       // an employee may check in after midnight → their record date is the NEXT day.
       // We look for early-morning records on the next day (check_in before 08:00)
       // and include them so the night segment is counted correctly.
-      const hasNightSegment = segments.some((s: any) => {
-        if (!s.start) return false;
-        const [h] = s.start.split(':').map(Number);
-        return h >= 19;
-      });
+      const hasNightSegment = activeShift.type === 'double'
+        ? segments.some((segment: any) => getSegmentStartHour(segment) >= 19)
+        : getSegmentStartHour(segments[0]) >= 19;
       const isMultiSegment = segments.length > 1;
 
-      if (hasNightSegment && isMultiSegment) {
+      if (hasNightSegment) {
         const nextDay = addDays(date, 1);
         const nextDateKey = formatDate(nextDay);
         const nextDayRecords = attendanceByEmployeeDate.get(`${emp.id}_${nextDateKey}`) || [];
@@ -562,6 +566,15 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
         ? totalScheduledHours * (dayJornadas / scheduledJornadas)
         : (dayJornadas > 0 ? totalScheduledHours : 0);
+      const payableUnits = activeShift.type === 'double'
+        ? segments.slice(0, dayJornadas).map((segment: any) => ({
+          effectiveDate: addDays(date, getSegmentStartHour(segment) >= 19 ? 1 : 0),
+          hours: getSegmentHours(segment)
+        }))
+        : [{
+          effectiveDate: addDays(date, getSegmentStartHour(segments[0]) >= 19 ? 1 : 0),
+          hours: dayHours
+        }];
 
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
@@ -606,17 +619,33 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         dayHours,
         isFutureShift,
         isNightShift,
+        payableUnits,
         scheduledDayHours: totalScheduledHours.toFixed(2).replace('.', ','),
         dayStatusLabel
       };
     };
 
 
+    const getPayableUnitsForDate = (date: Date) => {
+      const dateKey = formatDate(date);
+      const previousDate = addDays(date, -1);
+      return [previousDate, date].flatMap(sourceDate => {
+        const calc = getDayCalculation(sourceDate);
+        if (!calc.isWorkingShift || !calc.dayJornadas) return [];
+        return (calc.payableUnits || []).filter(unit => formatDate(unit.effectiveDate) === dateKey);
+      });
+    };
+
     const daily = weekDays.map(date => {
       const activeShift = getShift(date);
       const calc = getDayCalculation(date);
+      const payableUnitsForDate = getPayableUnitsForDate(date);
       
       if (!calc.isWorkingShift) {
+        if (payableUnitsForDate.length > 0) {
+          const payableHoursForDate = payableUnitsForDate.reduce((sum, unit) => sum + unit.hours, 0);
+          return payableHoursForDate.toFixed(2).replace('.', ',');
+        }
         const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${formatDate(date)}`) || [];
         const label = dayRecords.reduce<string | null>((l, r) => {
            if (l || r.check_in) return l;
@@ -639,14 +668,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       }
 
       if (calc.dayJornadas! <= 0) {
-         if (calc.isFutureShift) {
-             return calc.scheduledDayHours!;
-         } else {
-             return calc.dayStatusLabel || 'Ausente';
-         }
+        return calc.dayStatusLabel || 'Ausente';
       }
+
+      if (payableUnitsForDate.length === 0) return 'Semana sig.';
       
-      return calc.dayHours!.toFixed(2).replace('.', ',');
+      const payableHoursForDate = payableUnitsForDate.reduce((sum, unit) => sum + unit.hours, 0);
+      return payableHoursForDate.toFixed(2).replace('.', ',');
     });
 
     const startPrev = new Date(weekDays[0]);
@@ -657,17 +685,15 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const calc = getDayCalculation(date);
       if (!calc.isWorkingShift || !calc.dayJornadas) return;
 
-      const effectiveDate = new Date(date);
-      if (calc.isNightShift) {
-        effectiveDate.setDate(effectiveDate.getDate() + 1);
-      }
+      const payableUnits = calc.payableUnits || [];
+      const payableUnitsInWeek = payableUnits.filter(unit => {
+        const effectiveDateKey = formatDate(unit.effectiveDate);
+        return weekDays.some(wd => formatDate(wd) === effectiveDateKey);
+      });
+      if (payableUnitsInWeek.length === 0) return;
 
-      const effectiveDateKey = formatDate(effectiveDate);
-      const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
-      if (!isWithinWeek) return;
-
-      workedJornadas += calc.dayJornadas;
-      weeklyHours += calc.dayHours || 0;
+      workedJornadas += payableUnitsInWeek.length;
+      weeklyHours += payableUnitsInWeek.reduce((sum, unit) => sum + unit.hours, 0);
     });
 
     return { workedJornadas, weeklyHours, daily };
