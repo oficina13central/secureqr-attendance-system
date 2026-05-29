@@ -135,16 +135,22 @@ const getShiftCreditDate = (shift: CompRestShift, holidayDates: Set<string>): st
   const shiftDate = normalizeDate(shift.date);
   if (!workShiftTypes.has(shift.type) || !shift.segments || shift.segments.length === 0) return null;
 
-  if (isSundayOrHoliday(shiftDate, holidayDates)) {
-    const firstSegment = shift.segments[0];
-    const [startHour] = (firstSegment?.start || '').split(':').map(Number);
-    if (Number.isNaN(startHour) || startHour >= 19) return null;
-    return shiftDate;
-  }
+  const firstSegment = shift.segments[0];
+  const [startHour] = (firstSegment?.start || '').split(':').map(Number);
+  if (Number.isNaN(startHour)) return null;
 
-  const nextDate = addDaysToDateString(shiftDate, 1);
-  if (!isSundayOrHoliday(nextDate, holidayDates)) return null;
-  return isNightShiftIntoRestrictedDay(shift, nextDate) ? nextDate : null;
+  if (startHour >= 19) {
+    const nextDate = addDaysToDateString(shiftDate, 1);
+    if (isSundayOrHoliday(nextDate, holidayDates) && isNightShiftIntoRestrictedDay(shift, nextDate)) {
+      return nextDate;
+    }
+    return null;
+  } else {
+    if (isSundayOrHoliday(shiftDate, holidayDates)) {
+      return shiftDate;
+    }
+    return null;
+  }
 };
 
 const matchesEmployee = (
@@ -537,51 +543,26 @@ export const compensatoryRestService = {
     if (emp?.employment_type === 'jornalero') return false;
 
     const holidays = await this.getHolidays();
-    const holidayDates = holidays.map(h => h.date);
+    const holidayDates = new Set(holidays.map(h => h.date));
 
-    const d = new Date(date + 'T12:00:00');
-    const isSunday = d.getDay() === 0;
-    const isHoliday = holidayDates.includes(date);
+    const shift: CompRestShift = { employee_id: employeeId, date, type: shiftType, segments };
+    const creditDate = getShiftCreditDate(shift, holidayDates);
 
-    if (!isSunday && !isHoliday) {
-      const nextDay = new Date(d);
-      nextDay.setDate(d.getDate() + 1);
-      const nextDayStr = getLocalDateString(nextDay);
-      const isNextDayRestricted = nextDay.getDay() === 0 || holidayDates.includes(nextDayStr);
+    if (!creditDate || !hasDatePassed(creditDate)) return false;
 
-      if (isNextDayRestricted && segments && segments.length > 0) {
-        if (!hasDatePassed(nextDayStr)) return false;
-        if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
-
-        const lastSegment = segments[segments.length - 1];
-        if (lastSegment.end) {
-          const [h] = lastSegment.end.split(':').map(Number);
-          if (h >= 3) {
-            const [sh] = lastSegment.start.split(':').map(Number);
-            if (h < sh || h >= 3) {
-              const reason = `Credito automatico: Jornada nocturna hacia ${isNextDayRestricted ? 'Domingo/Feriado' : 'descanso'} (${nextDayStr})`;
-              return addAutomaticCreditIfMissing(employeeId, nextDayStr, reason, managerName);
-            }
-          }
-        }
-      }
-      return false;
-    }
-
-    if (!hasDatePassed(date)) return false;
     if (!(await hasWorkedOnDate(employeeId, emp?.full_name, emp?.dni, date))) return false;
 
-    if (segments && segments.length > 0) {
-      const firstSegment = segments[0];
-      const [sh] = firstSegment.start.split(':').map(Number);
-
-      if (sh >= 19) return false;
-
-      const reason = `Credito automatico: Trabajo en ${isHoliday ? 'Feriado' : 'Domingo'} (${date})`;
-      return addAutomaticCreditIfMissing(employeeId, date, reason, managerName);
+    const isCreditHoliday = holidayDates.has(creditDate);
+    const isNightShift = creditDate !== date;
+    
+    let reason = '';
+    if (isNightShift) {
+       reason = `Credito automatico: Jornada nocturna hacia ${isCreditHoliday ? 'Feriado' : 'Domingo'} (${creditDate})`;
+    } else {
+       reason = `Credito automatico: Trabajo en ${isCreditHoliday ? 'Feriado' : 'Domingo'} (${creditDate})`;
     }
 
-    return false;
+    return addAutomaticCreditIfMissing(employeeId, creditDate, reason, managerName);
   },
 
   async syncAutomaticCreditsForSchedules(
