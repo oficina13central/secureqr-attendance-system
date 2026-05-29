@@ -488,43 +488,38 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return (endTotal - startTotal) / 60;
   };
 
-  const getScheduledWorkSummary = (emp: Profile, attendanceByEmployeeDate: Map<string, AttendanceRecord[]> = new Map()) => {
+  const getScheduledWorkSummary = (
+    emp: Profile, 
+    attendanceByEmployeeDate: Map<string, AttendanceRecord[]> = new Map(),
+    extendedShiftsMap?: Map<string, ShiftData>
+  ) => {
     let workedJornadas = 0;
     let weeklyHours = 0;
 
-    const daily = weekDays.map(date => {
-      const activeShift = getActiveShift(emp, date);
+    const getShift = (date: Date) => {
+      if (extendedShiftsMap) {
+        const dateKey = formatDate(date);
+        const explicit = extendedShiftsMap.get(`${emp.id}_${dateKey}`);
+        if (explicit) return explicit;
+        if (emp.default_schedule) {
+          const base = emp.default_schedule[date.getDay().toString()];
+          if (base) return { type: base.type, segments: base.segments } as any;
+        }
+        return undefined;
+      }
+      return getActiveShift(emp, date);
+    };
+
+    const getDayCalculation = (date: Date) => {
+      const activeShift = getShift(date);
+      if (!activeShift || activeShift.type === 'off' || activeShift.type === 'compensatory' || activeShift.type === 'suspension' || activeShift.type === 'vacation' || activeShift.type === 'medical') {
+        return { isWorkingShift: false };
+      }
+
       const dateKey = formatDate(date);
       const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${dateKey}`) || [];
-      const dayStatusLabel = dayRecords.reduce<string | null>((label, record) => {
-        if (label || record.check_in) return label;
-        if (record.status === 'ausente' || record.status === 'ausente_justificada') return 'Ausente';
-        if (record.status === 'descanso') return 'Descanso';
-        if (record.status === 'vacaciones') return 'Vacaciones';
-        if (record.status === 'licencia_medica') return 'Licencia Medica';
-        if (record.status === 'compensatorio') return 'Franco Comp.';
-        if (record.status === 'suspendido') return 'Suspendido';
-        return label;
-      }, null);
-
-      if (!activeShift) return dayStatusLabel || (date.getDay() === 0 ? 'Descanso' : '');
-      if (activeShift.type === 'off') return 'Descanso';
-      if (activeShift.type === 'compensatory') return 'Franco Comp.';
-      if (activeShift.type === 'suspension') return 'Suspendido';
-      if (activeShift.type === 'vacation') return 'Vacaciones';
-      if (activeShift.type === 'medical') return 'Licencia Medica';
-
-      const isWorkingShift = activeShift &&
-        (activeShift.segments || []).length > 0;
-
-      if (!isWorkingShift) return '';
-
       const segments = activeShift.segments || [];
       const hours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      
-      // Diferenciación solicitada: 
-      // - Doble (double) = 2 jornadas
-      // - El resto (corrido, cortado, etc) = 1 jornada
       const scheduledJornadas = activeShift.type === 'double' ? 2 : 1;
       
       const workedSegmentsCount = dayRecords.filter(record => 
@@ -532,7 +527,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       ).length;
 
       const dayJornadas = workedSegmentsCount;
-
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
       
@@ -551,24 +545,95 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
       }
 
-      if (dayJornadas <= 0) {
-         if (isFutureShift) {
-             return hours.toFixed(2).replace('.', ',');
-         } else {
-             return dayStatusLabel || 'Ausente';
-         }
-      }
-
       const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
         ? hours * (Math.min(dayJornadas, scheduledJornadas) / scheduledJornadas)
         : hours;
 
-      if (!isFutureShift) {
-        workedJornadas += dayJornadas;
-        weeklyHours += dayHours;
+      let isNightShift = false;
+      if (segments.length > 0 && segments[0].start) {
+        const [startHour] = segments[0].start.split(':').map(Number);
+        if (startHour >= 19) isNightShift = true;
+      }
+
+      const dayStatusLabel = dayRecords.reduce<string | null>((label, record) => {
+        if (label || record.check_in) return label;
+        if (record.status === 'ausente' || record.status === 'ausente_justificada') return 'Ausente';
+        if (record.status === 'descanso') return 'Descanso';
+        if (record.status === 'vacaciones') return 'Vacaciones';
+        if (record.status === 'licencia_medica') return 'Licencia Medica';
+        if (record.status === 'compensatorio') return 'Franco Comp.';
+        if (record.status === 'suspendido') return 'Suspendido';
+        return label;
+      }, null);
+
+      return {
+        isWorkingShift: true,
+        dayJornadas,
+        dayHours,
+        isFutureShift,
+        isNightShift,
+        scheduledDayHours: hours.toFixed(2).replace('.', ','),
+        dayStatusLabel
+      };
+    };
+
+    const daily = weekDays.map(date => {
+      const activeShift = getShift(date);
+      const calc = getDayCalculation(date);
+      
+      if (!calc.isWorkingShift) {
+        const dayRecords = attendanceByEmployeeDate.get(`${emp.id}_${formatDate(date)}`) || [];
+        const label = dayRecords.reduce<string | null>((l, r) => {
+           if (l || r.check_in) return l;
+           if (r.status === 'ausente' || r.status === 'ausente_justificada') return 'Ausente';
+           if (r.status === 'descanso') return 'Descanso';
+           if (r.status === 'vacaciones') return 'Vacaciones';
+           if (r.status === 'licencia_medica') return 'Licencia Medica';
+           if (r.status === 'compensatorio') return 'Franco Comp.';
+           if (r.status === 'suspendido') return 'Suspendido';
+           return l;
+        }, null);
+
+        if (!activeShift) return label || (date.getDay() === 0 ? 'Descanso' : '');
+        if (activeShift.type === 'off') return 'Descanso';
+        if (activeShift.type === 'compensatory') return 'Franco Comp.';
+        if (activeShift.type === 'suspension') return 'Suspendido';
+        if (activeShift.type === 'vacation') return 'Vacaciones';
+        if (activeShift.type === 'medical') return 'Licencia Medica';
+        return '';
+      }
+
+      if (calc.dayJornadas! <= 0) {
+         if (calc.isFutureShift) {
+             return calc.scheduledDayHours!;
+         } else {
+             return calc.dayStatusLabel || 'Ausente';
+         }
       }
       
-      return dayHours.toFixed(2).replace('.', ',');
+      return calc.dayHours!.toFixed(2).replace('.', ',');
+    });
+
+    const startPrev = new Date(weekDays[0]);
+    startPrev.setDate(startPrev.getDate() - 1);
+    const evaluationDays = [startPrev, ...weekDays];
+    
+    evaluationDays.forEach(date => {
+      const calc = getDayCalculation(date);
+      if (!calc.isWorkingShift || calc.isFutureShift) return;
+
+      const effectiveDate = new Date(date);
+      if (calc.isNightShift) {
+         effectiveDate.setDate(effectiveDate.getDate() + 1);
+      }
+      
+      const effectiveDateKey = formatDate(effectiveDate);
+      const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
+      
+      if (isWithinWeek) {
+         workedJornadas += calc.dayJornadas!;
+         weeklyHours += calc.dayHours!;
+      }
     });
 
     return { workedJornadas, weeklyHours, daily };
@@ -577,9 +642,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleExportWeeklySummaryExcel = async () => {
     const weekLabel = `${currentWeekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${addDays(currentWeekStart, 6).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
     const sectorLabel = selectedSector === 'all' ? 'Todos los Sectores' : (sectorMap[selectedSector] || selectedSector);
+    
     const startDate = formatDate(currentWeekStart);
     const endDate = formatDate(addDays(currentWeekStart, 6));
-    const attendanceRecords = await attendanceService.getByDateRange(startDate, endDate);
+    
+    const startPrev = addDays(currentWeekStart, -1);
+    const extendedStartDate = formatDate(startPrev);
+    
+    const attendanceRecords = await attendanceService.getByDateRange(extendedStartDate, endDate);
+    const extendedSchedules = await scheduleService.getByWeek(extendedStartDate, endDate);
+
     const attendanceByEmployeeDate = attendanceRecords.reduce((map, record) => {
       const key = `${record.employee_id}_${record.date.substring(0, 10)}`;
       const records = map.get(key) || [];
@@ -587,6 +659,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       map.set(key, records);
       return map;
     }, new Map<string, AttendanceRecord[]>());
+
+    const extendedShiftsMap = extendedSchedules.reduce((map, shift) => {
+      map.set(`${shift.employee_id}_${shift.date.substring(0, 10)}`, shift);
+      return map;
+    }, new Map<string, ShiftData>());
 
     const dayHeaders = weekDays.map(d => d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }));
     const headers = [
@@ -599,7 +676,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     ];
 
     const rows = filteredEmployees.map(emp => {
-      const summary = getScheduledWorkSummary(emp, attendanceByEmployeeDate);
+      const summary = getScheduledWorkSummary(emp, attendanceByEmployeeDate, extendedShiftsMap);
       return [
         emp.full_name,
         getEmploymentTypeLabel(emp.employment_type),
