@@ -576,6 +576,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         const [startHours, startMinutes] = (segment.start || '00:00').split(':').map(Number);
         segmentStart.setHours(startHours || 0, startMinutes || 0, 0, 0);
         const isNightUnit = getSegmentStartHour(segment) >= 19;
+        const paysNextWeek = date.getDay() === 6 && isNightUnit;
         const hasCheckInForUnit = isDoubleForLiquidation
           ? index < positiveRecords.length
           : positiveRecords.length > 0;
@@ -584,7 +585,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         if (!hasCheckInForUnit && !shouldPrepayFutureDayUnit) return units;
 
         units.push({
-          effectiveDate: addDays(date, isNightUnit ? 1 : 0),
+          effectiveDate: addDays(date, paysNextWeek ? 1 : 0),
           hours: isDoubleForLiquidation ? getSegmentHours(segment) : totalScheduledHours
         });
         return units;
