@@ -207,12 +207,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     // Filtro por nombre
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(e => 
-        e.full_name.toLowerCase().includes(term) ||
-        getEmploymentTypeLabel(e.employment_type).toLowerCase().includes(term) ||
-        (e.dni && e.dni.includes(term))
-      );
+      const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+      list = list.filter(e => {
+        const searchable = [
+          e.full_name,
+          getEmploymentTypeLabel(e.employment_type),
+          sectorMap[e.sector_id || ''] || e.sector_id || 'General',
+          e.dni || ''
+        ].join(' ').toLowerCase();
+        return terms.every(term => searchable.includes(term));
+      });
     }
 
     if (currentUser.role === 'administrador' || currentUser.role === 'superusuario') return list;
@@ -225,7 +229,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return list.filter(e => mySectorIds.has(e.sector_id || 'General'));
     }
     return [];
-  }, [employees, currentUser, selectedSector, selectedEmploymentType, searchTerm]);
+  }, [employees, currentUser, selectedSector, selectedEmploymentType, searchTerm, sectorMap]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -548,21 +552,16 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         dayRecords = [...dayRecords, ...afterMidnightRecords];
       }
 
-      // Sort check-ins chronologically and pick only positive-status records
-      const positiveRecords = dayRecords
-        .filter(r => r.check_in && ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(r.status))
-        .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
-
-      // Assign each positive record to a segment in order and sum those segments' hours.
-      // dayJornadas = number of actual worked segments (capped by segments defined in schedule).
-      // We do NOT cap by scheduledJornadas type — if an employee worked both segments of a split
-      // shift (e.g. cambio de turno), each segment counts as its own separate jornada.
-      const workedSegmentCount = Math.min(positiveRecords.length, segments.length);
-      const dayJornadas = workedSegmentCount;
-      let dayHours = 0;
-      for (let i = 0; i < workedSegmentCount; i++) {
-        dayHours += getSegmentHours(segments[i]);
-      }
+      // Liquidation summary is schedule-based: count programmed jornadas, then subtract explicit absences.
+      const absenceCount = dayRecords.filter(record => (
+        !record.check_in &&
+        (record.status === 'ausente' || record.status === 'ausente_justificada')
+      )).length;
+      const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
+      const totalScheduledHours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
+      const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
+        ? totalScheduledHours * (dayJornadas / scheduledJornadas)
+        : (dayJornadas > 0 ? totalScheduledHours : 0);
 
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
@@ -589,8 +588,6 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         const [startHour] = segments[0].start.split(':').map(Number);
         if (startHour >= 19) isNightShift = true;
       }
-
-      const totalScheduledHours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
 
       const dayStatusLabel = dayRecords.reduce<string | null>((label, record) => {
         if (label || record.check_in) return label;
@@ -658,31 +655,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     evaluationDays.forEach(date => {
       const calc = getDayCalculation(date);
-      if (!calc.isWorkingShift || calc.isFutureShift || !calc.dayJornadas) return;
+      if (!calc.isWorkingShift || !calc.dayJornadas) return;
 
-      const segments = getShift(date)?.segments || [];
-
-      // For multi-segment shifts, evaluate each segment separately for effective date
-      for (let i = 0; i < calc.dayJornadas!; i++) {
-        const seg = segments[i];
-        const segHours = seg ? getSegmentHours(seg) : (calc.dayHours! / (calc.dayJornadas || 1));
-        const segStart = seg?.start || '';
-        const segStartHour = segStart ? parseInt(segStart.split(':')[0], 10) : 0;
-        const isSegNight = segStartHour >= 19;
-
-        const effectiveDate = new Date(date);
-        if (isSegNight) {
-          effectiveDate.setDate(effectiveDate.getDate() + 1);
-        }
-
-        const effectiveDateKey = formatDate(effectiveDate);
-        const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
-
-        if (isWithinWeek) {
-          workedJornadas += 1;
-          weeklyHours += segHours;
-        }
+      const effectiveDate = new Date(date);
+      if (calc.isNightShift) {
+        effectiveDate.setDate(effectiveDate.getDate() + 1);
       }
+
+      const effectiveDateKey = formatDate(effectiveDate);
+      const isWithinWeek = weekDays.some(wd => formatDate(wd) === effectiveDateKey);
+      if (!isWithinWeek) return;
+
+      workedJornadas += calc.dayJornadas;
+      weeklyHours += calc.dayHours || 0;
     });
 
     return { workedJornadas, weeklyHours, daily };
