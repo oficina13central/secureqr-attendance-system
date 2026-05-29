@@ -533,11 +533,31 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
       if (dayJornadas <= 0) return dayStatusLabel || 'Ausente';
       
-      workedJornadas += dayJornadas;
       const dayHours = activeShift.type === 'double' && scheduledJornadas > 0
         ? hours * (dayJornadas / scheduledJornadas)
         : hours;
-      weeklyHours += dayHours;
+
+      const hasCheckIn = dayRecords.some(r => r.check_in);
+      let isFutureShift = false;
+      if (!hasCheckIn) {
+        const now = new Date();
+        const shiftStart = new Date(date);
+        if (segments.length > 0 && segments[0].start) {
+          const [startHours, startMinutes] = segments[0].start.split(':').map(Number);
+          shiftStart.setHours(startHours, startMinutes, 0, 0);
+        } else {
+          shiftStart.setHours(23, 59, 59, 999);
+        }
+        if (shiftStart > now) {
+          isFutureShift = true;
+        }
+      }
+
+      if (!isFutureShift) {
+        workedJornadas += dayJornadas;
+        weeklyHours += dayHours;
+      }
+      
       return dayHours.toFixed(2).replace('.', ',');
     });
 
