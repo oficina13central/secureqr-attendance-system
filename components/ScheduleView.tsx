@@ -562,25 +562,35 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         dayRecords = [...dayRecords, ...afterMidnightRecords];
       }
 
-      // Liquidation summary is schedule-based: count programmed jornadas, then subtract explicit absences.
-      const absenceCount = dayRecords.filter(record => (
-        !record.check_in &&
-        (record.status === 'ausente' || record.status === 'ausente_justificada')
-      )).length;
-      const dayJornadas = Math.max(0, scheduledJornadas - absenceCount);
+      const positiveRecords = dayRecords
+        .filter(record => record.check_in && ['presente', 'en_horario', 'tarde', 'sin_presentismo', 'manual'].includes(record.status))
+        .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+      const now = new Date();
+      const todayKey = formatDate(now);
       const totalScheduledHours = segments.reduce((sum: number, segment: any) => sum + getSegmentHours(segment), 0);
-      const dayHours = isDoubleForLiquidation && scheduledJornadas > 0
-        ? totalScheduledHours * (dayJornadas / scheduledJornadas)
-        : (dayJornadas > 0 ? totalScheduledHours : 0);
-      const payableUnits = isDoubleForLiquidation
-        ? segments.slice(0, dayJornadas).map((segment: any) => ({
-          effectiveDate: addDays(date, getSegmentStartHour(segment) >= 19 ? 1 : 0),
-          hours: getSegmentHours(segment)
-        }))
-        : [{
-          effectiveDate: addDays(date, getSegmentStartHour(segments[0]) >= 19 ? 1 : 0),
-          hours: dayHours
-        }];
+      const scheduledUnits = isDoubleForLiquidation
+        ? segments.slice(0, scheduledJornadas)
+        : [segments[0]];
+      const payableUnits = scheduledUnits.reduce((units: { effectiveDate: Date; hours: number }[], segment: any, index: number) => {
+        const segmentStart = new Date(date);
+        const [startHours, startMinutes] = (segment.start || '00:00').split(':').map(Number);
+        segmentStart.setHours(startHours || 0, startMinutes || 0, 0, 0);
+        const isNightUnit = getSegmentStartHour(segment) >= 19;
+        const hasCheckInForUnit = isDoubleForLiquidation
+          ? index < positiveRecords.length
+          : positiveRecords.length > 0;
+        const shouldPrepayFutureDayUnit = dateKey === todayKey && segmentStart > now && !isNightUnit;
+
+        if (!hasCheckInForUnit && !shouldPrepayFutureDayUnit) return units;
+
+        units.push({
+          effectiveDate: addDays(date, isNightUnit ? 1 : 0),
+          hours: isDoubleForLiquidation ? getSegmentHours(segment) : totalScheduledHours
+        });
+        return units;
+      }, []);
+      const dayJornadas = payableUnits.length;
+      const dayHours = payableUnits.reduce((sum, unit) => sum + unit.hours, 0);
 
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
       const hasManualPresence = dayJornadas > 0;
