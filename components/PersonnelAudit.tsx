@@ -650,11 +650,18 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             const isSuperUser = currentUser?.role === 'superusuario';
             const hasAuditPerm = (currentUser as any)?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT');
+            const hasSectorViewPerm = (currentUser as any)?.roles?.permissions?.includes('VIEW_SECTOR_PERSONNEL');
             
             const empSectorId = employee?.sector_id || '';
-            const hasAccess = isSuperUser || 
-                (hasAuditPerm && (accessibleSectorIds.length === 0 || accessibleSectorIds.includes(empSectorId))) ||
+
+            // Superusuario ve todo. Admin con VIEW_PERSONNEL_AUDIT ve todo (sin restricción de sector).
+            // Encargado con VIEW_SECTOR_PERSONNEL solo ve empleados de sus sectores asignados.
+            const isInAccessibleSector = accessibleSectorIds.includes(empSectorId) ||
                 sectors.find(s => s.name === empSectorId && accessibleSectorIds.includes(s.id)) !== undefined;
+
+            const hasAccess = isSuperUser ||
+                (hasAuditPerm && (accessibleSectorIds.length === 0 || isInAccessibleSector)) ||
+                (hasSectorViewPerm && isInAccessibleSector);
 
             const matchesSector = selectedSectorId === 'all' ||
                 employee?.sector_id === selectedSectorId ||
@@ -841,9 +848,19 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                             className="pl-10 pr-8 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-pointer"
                         >
                             <option value="all">Todos los Sectores</option>
-                            {sectors.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
+                            {sectors
+                                .filter(s => {
+                                    // Superusuario y quien tiene VIEW_PERSONNEL_AUDIT ven todos los sectores
+                                    if (currentUser?.role === 'superusuario') return true;
+                                    if ((currentUser as any)?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT')) return true;
+                                    // Encargado: solo sus sectores asignados
+                                    const accessible = getAccessibleSectorIds();
+                                    return accessible.includes(s.id);
+                                })
+                                .map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+
                         </select>
                     </div>
 
