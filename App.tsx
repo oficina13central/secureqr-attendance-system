@@ -382,8 +382,8 @@ const App: React.FC = () => {
     'dashboard': ['VIEW_DASHBOARD', 'VIEW_SECTOR_PERSONNEL'],
     'audit_personnel': ['VIEW_PERSONNEL_AUDIT', 'VIEW_SECTOR_PERSONNEL'],
     'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
-    'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
-    'employee_files': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
+    'personnel': ['MANAGE_PERSONNEL'],
+    'employee_files': ['MANAGE_PERSONNEL'],
     'hr_requests': ['MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE', 'VIEW_SECTOR_PERSONNEL', 'MANAGE_SECTOR_SCHEDULES', 'SELF_VIEW'],
     'audit': ['VIEW_AUDIT_LOGS'],
     'settings': ['MANAGE_SETTINGS'],
@@ -635,6 +635,13 @@ const App: React.FC = () => {
                   
                   // Ajustes solo para superusuario
                   if (subViewId === 'settings') return false;
+
+                  // 'Personal' y 'Legajos' requieren MANAGE_PERSONNEL de forma estricta;
+                  // los encargados con VIEW_SECTOR_PERSONNEL no deben ver estas solapas
+                  if (subViewId === 'personnel' || subViewId === 'employee_files') {
+                    return !!(currentUser?.roles?.permissions && Array.isArray(currentUser.roles?.permissions) &&
+                      currentUser.roles.permissions.includes('MANAGE_PERSONNEL'));
+                  }
 
                   // 1. Verificación por matriz dinámica (Prioridad 1)
                   const requiredPerms = viewPermissions[subViewId] || [];
