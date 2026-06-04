@@ -379,8 +379,8 @@ const App: React.FC = () => {
  
   // 1. Definición global de permisos por vista
   const viewPermissions: Record<AdminSubView, string[]> = {
-    'dashboard': ['VIEW_DASHBOARD'],
-    'audit_personnel': ['VIEW_PERSONNEL_AUDIT'],
+    'dashboard': ['VIEW_DASHBOARD', 'VIEW_SECTOR_PERSONNEL'],
+    'audit_personnel': ['VIEW_PERSONNEL_AUDIT', 'VIEW_SECTOR_PERSONNEL'],
     'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
     'personnel': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
     'employee_files': ['MANAGE_PERSONNEL', 'VIEW_SECTOR_PERSONNEL'],
@@ -622,7 +622,7 @@ const App: React.FC = () => {
                 { id: 'employee_files', label: 'Legajos', icon: Briefcase },
                 { id: 'hr_requests', label: 'Solicitudes RRHH', icon: ClipboardCheck },
                 { id: 'audit', label: 'Logs de Sistema', icon: History },
-                { id: 'audit_personnel', label: 'Auditoría de Personal', icon: Users },
+                { id: 'audit_personnel', label: (currentUser?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT') || currentUser?.role === 'superusuario') ? 'Auditoría de Personal' : 'Asistencia de Personal', icon: Users },
                 { id: 'fraud', label: 'Auditoría Automática', icon: ShieldCheck },
                 { id: 'users', label: 'Usuarios', icon: UserCog },
                 { id: 'settings', label: 'Ajustes', icon: Settings },

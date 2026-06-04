@@ -31,13 +31,20 @@ import AttendanceCalendarView from './AttendanceCalendarView';
 
 interface PersonnelAuditProps {
     employees?: Profile[];
-    currentUser?: { name: string; role: string; sector_id?: string; full_name?: string; managed_sectors?: string[] };
+    currentUser?: Profile;
 }
 
 const PersonnelAudit: React.FC<PersonnelAuditProps> = ({ 
     employees: initialEmployees = [], 
     currentUser 
 }) => {
+    const canEdit = useMemo(() => {
+        if (!currentUser) return false;
+        const perms = currentUser.roles?.permissions || [];
+        return currentUser.role === 'superusuario' || 
+               perms.includes('MANUAL_ATTENDANCE') || 
+               perms.includes('MANAGE_PERSONNEL');
+    }, [currentUser]);
     const [viewMode, setViewMode] = useState<'summary' | 'calendar'>('summary');
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [employees, setEmployees] = useState<Profile[]>(initialEmployees);
@@ -767,7 +774,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center">
-                        Auditoría de <span className="ml-2 text-indigo-600 mr-3">Personal</span>
+                        {(currentUser?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT') || currentUser?.role === 'superusuario') ? 'Auditoría de' : 'Asistencia de'} <span className="ml-2 text-indigo-600 mr-3">Personal</span>
                     </h2>
                     <p className="text-slate-500 font-medium italic mt-1">Consolidado mensual de cumplimiento y presentismo.</p>
                 </div>
@@ -1165,27 +1172,31 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                         <span className="text-sm font-black text-slate-800">
                                                             {record.check_in ? formatTime(record.check_in) : '—'}
                                                         </span>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setEditingRecordId(record.id);
-                                                                setEditingTime(record.check_in ? record.check_in.split('T')[1].substring(0, 5) : '08:00');
-                                                            }}
-                                                            className="opacity-0 group-hover/time:opacity-100 p-1 text-indigo-500 hover:bg-indigo-50 rounded transition-all"
-                                                            title="Corregir Hora"
-                                                        >
-                                                            <Edit2 className="w-3 h-3" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => {
-                                                                if (window.confirm('¿Está seguro de que desea eliminar este registro permanentemente?')) {
-                                                                    handleDeleteRecord(record.id);
-                                                                }
-                                                            }}
-                                                            className="opacity-0 group-hover/time:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
-                                                            title="Eliminar Registro"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
+                                                        {canEdit && (
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setEditingRecordId(record.id);
+                                                                        setEditingTime(record.check_in ? record.check_in.split('T')[1].substring(0, 5) : '08:00');
+                                                                    }}
+                                                                    className="opacity-0 group-hover/time:opacity-100 p-1 text-indigo-500 hover:bg-indigo-50 rounded transition-all"
+                                                                    title="Corregir Hora"
+                                                                >
+                                                                    <Edit2 className="w-3 h-3" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        if (window.confirm('¿Está seguro de que desea eliminar este registro permanentemente?')) {
+                                                                            handleDeleteRecord(record.id);
+                                                                        }
+                                                                    }}
+                                                                    className="opacity-0 group-hover/time:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
+                                                                    title="Eliminar Registro"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                             </td>
@@ -1220,14 +1231,16 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <Download className="w-4 h-4" />
                                 <span>Exportar Detalle</span>
                             </button>
-                            <button
-                                onClick={handleRecalculate}
-                                disabled={recalculating}
-                                className={`flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-                                <span>{recalculating ? 'Recalculando...' : 'Recalcular'}</span>
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={handleRecalculate}
+                                    disabled={recalculating}
+                                    className={`flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95 ${recalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                                    <span>{recalculating ? 'Recalculando...' : 'Recalcular'}</span>
+                                </button>
+                            )}
                             <button
                                 onClick={() => setSelectedEmployeeId(null)}
                                 className="px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-slate-900/10"
