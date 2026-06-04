@@ -40,10 +40,16 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 }) => {
     const canEdit = useMemo(() => {
         if (!currentUser) return false;
+        // Superusuario siempre puede editar
+        if (currentUser.role === 'superusuario') return true;
         const perms = currentUser.roles?.permissions || [];
-        return currentUser.role === 'superusuario' || 
-               perms.includes('MANUAL_ATTENDANCE') || 
-               perms.includes('MANAGE_PERSONNEL');
+        // Encargados con SOLO VIEW_SECTOR_PERSONNEL nunca pueden editar
+        // Se requiere MANUAL_ATTENDANCE o MANAGE_PERSONNEL de forma explícita
+        const hasEditPerm = perms.includes('MANUAL_ATTENDANCE') || perms.includes('MANAGE_PERSONNEL');
+        const isOnlyEncargado = perms.includes('VIEW_SECTOR_PERSONNEL') &&
+            !perms.includes('VIEW_PERSONNEL_AUDIT') &&
+            !perms.includes('MANAGE_PERSONNEL');
+        return hasEditPerm && !isOnlyEncargado;
     }, [currentUser]);
     const [viewMode, setViewMode] = useState<'summary' | 'calendar'>('summary');
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -918,7 +924,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 ml-auto">
-                    {selectedEmployeeId && (
+                    {selectedEmployeeId && canEdit && (
                         <button
                             onClick={handleRecalculate}
                             disabled={recalculating}
