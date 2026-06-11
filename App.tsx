@@ -636,6 +636,9 @@ const App: React.FC = () => {
                   // Ajustes solo para superusuario
                   if (subViewId === 'settings') return false;
 
+                  // Mi Credencial es siempre visible para cualquier usuario autenticado (no depende del rol)
+                  if (subViewId === 'my_credential') return true;
+
                   // 'Personal' y 'Legajos' requieren MANAGE_PERSONNEL de forma estricta;
                   // los encargados con VIEW_SECTOR_PERSONNEL no deben ver estas solapas
                   if (subViewId === 'personnel' || subViewId === 'employee_files') {
