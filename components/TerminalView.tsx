@@ -49,53 +49,53 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
   const getSuccessMessage = (type: 'in' | 'out', recordStatus?: string | null) => {
     if (type === 'out') {
-      return { message: 'Salida Registrada', color: 'text-blue-300' };
+      return { message: 'Salida Registrada ⚽ ¡Vamos Argentina!', color: 'text-white' };
     }
 
     if (recordStatus === 'en_horario') {
-      return { message: 'En Horario', color: 'text-emerald-300' };
+      return { message: '¡Asistencia Perfecta como el Dibu! 🧤', color: 'text-yellow-300' };
     }
     if (recordStatus === 'tarde') {
-      return { message: 'Llegó Tarde', color: 'text-amber-300' };
+      return { message: 'Llegaste tarde... ¡A recuperar la pelota! 🏃‍♂️', color: 'text-amber-300' };
     }
     if (recordStatus === 'sin_presentismo') {
-      return { message: 'Perdió el Presentismo', color: 'text-red-400' };
+      return { message: 'Perdiste el presentismo (Roja Directa) 🟥', color: 'text-red-400' };
     }
 
-    return { message: 'Entrada Registrada', color: 'text-emerald-300' };
+    return { message: 'Entrada Registrada ¡Golazo! 🥅', color: 'text-yellow-300' };
   };
 
   const getFailurePresentation = (reason?: string, invalidQr = false) => {
     if (invalidQr) {
       return {
         status: 'error' as const,
-        message: 'QR no válido, revise su tarjeta',
+        message: 'QR inválido. ¿Cobraste penal donde no era? ❌',
       };
     }
 
     switch (reason) {
       case 'already_checked_in':
-        return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta' };
+        return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta (¡No vale doble toque!)' };
       case 'no_open_record':
-        return { status: 'error' as const, message: 'No tenés entrada registrada' };
+        return { status: 'error' as const, message: 'Falta registrar entrada (¡Estás en Offside!)' };
       case 'off_day':
-        return { status: 'error' as const, message: 'Tenés descanso asignado' };
+        return { status: 'error' as const, message: 'Tenés descanso asignado (Día de concentración)' };
       case 'compensatory_rest':
-        return { status: 'error' as const, message: 'Tenés franco compensatorio asignado' };
+        return { status: 'error' as const, message: 'Franco compensatorio (Recuperando piernas)' };
       case 'suspended':
-        return { status: 'error' as const, message: 'Tenés suspensión asignada' };
+        return { status: 'error' as const, message: 'Suspensión asignada (Fuera de la convocatoria)' };
       case 'vacation':
-        return { status: 'error' as const, message: 'Estás de vacaciones' };
+        return { status: 'error' as const, message: 'Estás de vacaciones (Modo playa)' };
       case 'medical':
-        return { status: 'error' as const, message: 'Tenés licencia médica asignada' };
+        return { status: 'error' as const, message: 'Licencia médica (En kinesiología)' };
       case 'daily_limit_reached':
-        return { status: 'duplicate' as const, message: 'Ya completaste los registros permitidos de hoy' };
+        return { status: 'duplicate' as const, message: 'Ya completaste los cambios permitidos hoy' };
       case 'user_not_found':
-        return { status: 'error' as const, message: 'No se encontró un empleado válido' };
+        return { status: 'error' as const, message: 'Jugador no encontrado en el plantel' };
       case 'queued_offline':
-        return { status: 'success' as const, message: 'Guardado Offline (Sin Internet)' };
+        return { status: 'success' as const, message: 'Guardado Offline (Sin VAR por ahora)' };
       default:
-        return { status: 'error' as const, message: 'Error al registrar' };
+        return { status: 'error' as const, message: 'Error al registrar la jugada' };
     }
   };
 
@@ -657,25 +657,29 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           )}
 
           {status === 'success' && (
-            <div className="absolute inset-0 bg-emerald-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className={`p-6 rounded-full shadow-lg transition-all ${scanType === 'out' ? 'bg-blue-500 shadow-blue-500/50' : 'bg-emerald-500 shadow-emerald-500/50'}`}>
-                {scanType === 'out' ? (
-                  <RefreshCcw className="w-20 h-20 text-white" />
-                ) : (
-                  <CheckCircle2 className="w-20 h-20 text-white" />
-                )}
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
+              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-300">
+                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">
+                  {scanType === 'out' ? '🏆' : '⭐⭐⭐'}
+                </span>
               </div>
-              <div className="text-center px-6">
-                <p className="text-4xl font-black text-white mb-2 uppercase">
-                  {scanType === 'out' ? '¡HASTA LUEGO!' : '¡AUTORIZADO!'}
+              <div className="text-center px-6 z-10">
+                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">
+                  {scanType === 'out' ? '¡NOS VEMOS EN LA FINAL!' : '¡DALE ARGENTINA!'}
                 </p>
-                <p className="text-2xl text-emerald-300 font-bold mb-1">{lastUser}</p>
-                <p className={`text-xl font-black uppercase tracking-widest ${msgColor}`}>{attendanceMsg}</p>
-                <div className="mt-4 flex items-center justify-center space-x-2 text-slate-400">
+                <p className="text-2xl md:text-3xl text-blue-100 font-black mb-1 drop-shadow-md">{lastUser}</p>
+                <p className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-md ${msgColor}`}>{attendanceMsg}</p>
+                <div className="mt-6 flex items-center justify-center space-x-2 text-white/90">
                   <RefreshCcw className="w-4 h-4 animate-spin-slow" />
-                  <span className="text-sm">Registrando en base de datos...</span>
+                  <span className="text-sm font-bold tracking-widest uppercase">Anotando en la planilla...</span>
                 </div>
               </div>
+              
+              <div className="absolute top-[10%] left-[10%] text-4xl animate-bounce delay-100 opacity-80" style={{ animationDuration: '2s' }}>🇦🇷</div>
+              <div className="absolute top-[20%] right-[15%] text-5xl animate-bounce delay-300 opacity-80" style={{ animationDuration: '2.5s' }}>⚽</div>
+              <div className="absolute bottom-[20%] left-[20%] text-4xl animate-bounce delay-200 opacity-80" style={{ animationDuration: '2.2s' }}>🥅</div>
+              <div className="absolute bottom-[15%] right-[20%] text-4xl animate-bounce delay-500 opacity-80" style={{ animationDuration: '1.8s' }}>🇦🇷</div>
             </div>
           )}
 
