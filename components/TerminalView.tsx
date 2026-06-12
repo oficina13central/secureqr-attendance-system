@@ -684,7 +684,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           )}
 
           {status === 'error' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
               <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-red-500/50 z-10 border-4 border-red-500">
                 <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟥</span>
@@ -696,10 +696,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                   Revisá la jugada. No podés avanzar por ahora.
                 </p>
               </div>
+              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-1 opacity-70">⚽</div>
+              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
+              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-3 opacity-70">🟥</div>
+              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-1 opacity-70">⚽</div>
+              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-2 opacity-50">🇦🇷</div>
+              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-3 opacity-50">🥅</div>
             </div>
           )}
           {status === 'duplicate' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
               <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-amber-500/50 z-10 border-4 border-amber-400">
                 <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟨</span>
@@ -715,10 +721,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                     : 'Ya completaste todos los cambios permitidos hoy.'}
                 </p>
               </div>
+              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
+              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-1 opacity-70">⚽</div>
+              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-3 opacity-70">🟨</div>
+              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
+              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-3 opacity-50">⚽</div>
+              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-1 opacity-50">🥅</div>
             </div>
           )}
           {status === 'wait' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
               <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-400">
                 <span className="text-6xl md:text-8xl animate-spin-slow block drop-shadow-md">⏱️</span>
@@ -730,6 +742,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                   Aguarde unos minutos antes de salir a la cancha otra vez.
                 </p>
               </div>
+              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-3 opacity-70">⚽</div>
+              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-1 opacity-70">🇦🇷</div>
+              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-2 opacity-70">⏱️</div>
+              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-3 opacity-70">🇦🇷</div>
+              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-1 opacity-50">⚽</div>
+              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-2 opacity-50">🥅</div>
             </div>
           )}
         </div>
@@ -826,16 +844,32 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         .animate-reverse-spin {
           animation: reverse-spin 2s linear infinite;
         }
-        @keyframes reverse-spin {
-          from { transform: rotate(360deg); }
-          to { transform: rotate(0deg); }
-        }
         .safe-area-inset {
           padding-top: env(safe-area-inset-top);
           padding-bottom: env(safe-area-inset-bottom);
           padding-left: env(safe-area-inset-left);
           padding-right: env(safe-area-inset-right);
         }
+        @keyframes float-1 {
+          0%   { transform: translateY(0px) rotate(0deg) scale(1); }
+          33%  { transform: translateY(-18px) rotate(15deg) scale(1.1); }
+          66%  { transform: translateY(-8px) rotate(-10deg) scale(0.95); }
+          100% { transform: translateY(0px) rotate(0deg) scale(1); }
+        }
+        @keyframes float-2 {
+          0%   { transform: translateY(0px) rotate(0deg) scale(1); }
+          40%  { transform: translateY(-22px) rotate(-20deg) scale(1.15); }
+          80%  { transform: translateY(-6px) rotate(12deg) scale(0.9); }
+          100% { transform: translateY(0px) rotate(0deg) scale(1); }
+        }
+        @keyframes float-3 {
+          0%   { transform: translateY(0px) rotate(5deg) scale(1); }
+          50%  { transform: translateY(-14px) rotate(-8deg) scale(1.08); }
+          100% { transform: translateY(0px) rotate(5deg) scale(1); }
+        }
+        .animate-float-1 { animation: float-1 3s ease-in-out infinite; }
+        .animate-float-2 { animation: float-2 4s ease-in-out infinite; }
+        .animate-float-3 { animation: float-3 2.5s ease-in-out infinite; }
       `}</style>
       {/* ── PIN PAD MODAL ── */}
       {showPinPad && (
