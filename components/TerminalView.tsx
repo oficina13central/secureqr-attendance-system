@@ -684,57 +684,50 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           )}
 
           {status === 'error' && (
-            <div className="absolute inset-0 bg-red-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className="bg-red-500 p-6 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.5)]">
-                <XCircle className="w-20 h-20 text-white" />
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
+              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-red-500/50 z-10 border-4 border-red-500">
+                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟥</span>
               </div>
-              <div className="text-center px-6">
-                <p className="text-4xl font-black text-white mb-2">DENEGADO</p>
-                <p className="text-red-300 font-bold">{attendanceMsg || 'QR no válido, revise su tarjeta'}</p>
-                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
-                  {attendanceMsg === 'No tenés entrada registrada'
-                    ? 'Debe registrar su ingreso antes de poder marcar la salida.'
-                    : attendanceMsg === 'Tenés descanso asignado' ||
-                      attendanceMsg === 'Tenés franco compensatorio asignado' ||
-                      attendanceMsg === 'Tenés suspensión asignada' ||
-                      attendanceMsg === 'Estás de vacaciones' ||
-                      attendanceMsg === 'Tenés licencia médica asignada'
-                    ? 'No podés registrar asistencia en tus días libres asignados.'
-                    : attendanceMsg === 'QR no válido, revise su tarjeta'
-                    ? 'El código leído no es válido o no corresponde a una credencial activa.'
-                    : 'El código QR no pertenece a un empleado activo o ha expirado.'}
+              <div className="text-center px-6 z-10">
+                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">¡ROJA DIRECTA!</p>
+                <p className="text-xl md:text-2xl font-black text-red-200 drop-shadow-md">{attendanceMsg || 'QR inválido. ¿Cobraste penal donde no era? ❌'}</p>
+                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
+                  Revisá la jugada. No podés avanzar por ahora.
                 </p>
               </div>
             </div>
           )}
           {status === 'duplicate' && (
-            <div className="absolute inset-0 bg-amber-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className="bg-amber-500 p-6 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.5)]">
-                <ShieldAlert className="w-20 h-20 text-white" />
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
+              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-amber-500/50 z-10 border-4 border-amber-400">
+                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟨</span>
               </div>
-              <div className="text-center px-6">
-                <p className="text-4xl font-black text-white mb-2 uppercase">
-                  {attendanceMsg === 'Ya tenés una entrada abierta' ? 'AVISO' : 'LÍMITE ALCANZADO'}
+              <div className="text-center px-6 z-10">
+                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">
+                  {attendanceMsg.includes('entrada abierta') ? '¡OJO AL VAR!' : 'CAMBIO AGOTADO'}
                 </p>
-                <p className="text-amber-300 font-bold">{attendanceMsg || 'Ya completaste los registros permitidos de hoy'}</p>
-                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
-                  {attendanceMsg === 'Ya tenés una entrada abierta' 
-                    ? 'Ya has registrado tu ingreso previamente hoy.' 
-                    : 'Ya completaste todas las entradas permitidas para hoy.'}
+                <p className="text-xl md:text-2xl font-black text-amber-200 drop-shadow-md">{attendanceMsg}</p>
+                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
+                  {attendanceMsg.includes('entrada abierta')
+                    ? 'Ya estás en la cancha.' 
+                    : 'Ya completaste todos los cambios permitidos hoy.'}
                 </p>
               </div>
             </div>
           )}
           {status === 'wait' && (
-            <div className="absolute inset-0 bg-blue-950/60 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className="bg-blue-500 p-6 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.5)]">
-                <RefreshCcw className="w-20 h-20 text-white animate-reverse-spin" />
+            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
+              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-400">
+                <span className="text-6xl md:text-8xl animate-spin-slow block drop-shadow-md">⏱️</span>
               </div>
-              <div className="text-center px-6">
-                <p className="text-4xl font-black text-white mb-2 uppercase">ESPERE UN MOMENTO</p>
-                <p className="text-blue-300 font-bold">Entrada recién registrada</p>
-                <p className="text-slate-300 mt-4 text-sm max-w-[250px]">
-                  Aguarde 10 minutos antes de marcar su salida.
+              <div className="text-center px-6 z-10">
+                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">¡TIEMPO MUERTO!</p>
+                <p className="text-xl md:text-2xl font-black text-blue-200 drop-shadow-md">Entrada recién registrada</p>
+                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
+                  Aguarde unos minutos antes de salir a la cancha otra vez.
                 </p>
               </div>
             </div>
