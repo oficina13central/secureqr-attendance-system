@@ -51,9 +51,9 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
       : nameParts[0];
 
     return (
-      <div key={player.employee.id} className="flex flex-col items-center justify-center relative w-24 sm:w-28 mb-4">
+      <div key={player.employee.id} className="flex flex-col items-center w-36 sm:w-40 mb-4">
         {/* Camiseta SVG */}
-        <div className="relative w-16 h-16 drop-shadow-xl hover:scale-110 transition-transform">
+        <div className="relative w-16 h-16 drop-shadow-xl hover:scale-110 transition-transform mx-auto">
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
             {/* Cuerpo de la camiseta */}
             <path 
@@ -80,12 +80,12 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
         </div>
 
         {/* Info */}
-        <div className="mt-1 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 text-center border border-white/10 shadow-lg z-10 w-[160%] sm:w-[170%] flex flex-col items-center gap-1">
-          <p className="text-white font-black text-[11px] leading-none uppercase tracking-wider truncate w-full border-b border-white/20 pb-1">{shortName}</p>
-          <div className="flex flex-col w-full gap-[2px]">
+        <div className="mt-1 w-full bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 border border-white/10 shadow-lg flex flex-col items-center gap-1">
+          <p className="text-white font-black text-[11px] leading-none uppercase tracking-wide truncate w-full text-center border-b border-white/20 pb-1">{shortName}</p>
+          <div className="flex flex-col w-full gap-[3px]">
             {player.weeklySchedule.map((s, idx) => (
-              <div key={idx} className="flex justify-between items-center w-full">
-                <span className="text-white/80 font-bold text-[8px] uppercase leading-none">{s.day}</span>
+              <div key={idx} className="flex justify-between items-center w-full px-1">
+                <span className="text-white/80 font-bold text-[9px] uppercase leading-none">{s.day}</span>
                 <span className="text-yellow-300 font-bold text-[9px] leading-none">{s.shift}</span>
               </div>
             ))}
@@ -143,21 +143,21 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
           
           {/* Delanteros */}
           {lines.length > 2 && (
-            <div className="flex justify-center flex-wrap gap-x-8 gap-y-4">
+            <div className="flex justify-center flex-wrap gap-x-4 gap-y-6">
               {lines[2].map(p => renderPlayer(p, false))}
             </div>
           )}
 
           {/* Mediocampistas */}
           {lines.length > 1 && (
-            <div className="flex justify-center flex-wrap gap-x-8 gap-y-4">
+            <div className="flex justify-center flex-wrap gap-x-4 gap-y-6">
               {lines[1].map(p => renderPlayer(p, false))}
             </div>
           )}
 
           {/* Defensores */}
           {lines.length > 0 && (
-            <div className="flex justify-center flex-wrap gap-x-8 gap-y-4">
+            <div className="flex justify-center flex-wrap gap-x-4 gap-y-6">
               {lines[0].map(p => renderPlayer(p, false))}
             </div>
           )}
