@@ -1128,13 +1128,21 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             margin: 10mm 12mm;
           }
 
-          /* Ocultar todo el DOM, mostrar solo header y tabla */
+          /* Ocultar todo el DOM, mostrar solo header y tabla/cancha */
           body * { visibility: hidden; }
           .print-header,
           .print-header *,
           .schedule-table-wrapper,
-          .schedule-table-wrapper * {
+          .schedule-table-wrapper *,
+          .print-container,
+          .print-container * {
             visibility: visible;
+          }
+
+          /* Forzar impresión de colores de fondo en la cancha */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .print-header {

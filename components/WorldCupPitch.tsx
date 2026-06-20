@@ -80,13 +80,13 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
         </div>
 
         {/* Info */}
-        <div className="mt-1 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 text-center border border-white/10 shadow-lg z-10 w-[140%] flex flex-col items-center gap-1">
-          <p className="text-white font-black text-[10px] leading-none uppercase tracking-wider truncate w-full border-b border-white/20 pb-1">{shortName}</p>
-          <div className="flex flex-col w-full gap-[1px]">
+        <div className="mt-1 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 text-center border border-white/10 shadow-lg z-10 w-[160%] sm:w-[170%] flex flex-col items-center gap-1">
+          <p className="text-white font-black text-[11px] leading-none uppercase tracking-wider truncate w-full border-b border-white/20 pb-1">{shortName}</p>
+          <div className="flex flex-col w-full gap-[2px]">
             {player.weeklySchedule.map((s, idx) => (
               <div key={idx} className="flex justify-between items-center w-full">
-                <span className="text-white/70 font-bold text-[7px] uppercase leading-none">{s.day}</span>
-                <span className="text-yellow-300 font-bold text-[8px] leading-none">{s.shift}</span>
+                <span className="text-white/80 font-bold text-[8px] uppercase leading-none">{s.day}</span>
+                <span className="text-yellow-300 font-bold text-[9px] leading-none">{s.shift}</span>
               </div>
             ))}
           </div>
