@@ -53,7 +53,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     }
 
     if (recordStatus === 'en_horario') {
-      return { message: '¡Asistencia Perfecta como el Dibu! 🧤', color: 'text-yellow-300' };
+      return { message: 'En Horario⚽, A trabajar el Partido 🥅', color: 'text-yellow-300' };
     }
     if (recordStatus === 'tarde') {
       return { message: 'Llegaste tarde... ¡A recuperar la pelota! 🏃‍♂️', color: 'text-amber-300' };
@@ -660,26 +660,26 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
             <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
               <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-300">
-                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">
+                <span className="text-4xl md:text-6xl animate-bounce block drop-shadow-md">
                   {scanType === 'out' ? '🏆' : '⭐⭐⭐'}
                 </span>
               </div>
-              <div className="text-center px-6 z-10">
-                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">
+              <div className="text-center px-6 z-10 bg-blue-900/30 p-6 rounded-3xl backdrop-blur-sm border border-blue-400/20 shadow-xl max-w-2xl mx-auto">
+                <p className="text-3xl md:text-4xl font-black text-white mb-3 uppercase drop-shadow-lg shadow-blue-900 leading-tight">
                   {scanType === 'out' ? '¡NOS VEMOS EN LA FINAL!' : '¡DALE ARGENTINA!'}
                 </p>
-                <p className="text-2xl md:text-3xl text-blue-100 font-black mb-1 drop-shadow-md">{lastUser}</p>
-                <p className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-md ${msgColor}`}>{attendanceMsg}</p>
-                <div className="mt-6 flex items-center justify-center space-x-2 text-white/90">
+                <p className="text-2xl md:text-3xl text-blue-100 font-black mb-2 drop-shadow-md">{lastUser}</p>
+                <p className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-md ${msgColor} bg-black/20 py-2 px-4 rounded-xl inline-block`}>{attendanceMsg}</p>
+                <div className="mt-6 flex items-center justify-center space-x-2 text-white/90 bg-black/20 py-2 px-4 rounded-full inline-flex">
                   <RefreshCcw className="w-4 h-4 animate-spin-slow" />
                   <span className="text-sm font-bold tracking-widest uppercase">Anotando en la planilla...</span>
                 </div>
               </div>
               
-              <div className="absolute top-[10%] left-[10%] text-4xl animate-bounce delay-100 opacity-80" style={{ animationDuration: '2s' }}>🇦🇷</div>
-              <div className="absolute top-[20%] right-[15%] text-5xl animate-bounce delay-300 opacity-80" style={{ animationDuration: '2.5s' }}>⚽</div>
-              <div className="absolute bottom-[20%] left-[20%] text-4xl animate-bounce delay-200 opacity-80" style={{ animationDuration: '2.2s' }}>🥅</div>
-              <div className="absolute bottom-[15%] right-[20%] text-4xl animate-bounce delay-500 opacity-80" style={{ animationDuration: '1.8s' }}>🇦🇷</div>
+              <div className="absolute top-[5%] left-[5%] text-4xl animate-bounce delay-100 opacity-30 pointer-events-none" style={{ animationDuration: '2s' }}>🇦🇷</div>
+              <div className="absolute top-[10%] right-[8%] text-5xl animate-bounce delay-300 opacity-30 pointer-events-none" style={{ animationDuration: '2.5s' }}>⚽</div>
+              <div className="absolute bottom-[10%] left-[8%] text-4xl animate-bounce delay-200 opacity-30 pointer-events-none" style={{ animationDuration: '2.2s' }}>🥅</div>
+              <div className="absolute bottom-[8%] right-[5%] text-4xl animate-bounce delay-500 opacity-30 pointer-events-none" style={{ animationDuration: '1.8s' }}>🇦🇷</div>
             </div>
           )}
 
