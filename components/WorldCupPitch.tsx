@@ -96,7 +96,28 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
   };
 
   return (
-    <div className="w-full relative bg-green-700 rounded-3xl overflow-hidden shadow-2xl border-8 border-white print-container">
+    <div className="w-full relative bg-green-700 rounded-3xl overflow-hidden shadow-2xl border-8 border-white print-container" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+      <style>{`
+        @media print {
+          .print-container {
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .pitch-players-area {
+            min-height: unset !important;
+            height: calc(100vh - 20px) !important;
+            padding-top: 16px !important;
+            padding-bottom: 16px !important;
+          }
+        }
+      `}</style>
       
       {/* Encabezado de impresión */}
       <div className="absolute top-4 left-4 z-20 hidden print:block text-white">
@@ -133,7 +154,7 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
 
 
       {/* Contenido / Jugadores */}
-      <div className="relative z-10 min-h-[800px] flex flex-col justify-between py-12 px-4">
+      <div className="pitch-players-area relative z-10 min-h-[700px] flex flex-col justify-between py-8 px-4">
         
         {/* Equipo rival imaginario (vacío, solo para ocupar espacio arriba) */}
         <div className="flex-1"></div>

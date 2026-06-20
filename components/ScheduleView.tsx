@@ -1161,6 +1161,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             box-shadow: none !important;
           }
 
+          .print-container {
+            position: static !important;
+            width: 100% !important;
+            height: calc(100vh - 20px) !important;
+            max-height: calc(100vh - 20px) !important;
+            overflow: hidden !important;
+          }
+
           /* Header de impresión - Minimalista Premium */
           .print-header-top {
             display: flex !important;
