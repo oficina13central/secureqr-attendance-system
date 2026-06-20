@@ -114,22 +114,22 @@ export const WorldCupPitch: React.FC<WorldCupPitchProps> = ({ players, weekLabel
       }}></div>
 
       {/* Lineas de la cancha */}
-      <div className="absolute inset-4 border-4 border-white/60 pointer-events-none"></div>
+      <div className="absolute inset-4 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
       {/* Línea central */}
-      <div className="absolute top-1/2 left-4 right-4 h-1 border-t-4 border-white/60 pointer-events-none -mt-[2px]"></div>
+      <div className="absolute top-1/2 left-4 right-4 pointer-events-none -mt-[2px]" style={{ borderTop: '4px solid rgba(255,255,255,0.85)' }}></div>
       {/* Círculo central */}
-      <div className="absolute top-1/2 left-1/2 w-32 h-32 border-4 border-white/60 rounded-full -mt-16 -ml-16 pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full -mt-16 -ml-16 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
       {/* Punto central */}
-      <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-white/80 rounded-full -mt-1.5 -ml-1.5 pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full -mt-1.5 -ml-1.5 pointer-events-none" style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}></div>
 
       {/* Áreas (Arriba y Abajo) */}
-      <div className="absolute top-4 left-1/2 w-64 h-32 border-4 border-white/60 -ml-32 pointer-events-none"></div>
-      <div className="absolute top-4 left-1/2 w-32 h-12 border-4 border-white/60 -ml-16 pointer-events-none"></div>
-      <div className="absolute top-36 left-1/2 w-16 h-16 border-4 border-white/60 rounded-full -ml-8 -mt-8 pointer-events-none" style={{ clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)' }}></div>
+      <div className="absolute top-4 left-1/2 w-64 h-32 -ml-32 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
+      <div className="absolute top-4 left-1/2 w-32 h-12 -ml-16 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
+      <div className="absolute top-36 left-1/2 w-16 h-16 rounded-full -ml-8 -mt-8 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)', clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)' }}></div>
 
-      <div className="absolute bottom-4 left-1/2 w-64 h-32 border-4 border-white/60 -ml-32 pointer-events-none"></div>
-      <div className="absolute bottom-4 left-1/2 w-32 h-12 border-4 border-white/60 -ml-16 pointer-events-none"></div>
-      <div className="absolute bottom-36 left-1/2 w-16 h-16 border-4 border-white/60 rounded-full -ml-8 -mt-8 pointer-events-none" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }}></div>
+      <div className="absolute bottom-4 left-1/2 w-64 h-32 -ml-32 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
+      <div className="absolute bottom-4 left-1/2 w-32 h-12 -ml-16 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)' }}></div>
+      <div className="absolute bottom-36 left-1/2 w-16 h-16 rounded-full -ml-8 -mt-8 pointer-events-none" style={{ border: '4px solid rgba(255,255,255,0.85)', clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }}></div>
 
 
       {/* Contenido / Jugadores */}
