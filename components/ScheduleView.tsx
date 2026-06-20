@@ -27,6 +27,7 @@ import { settingsService } from '../services/settingsService';
 import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import EmployeeFileModal from './EmployeeFileModal';
+import { WorldCupPitch } from './WorldCupPitch';
 
 interface ScheduleViewProps {
   employees?: Profile[];
@@ -87,6 +88,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [holidayMap, setHolidayMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState(() => getStoredScheduleViewState().searchTerm || '');
   const [isCompRestEnabled, setIsCompRestEnabled] = useState(false);
+  const [isWorldCupMode, setIsWorldCupMode] = useState(false);
   const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>(() => getStoredScheduleViewState().selectedEmploymentType || 'all');
   const [saving, setSaving] = useState(false);
@@ -1068,6 +1070,23 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             <Download className="w-4 h-4" />
             <span>Resumen Excel</span>
           </button>
+          <button
+            onClick={() => {
+              if (!isWorldCupMode && selectedSector === 'all') {
+                alert('Para ver el Modo Mundial, por favor seleccioná un sector específico primero.');
+                return;
+              }
+              setIsWorldCupMode(!isWorldCupMode);
+            }}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg no-print ${
+              isWorldCupMode 
+                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30 ring-4 ring-amber-500/20' 
+                : 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/30'
+            }`}
+          >
+            <span className="text-base leading-none">⚽</span>
+            <span>{isWorldCupMode ? 'Ver Tabla' : 'Modo Mundial'}</span>
+          </button>
           {isCompRestEnabled && canReconcileCompRest && (
             <button
               onClick={handleReconcileCompRest}
@@ -1238,7 +1257,28 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
       `}</style>
 
-      {/* ── TABLE ── */}
+      {/* ── TABLE OR PITCH ── */}
+      {isWorldCupMode ? (
+        <WorldCupPitch
+          players={filteredEmployees.map(emp => {
+            const shiftStrings = weekDays.map(d => getShiftText(emp, d)).filter(Boolean);
+            const counts: Record<string, number> = {};
+            let maxStr = '';
+            let maxCount = 0;
+            for(const s of shiftStrings) {
+              if (s === 'Descanso' || s === 'Franco Comp.' || s === 'Vacaciones' || s === 'Licencia Medica' || s === 'Suspendido') continue;
+              counts[s] = (counts[s] || 0) + 1;
+              if (counts[s] > maxCount) { maxCount = counts[s]; maxStr = s; }
+            }
+            return {
+              employee: emp,
+              scheduleText: maxCount > 0 ? maxStr : 'Descanso'
+            };
+          })}
+          weekLabel={weekLabel}
+          sectorName={sectorLabel}
+        />
+      ) : (
       <div className="schedule-table-wrapper bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full min-w-[920px] text-left border-collapse">
@@ -1343,6 +1383,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           </table>
         </div>
       </div>
+      )}
 
       {/* ── MODAL ── */}
       {isModalOpen && selectedTarget && (
