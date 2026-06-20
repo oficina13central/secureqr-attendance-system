@@ -1261,18 +1261,23 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       {isWorldCupMode ? (
         <WorldCupPitch
           players={filteredEmployees.map(emp => {
-            const shiftStrings = weekDays.map(d => getShiftText(emp, d)).filter(Boolean);
-            const counts: Record<string, number> = {};
-            let maxStr = '';
-            let maxCount = 0;
-            for(const s of shiftStrings) {
-              if (s === 'Descanso' || s === 'Franco Comp.' || s === 'Vacaciones' || s === 'Licencia Medica' || s === 'Suspendido') continue;
-              counts[s] = (counts[s] || 0) + 1;
-              if (counts[s] > maxCount) { maxCount = counts[s]; maxStr = s; }
-            }
+            const weeklySchedule = weekDays.map(d => {
+              const dayStr = d.toLocaleDateString('es-ES', { weekday: 'short' });
+              const shortDay = dayStr.substring(0, 2);
+              const shiftText = getShiftText(emp, d) || 'Descanso';
+              
+              // Acortar textos largos para que entren en la tarjeta
+              let shift = shiftText;
+              if (shift === 'Franco Comp.') shift = 'Franco';
+              else if (shift === 'Vacaciones') shift = 'Vacas';
+              else if (shift === 'Licencia Medica') shift = 'Medica';
+              else if (shift === 'Suspendido') shift = 'Susp';
+              
+              return { day: shortDay, shift };
+            });
             return {
               employee: emp,
-              scheduleText: maxCount > 0 ? maxStr : 'Descanso'
+              weeklySchedule
             };
           })}
           weekLabel={weekLabel}
