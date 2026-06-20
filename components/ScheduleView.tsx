@@ -1128,45 +1128,43 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             margin: 10mm 12mm;
           }
 
-          /* Ocultar todo el DOM, mostrar solo header y tabla/cancha */
-          body * { visibility: hidden; }
-          .print-header,
-          .print-header *,
-          .schedule-table-wrapper,
-          .schedule-table-wrapper *,
-          .print-container,
-          .print-container * {
-            visibility: visible;
-          }
-
           /* Forzar impresión de colores de fondo en la cancha */
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
+          /* Ocultar todo el DOM excepto la tabla/cancha */
+          body > * { display: none !important; }
+          
+          /* Mostrar el contenedor de la tabla normal y su header */
+          .schedule-table-wrapper,
           .print-header {
             display: block !important;
             position: static !important;
-            width: 100%;
-            margin-bottom: 24px; /* Más aire para un look premium */
+            width: 100% !important;
           }
-
           .schedule-table-wrapper {
-            position: static !important;
-            width: 100%;
             overflow: visible !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
           }
 
+          /* La cancha se posiciona fija ocupando toda la hoja */
           .print-container {
-            position: static !important;
-            width: 100% !important;
-            height: calc(100vh - 20px) !important;
-            max-height: calc(100vh - 20px) !important;
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
             overflow: hidden !important;
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            z-index: 9999 !important;
           }
 
           /* Header de impresión - Minimalista Premium */
