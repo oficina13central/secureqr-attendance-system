@@ -1134,26 +1134,31 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             print-color-adjust: exact !important;
           }
 
-          /* Ocultar todo el DOM excepto la tabla/cancha */
-          body > * { display: none !important; }
-          
-          /* Mostrar el contenedor de la tabla normal y su header */
+          /* Ocultar todo el DOM visualmente (visibility permite override en hijos) */
+          body * { visibility: hidden !important; }
+
+          /* Mostrar tabla normal y su header */
+          .print-header,
+          .print-header *,
           .schedule-table-wrapper,
-          .print-header {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
+          .schedule-table-wrapper * {
+            visibility: visible !important;
           }
           .schedule-table-wrapper {
+            position: static !important;
+            width: 100% !important;
             overflow: visible !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
           }
 
-          /* La cancha se posiciona fija ocupando toda la hoja */
+          /* La cancha: visible + anclada al inicio de la hoja con position:fixed */
+          .print-container,
+          .print-container * {
+            visibility: visible !important;
+          }
           .print-container {
-            display: block !important;
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
