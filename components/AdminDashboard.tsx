@@ -85,18 +85,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const loadDashboardData = async () => {
       setLoading(true);
       try {
-        // Limitar a los últimos 60 días para reducir la carga inicial.
-        // El dashboard solo usa 30 días para estadísticas y hoy para los contadores.
-        const todayStr = new Date().toISOString().substring(0, 10);
-        const sixtyDaysAgoDate = new Date();
-        sixtyDaysAgoDate.setDate(sixtyDaysAgoDate.getDate() - 60);
-        const sixtyDaysAgoStr = sixtyDaysAgoDate.toISOString().substring(0, 10);
-
         const [recordsRes, employeesRes, sectorsRes, schedulesRes, rulesRes] = await Promise.allSettled([
-          attendanceService.getByDateRange(sixtyDaysAgoStr, todayStr),
+          attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          scheduleService.getByWeek(sixtyDaysAgoStr, todayStr),
+          scheduleService.getAllSchedulesInRange('2026-04-20'),
           settingsService.getRules()
         ]);
 
@@ -118,14 +111,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         // Las ausencias laborales solo se persisten cuando el segmento ya terminó.
         if (fetchedEmployees.length > 0 && !(window as any).__is_syncing_absences) {
            (window as any).__is_syncing_absences = true;
-           const dashStart = sixtyDaysAgoStr;
-           const dashEnd = todayStr;
            await attendanceService.syncOfflineRecords();
            attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
-             // Después de sincronizar, recargamos solo el rango acotado
+             // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
-               attendanceService.getByDateRange(dashStart, dashEnd),
-               scheduleService.getByWeek(dashStart, dashEnd)
+               attendanceService.getAll(),
+               scheduleService.getAllSchedulesInRange('2026-04-20')
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules) setSchedules(updatedSchedules);
