@@ -85,18 +85,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     const loadDashboardData = async () => {
       setLoading(true);
       try {
-        // El dashboard solo necesita los últimos 60 días para sus estadísticas
-        const today = new Date();
-        const sixtyDaysAgo = new Date(today);
-        sixtyDaysAgo.setDate(today.getDate() - 60);
-        const startDate = sixtyDaysAgo.toISOString().substring(0, 10);
-        const endDate = today.toISOString().substring(0, 10);
-
         const [recordsRes, employeesRes, sectorsRes, schedulesRes, rulesRes] = await Promise.allSettled([
-          attendanceService.getByDateRange(startDate, endDate),
+          attendanceService.getAll(),
           personnelService.getAll(),
           sectorService.getAll(),
-          scheduleService.getByWeek(startDate, endDate),
+          scheduleService.getAllSchedulesInRange('2026-04-20'),
           settingsService.getRules()
         ]);
 
@@ -120,10 +113,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
            (window as any).__is_syncing_absences = true;
            await attendanceService.syncOfflineRecords();
            attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
-             // Después de sincronizar, recargamos solo el rango acotado
+             // Después de sincronizar, recargamos registros y cronogramas para coherencia total
              const [updatedRecords, updatedSchedules] = await Promise.all([
-               attendanceService.getByDateRange(startDate, endDate),
-               scheduleService.getByWeek(startDate, endDate)
+               attendanceService.getAll(),
+               scheduleService.getAllSchedulesInRange('2026-04-20')
              ]);
              setRecords(updatedRecords);
              if (updatedSchedules) setSchedules(updatedSchedules);
