@@ -88,15 +88,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         // Optimización: Limitar la carga de datos al tablero a los últimos 60 días
         // para evitar bloqueos por tamaño excesivo de la base de datos.
         const todayStr = new Date().toISOString().substring(0, 10);
-        const sixtyDaysAgoDate = new Date();
-        sixtyDaysAgoDate.setDate(sixtyDaysAgoDate.getDate() - 60);
-        const sixtyDaysAgoStr = sixtyDaysAgoDate.toISOString().substring(0, 10);
+        
 
         const [recordsRes, employeesRes, sectorsRes, schedulesRes, rulesRes] = await Promise.allSettled([
-          attendanceService.getByDateRange(sixtyDaysAgoStr, todayStr),
+          attendanceService.getByDateRange(todayStr, todayStr),
           personnelService.getAll(),
           sectorService.getAll(),
-          scheduleService.getAllSchedulesInRange(sixtyDaysAgoStr, todayStr),
+          scheduleService.getAllSchedulesInRange(todayStr, todayStr),
           settingsService.getRules()
         ]);
 
@@ -118,7 +116,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         // Las ausencias laborales solo se persisten cuando el segmento ya terminó.
         if (fetchedEmployees.length > 0 && !(window as any).__is_syncing_absences) {
            (window as any).__is_syncing_absences = true;
-           const dashStart = sixtyDaysAgoStr;
+           const dashStart = todayStr;
            const dashEnd = todayStr;
            await attendanceService.syncOfflineRecords();
            attendanceService.syncPastAbsences(fetchedEmployees).then(async () => {
@@ -913,196 +911,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
               </div>
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* 2. Middle Section: Heatmap & 30-Day Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Heatmap (Activity Calendar) */}
-        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-indigo-50 rounded-xl">
-                <Activity className="w-5 h-5 text-indigo-500" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-800 text-lg">Tendencia de Incidencias</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ausencias y Tardanzas • Últimos 15 días</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-widest">
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 mr-2" />
-                <span className="text-slate-500">Ausencias</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 mr-2" />
-                <span className="text-slate-500">Tardanzas</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex-1 w-full overflow-x-auto pb-2">
-            <div className="h-[240px] md:h-[250px] min-w-[560px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }} 
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }} 
-                />
-                <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      const dayWeather = dailyWeather[payload[0]?.payload?.fullDate];
-                      return (
-                        <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-8">
-                              <span className="text-xs font-bold text-slate-600">Ausencias:</span>
-                              <span className="text-xs font-black text-rose-500">{payload[0].value}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-8">
-                              <span className="text-xs font-bold text-slate-600">Tardanzas:</span>
-                              <span className="text-xs font-black text-amber-500">{payload[1].value}</span>
-                            </div>
-                            {dayWeather && (
-                              <div className="mt-2 pt-2 border-t border-slate-100">
-                                <div className="flex items-center justify-between gap-8">
-                                  <span className="text-xs font-bold text-slate-600">Clima:</span>
-                                  <span className="text-xs font-black text-sky-600">{dayWeather.label}</span>
-                                </div>
-                                <div className="flex items-center justify-between gap-8">
-                                  <span className="text-[10px] font-bold text-slate-400">{dayWeather.impact}</span>
-                                  <span className="text-[10px] font-black text-slate-400">{dayWeather.precipitation} mm</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar 
-                  dataKey="ausencias" 
-                  stackId="a" 
-                  fill="#f43f5e" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={20}
-                />
-                <Bar 
-                  dataKey="tardanzas" 
-                  stackId="a" 
-                  fill="#fbbf24" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={20}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* 30-Day Summary */}
-        <div className="bg-[#131B2A] p-6 md:p-8 rounded-[2rem] shadow-xl text-white relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute -right-12 -top-12 w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full pointer-events-none"></div>
-          <div>
-            <h3 className="font-bold text-xl mb-1">Resumen 30 Días</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Estadísticas de rendimiento global</p>
-            
-            <div className="space-y-4">
-              <button 
-                onClick={() => setActiveFilter('history_late')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_late' ? 'bg-amber-500/20 ring-1 ring-amber-500/50' : 'hover:bg-white/5'}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="p-1.5 rounded-full bg-amber-500/10">
-                    <Clock className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-300">Tardanzas</span>
-                </div>
-                <span className="font-black text-lg">{thirtyDaysStats.tardanzas}</span>
-              </button>
-
-              <button 
-                onClick={() => setActiveFilter('history_absent')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${activeFilter === 'history_absent' ? 'bg-rose-500/20 ring-1 ring-rose-500/50' : 'hover:bg-white/5'}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="p-1.5 rounded-full bg-rose-500/10">
-                    <UserX className="w-4 h-4 text-rose-400" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-300">Ausencias</span>
-                </div>
-                <span className="font-black text-lg">{thirtyDaysStats.ausencias}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-slate-700/50">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Puntualidad</span>
-              <span className="text-sm font-black text-indigo-300">{thirtyDaysStats.puntualidad}%</span>
-            </div>
-            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-full transition-all duration-1000 ease-out" 
-                style={{ width: `${thirtyDaysStats.puntualidad}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Nube de Palabras */}
-      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="p-2 bg-amber-50 rounded-xl">
-            <UserX className="w-5 h-5 text-amber-500" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-800 text-lg">Nube de Tardanzas</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personal con llegadas tarde • Últimos 30 días</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-4 p-8 min-h-[200px] bg-slate-50/50 rounded-3xl border border-slate-50 overflow-hidden">
-          {wordCloudData.length === 0 ? (
-            <span className="text-slate-400 font-bold text-sm">No hay tardanzas registradas en este período. ¡Excelente!</span>
-          ) : (
-            wordCloudData.map((word, i) => {
-              const maxVal = Math.max(...wordCloudData.map(w => w.value));
-              const minVal = Math.min(...wordCloudData.map(w => w.value));
-              const size = minVal === maxVal ? 24 : 14 + ((word.value - minVal) / (maxVal - minVal)) * 34;
-              
-              const colors = ['text-rose-500', 'text-amber-500', 'text-indigo-500', 'text-emerald-500', 'text-sky-500', 'text-fuchsia-500'];
-              const color = colors[i % colors.length];
-              
-              return (
-                <span 
-                  key={word.text} 
-                  style={{ fontSize: `${size}px` }} 
-                  className={`font-black ${color} leading-none transition-all duration-300 hover:scale-110 cursor-default opacity-90 hover:opacity-100 drop-shadow-sm select-none text-center`}
-                  title={`${word.value} min tarde acumulados`}
-                >
-                  {word.text}
-                </span>
-              );
-            })
-          )}
         </div>
       </div>
 
