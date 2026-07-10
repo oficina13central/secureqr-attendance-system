@@ -623,7 +623,7 @@ const App: React.FC = () => {
                 { id: 'hr_requests', label: 'Solicitudes RRHH', icon: ClipboardCheck },
                 { id: 'audit', label: 'Logs de Sistema', icon: History },
                 { id: 'audit_personnel', label: (currentUser?.roles?.permissions?.includes('VIEW_PERSONNEL_AUDIT') || currentUser?.role === 'superusuario') ? 'Auditoría de Personal' : 'Asistencia de Personal', icon: Users },
-                { id: 'fraud', label: 'Auditoría Automática', icon: ShieldCheck },
+                // { id: 'fraud', label: 'Auditoría Automática', icon: ShieldCheck },
                 { id: 'users', label: 'Usuarios', icon: UserCog },
                 { id: 'settings', label: 'Ajustes', icon: Settings },
               ]
