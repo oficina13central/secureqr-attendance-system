@@ -52,7 +52,8 @@ export const attendanceService = {
                 .select('*')
                 .gte('date', startDate)
                 .lte('date', endDate)
-                .order('date', { ascending: true })
+                .order('date', { ascending: false })
+                .order('check_in', { ascending: false })
                 .range(page * limit, (page + 1) * limit - 1);
 
             if (error) {
