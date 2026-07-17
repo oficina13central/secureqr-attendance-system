@@ -256,13 +256,7 @@ const App: React.FC = () => {
     };
   }, [recoverSession, recoveringTerminalSession]);
 
-  React.useEffect(() => {
-    if (!recoveringTerminalSession) return;
-    const intervalId = window.setInterval(() => {
-      recoverSession();
-    }, 20000);
-    return () => window.clearInterval(intervalId);
-  }, [recoverSession, recoveringTerminalSession]);
+
 
   async function fetchProfile(userId: string, options: { showLoading?: boolean } = {}) {
     const showLoading = options.showLoading ?? !currentUser;
@@ -318,7 +312,7 @@ const App: React.FC = () => {
     };
 
     loadPendingHrRequestsCount();
-    const intervalId = window.setInterval(loadPendingHrRequestsCount, 60000);
+    const intervalId = window.setInterval(loadPendingHrRequestsCount, 300000);
     const handleFocus = () => loadPendingHrRequestsCount();
     window.addEventListener('focus', handleFocus);
 
