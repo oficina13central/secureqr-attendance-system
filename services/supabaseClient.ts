@@ -8,8 +8,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(
-    supabaseUrl || 'https://xyz123.supabase.co',
-    supabaseAnonKey || 'dummy-key-to-prevent-crash',
+    supabaseUrl || '',
+    supabaseAnonKey || '',
     {
         auth: {
             persistSession: true,
