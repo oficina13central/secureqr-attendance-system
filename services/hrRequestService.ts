@@ -27,6 +27,13 @@ type ResolveRequestInput = {
   comment?: string;
 };
 
+type EditResolutionInput = {
+  request: HrRequest;
+  newStatus: Extract<HrRequestStatus, 'approved' | 'rejected' | 'pending'>;
+  resolver: Profile;
+  comment?: string;
+};
+
 const normalizeDate = (value: string) => value.substring(0, 10);
 const ATTACHMENTS_BUCKET = 'hr-request-attachments';
 
@@ -339,5 +346,50 @@ export const hrRequestService = {
 
   reject(input: ResolveRequestInput) {
     return resolveRequest(input, 'rejected');
+  },
+
+  async editResolution({ request, newStatus, resolver, comment }: EditResolutionInput): Promise<HrRequest> {
+    const now = new Date().toISOString();
+
+    // If changing to approved, apply the corresponding effects
+    if (newStatus === 'approved') {
+      if (request.request_type === 'attendance_correction') {
+        await applyAttendanceCorrection(request, resolver.full_name);
+      } else if (request.request_type === 'absence_justification') {
+        await applyAbsenceJustification(request, resolver.full_name);
+      } else if (request.request_type === 'vacation_request' || request.request_type === 'medical_leave_request') {
+        await applyLeaveRequest(request, resolver.full_name);
+      }
+    }
+
+    const updates: Record<string, any> = {
+      status: newStatus,
+      resolved_by_id: resolver.id,
+      resolved_by_name: resolver.full_name,
+      resolution_comment: comment || null,
+      resolved_at: newStatus === 'pending' ? null : now,
+      applied_at: newStatus === 'approved' ? now : null,
+      updated_at: now
+    };
+
+    const { data, error } = await supabase
+      .from('hr_requests')
+      .update(updates)
+      .eq('id', request.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await auditService.logAction({
+      manager_name: resolver.full_name,
+      employee_name: request.employee_name,
+      action: 'Edicion Resolucion RRHH',
+      old_value: request.status,
+      new_value: newStatus,
+      reason: `${getRequestTypeLabel(request.request_type)} ${request.target_date}. ${comment || 'Sin comentario'}`
+    });
+
+    return data as HrRequest;
   }
 };

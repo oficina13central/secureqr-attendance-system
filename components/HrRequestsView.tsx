@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Paperclip,
+  Pencil,
   Search,
   Send,
   Upload,
@@ -65,6 +66,9 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [editingRequest, setEditingRequest] = useState<HrRequest | null>(null);
+  const [editForm, setEditForm] = useState({ status: 'approved' as 'approved' | 'rejected' | 'pending', comment: '' });
+  const [editSaving, setEditSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [trayFilter, setTrayFilter] = useState<'active' | 'archive' | 'all'>('active');
   const [statusFilter, setStatusFilter] = useState<HrRequestStatus | 'all'>('all');
@@ -289,8 +293,112 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
     }
   };
 
+  const openEditModal = (request: HrRequest) => {
+    setEditingRequest(request);
+    setEditForm({ status: request.status as any, comment: request.resolution_comment || '' });
+  };
+
+  const handleEditResolution = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingRequest) return;
+    if (editForm.status === 'rejected' && !editForm.comment.trim()) {
+      showFeedback('Para rechazar debe ingresar un motivo', 'error');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const updated = await hrRequestService.editResolution({
+        request: editingRequest,
+        newStatus: editForm.status,
+        resolver: currentUser,
+        comment: editForm.comment
+      });
+      setRequests(prev => prev.map(item => item.id === updated.id ? updated : item));
+      setEditingRequest(null);
+      showFeedback('Resolución editada correctamente', 'success');
+    } catch (error: any) {
+      showFeedback(`Error al editar: ${error.message || 'intente nuevamente'}`, 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+
+      {/* ── MODAL EDITAR RESOLUCIÓN ── */}
+      {editingRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingRequest(null)}>
+          <form
+            onSubmit={handleEditResolution}
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-[2rem] shadow-2xl p-8 w-full max-w-lg space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Editar resolución</p>
+                <h2 className="text-xl font-black text-slate-800">{editingRequest.employee_name}</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">{getRequestTypeLabel(editingRequest.request_type)} — {editingRequest.target_date}</p>
+              </div>
+              <button type="button" onClick={() => setEditingRequest(null)} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nuevo estado</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['approved', 'rejected', 'pending'] as const).map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setEditForm(prev => ({ ...prev, status: s }))}
+                    className={`py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${
+                      editForm.status === s
+                        ? s === 'approved' ? 'bg-emerald-600 text-white border-emerald-600'
+                          : s === 'rejected' ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-amber-500 text-white border-amber-500'
+                        : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-slate-100'
+                    }`}
+                  >
+                    {s === 'approved' ? 'Aprobar' : s === 'rejected' ? 'Rechazar' : 'Revertir'}
+                  </button>
+                ))}
+              </div>
+              {editForm.status === 'pending' && (
+                <p className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                  ⚠️ Revertir la deja como pendiente nuevamente, sin deshacer cambios ya aplicados en asistencia.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comentario {editForm.status === 'rejected' ? '(requerido)' : '(opcional)'}</label>
+              <textarea
+                value={editForm.comment}
+                onChange={e => setEditForm(prev => ({ ...prev, comment: e.target.value }))}
+                rows={3}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 resize-none focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                placeholder="Motivo de la corrección..."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setEditingRequest(null)} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black text-sm uppercase tracking-widest hover:bg-slate-200">
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={editSaving}
+                className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-600/20"
+              >
+                {editSaving ? 'Guardando...' : 'Guardar cambio'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-5">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
@@ -461,12 +569,6 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
         <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                {trayFilter === 'active' ? 'Bandeja activa' : trayFilter === 'archive' ? 'Historial / archivo' : 'Todas las solicitudes'}
-              </p>
-              <h2 className="text-xl font-black text-slate-800">{filteredRequests.length} solicitudes</h2>
-            </div>
             {!canResolve && (
               <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-black uppercase tracking-widest">Solo carga/consulta</span>
             )}
@@ -566,6 +668,17 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
                         <button onClick={() => handleResolve(request, 'rejected')} disabled={actionId === request.id} className="px-4 py-2.5 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 border border-red-100 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
                           <XCircle className="w-4 h-4" />
                           Rechazar
+                        </button>
+                      </div>
+                    )}
+                    {canResolve && request.status !== 'pending' && (
+                      <div className="flex lg:flex-col gap-2 shrink-0">
+                        <button
+                          onClick={() => openEditModal(request)}
+                          className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Editar
                         </button>
                       </div>
                     )}
