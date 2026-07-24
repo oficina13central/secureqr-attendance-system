@@ -6,7 +6,17 @@ export interface AttendanceRules {
     max_mensual: number;
     ausente_gracia: number;
     enable_compensatory_rest?: boolean;
+    weekly_payroll_cutoff_time?: string;
 }
+
+const defaultRules: AttendanceRules = {
+    en_horario: 5,
+    llego_tarde: 30,
+    max_mensual: 15,
+    ausente_gracia: 120,
+    enable_compensatory_rest: false,
+    weekly_payroll_cutoff_time: '19:00'
+};
 
 export const settingsService = {
     async getRules(): Promise<AttendanceRules> {
@@ -18,9 +28,15 @@ export const settingsService = {
 
         if (error || !data) {
             console.error('Error fetching settings:', error);
-            return { en_horario: 5, llego_tarde: 30, max_mensual: 15, ausente_gracia: 120, enable_compensatory_rest: false };
+            return defaultRules;
         }
-        return { ...data.value, ausente_gracia: data.value.ausente_gracia || 120, enable_compensatory_rest: !!data.value.enable_compensatory_rest };
+        return {
+            ...defaultRules,
+            ...data.value,
+            ausente_gracia: data.value.ausente_gracia || defaultRules.ausente_gracia,
+            enable_compensatory_rest: !!data.value.enable_compensatory_rest,
+            weekly_payroll_cutoff_time: data.value.weekly_payroll_cutoff_time || defaultRules.weekly_payroll_cutoff_time
+        };
     },
 
     async updateRules(rules: AttendanceRules): Promise<boolean> {

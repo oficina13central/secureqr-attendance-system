@@ -19,7 +19,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
         en_horario: 5,
         llego_tarde: 30,
         max_mensual: 15,
-        ausente_gracia: 120
+        ausente_gracia: 120,
+        weekly_payroll_cutoff_time: '19:00'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -174,6 +175,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                                         <p className="text-xs text-amber-800 leading-relaxed font-medium">
                                             Si un empleado suma más de <strong>{rules.max_mensual} minutos</strong> tarde en el mes, el sistema alertará automáticamente.
                                         </p>
+                                    </div>
+
+                                    <div className="space-y-2 pt-2">
+                                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Corte sabado liquidacion</label>
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="time"
+                                                value={rules.weekly_payroll_cutoff_time || '19:00'}
+                                                onChange={e => setRules({ ...rules, weekly_payroll_cutoff_time: e.target.value || '19:00' })}
+                                                className="w-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-slate-500">Hora</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
