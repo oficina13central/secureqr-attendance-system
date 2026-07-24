@@ -49,53 +49,53 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
   const getSuccessMessage = (type: 'in' | 'out', recordStatus?: string | null) => {
     if (type === 'out') {
-      return { message: 'Salida Registrada ⚽ ¡Vamos Argentina!', color: 'text-white' };
+      return { message: 'Salida Registrada', color: 'text-blue-300' };
     }
 
     if (recordStatus === 'en_horario') {
-      return { message: 'En Horario⚽, A trabajar el Partido 🥅', color: 'text-yellow-300' };
+      return { message: 'En Horario', color: 'text-emerald-300' };
     }
     if (recordStatus === 'tarde') {
-      return { message: 'Llegaste tarde... ¡A recuperar la pelota! 🏃‍♂️', color: 'text-amber-300' };
+      return { message: 'Llegó Tarde', color: 'text-amber-300' };
     }
     if (recordStatus === 'sin_presentismo') {
-      return { message: 'Perdiste el presentismo (Roja Directa) 🟥', color: 'text-red-400' };
+      return { message: 'Perdió el Presentismo', color: 'text-red-400' };
     }
 
-    return { message: 'Entrada Registrada ¡Golazo! 🥅', color: 'text-yellow-300' };
+    return { message: 'Entrada Registrada', color: 'text-emerald-300' };
   };
 
   const getFailurePresentation = (reason?: string, invalidQr = false) => {
     if (invalidQr) {
       return {
         status: 'error' as const,
-        message: 'QR inválido. ¿Cobraste penal donde no era? ❌',
+        message: 'QR no válido, revise su tarjeta',
       };
     }
 
     switch (reason) {
       case 'already_checked_in':
-        return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta (¡No vale doble toque!)' };
+        return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta' };
       case 'no_open_record':
-        return { status: 'error' as const, message: 'Falta registrar entrada (¡Estás en Offside!)' };
+        return { status: 'error' as const, message: 'No tenés entrada registrada' };
       case 'off_day':
-        return { status: 'error' as const, message: 'Tenés descanso asignado (Día de concentración)' };
+        return { status: 'error' as const, message: 'Tenés descanso asignado' };
       case 'compensatory_rest':
-        return { status: 'error' as const, message: 'Franco compensatorio (Recuperando piernas)' };
+        return { status: 'error' as const, message: 'Tenés franco compensatorio asignado' };
       case 'suspended':
-        return { status: 'error' as const, message: 'Suspensión asignada (Fuera de la convocatoria)' };
+        return { status: 'error' as const, message: 'Tenés suspensión asignada' };
       case 'vacation':
-        return { status: 'error' as const, message: 'Estás de vacaciones (Modo playa)' };
+        return { status: 'error' as const, message: 'Estás de vacaciones' };
       case 'medical':
-        return { status: 'error' as const, message: 'Licencia médica (En kinesiología)' };
+        return { status: 'error' as const, message: 'Tenés licencia médica asignada' };
       case 'daily_limit_reached':
-        return { status: 'duplicate' as const, message: 'Ya completaste los cambios permitidos hoy' };
+        return { status: 'duplicate' as const, message: 'Ya completaste los registros permitidos de hoy' };
       case 'user_not_found':
-        return { status: 'error' as const, message: 'Jugador no encontrado en el plantel' };
+        return { status: 'error' as const, message: 'No se encontró un empleado válido' };
       case 'queued_offline':
-        return { status: 'success' as const, message: 'Guardado Offline (Sin VAR por ahora)' };
+        return { status: 'success' as const, message: 'Guardado Offline (Sin Internet)' };
       default:
-        return { status: 'error' as const, message: 'Error al registrar la jugada' };
+        return { status: 'error' as const, message: 'Error al registrar' };
     }
   };
 
@@ -657,97 +657,82 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
           )}
 
           {status === 'success' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
-              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-300">
-                <span className="text-4xl md:text-6xl animate-bounce block drop-shadow-md">
-                  {scanType === 'out' ? '🏆' : '⭐⭐⭐'}
-                </span>
+            <div className="absolute inset-0 bg-emerald-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className={`p-6 rounded-full shadow-lg transition-all ${scanType === 'out' ? 'bg-blue-500 shadow-blue-500/50' : 'bg-emerald-500 shadow-emerald-500/50'}`}>
+                {scanType === 'out' ? (
+                  <RefreshCcw className="w-20 h-20 text-white" />
+                ) : (
+                  <CheckCircle2 className="w-20 h-20 text-white" />
+                )}
               </div>
-              <div className="text-center px-6 z-10 bg-blue-900/30 p-6 rounded-3xl backdrop-blur-sm border border-blue-400/20 shadow-xl max-w-2xl mx-auto">
-                <p className="text-3xl md:text-4xl font-black text-white mb-3 uppercase drop-shadow-lg shadow-blue-900 leading-tight">
-                  {scanType === 'out' ? '¡NOS VEMOS EN LA FINAL!' : '¡DALE ARGENTINA!'}
+              <div className="text-center px-6">
+                <p className="text-4xl font-black text-white mb-2 uppercase">
+                  {scanType === 'out' ? '¡HASTA LUEGO!' : '¡AUTORIZADO!'}
                 </p>
-                <p className="text-2xl md:text-3xl text-blue-100 font-black mb-2 drop-shadow-md">{lastUser}</p>
-                <p className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-md ${msgColor} bg-black/20 py-2 px-4 rounded-xl inline-block`}>{attendanceMsg}</p>
-                <div className="mt-6 flex items-center justify-center space-x-2 text-white/90 bg-black/20 py-2 px-4 rounded-full inline-flex">
+                <p className="text-2xl text-emerald-300 font-bold mb-1">{lastUser}</p>
+                <p className={`text-xl font-black uppercase tracking-widest ${msgColor}`}>{attendanceMsg}</p>
+                <div className="mt-4 flex items-center justify-center space-x-2 text-slate-400">
                   <RefreshCcw className="w-4 h-4 animate-spin-slow" />
-                  <span className="text-sm font-bold tracking-widest uppercase">Anotando en la planilla...</span>
+                  <span className="text-sm">Registrando en base de datos...</span>
                 </div>
               </div>
-              
-              <div className="absolute top-[5%] left-[5%] text-4xl animate-bounce delay-100 opacity-30 pointer-events-none" style={{ animationDuration: '2s' }}>🇦🇷</div>
-              <div className="absolute top-[10%] right-[8%] text-5xl animate-bounce delay-300 opacity-30 pointer-events-none" style={{ animationDuration: '2.5s' }}>⚽</div>
-              <div className="absolute bottom-[10%] left-[8%] text-4xl animate-bounce delay-200 opacity-30 pointer-events-none" style={{ animationDuration: '2.2s' }}>🥅</div>
-              <div className="absolute bottom-[8%] right-[5%] text-4xl animate-bounce delay-500 opacity-30 pointer-events-none" style={{ animationDuration: '1.8s' }}>🇦🇷</div>
             </div>
           )}
 
           {status === 'error' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
-              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-red-500/50 z-10 border-4 border-red-500">
-                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟥</span>
+            <div className="absolute inset-0 bg-red-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="bg-red-500 p-6 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.5)]">
+                <XCircle className="w-20 h-20 text-white" />
               </div>
-              <div className="text-center px-6 z-10">
-                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">¡ROJA DIRECTA!</p>
-                <p className="text-xl md:text-2xl font-black text-red-200 drop-shadow-md">{attendanceMsg || 'QR inválido. ¿Cobraste penal donde no era? ❌'}</p>
-                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
-                  Revisá la jugada. No podés avanzar por ahora.
+              <div className="text-center px-6">
+                <p className="text-4xl font-black text-white mb-2">DENEGADO</p>
+                <p className="text-red-300 font-bold">{attendanceMsg || 'QR no válido, revise su tarjeta'}</p>
+                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
+                  {attendanceMsg === 'No tenés entrada registrada'
+                    ? 'Debe registrar su ingreso antes de poder marcar la salida.'
+                    : attendanceMsg === 'Tenés descanso asignado' ||
+                      attendanceMsg === 'Tenés franco compensatorio asignado' ||
+                      attendanceMsg === 'Tenés suspensión asignada' ||
+                      attendanceMsg === 'Estás de vacaciones' ||
+                      attendanceMsg === 'Tenés licencia médica asignada'
+                    ? 'No podés registrar asistencia en tus días libres asignados.'
+                    : attendanceMsg === 'QR no válido, revise su tarjeta'
+                    ? 'El código leído no es válido o no corresponde a una credencial activa.'
+                    : 'El código QR no pertenece a un empleado activo o ha expirado.'}
                 </p>
               </div>
-              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-1 opacity-70">⚽</div>
-              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
-              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-3 opacity-70">🟥</div>
-              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-1 opacity-70">⚽</div>
-              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-2 opacity-50">🇦🇷</div>
-              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-3 opacity-50">🥅</div>
             </div>
           )}
           {status === 'duplicate' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
-              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-amber-500/50 z-10 border-4 border-amber-400">
-                <span className="text-6xl md:text-8xl animate-bounce block drop-shadow-md">🟨</span>
+            <div className="absolute inset-0 bg-amber-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="bg-amber-500 p-6 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.5)]">
+                <ShieldAlert className="w-20 h-20 text-white" />
               </div>
-              <div className="text-center px-6 z-10">
-                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">
-                  {attendanceMsg.includes('entrada abierta') ? '¡OJO AL VAR!' : 'CAMBIO AGOTADO'}
+              <div className="text-center px-6">
+                <p className="text-4xl font-black text-white mb-2 uppercase">
+                  {attendanceMsg === 'Ya tenés una entrada abierta' ? 'AVISO' : 'LÍMITE ALCANZADO'}
                 </p>
-                <p className="text-xl md:text-2xl font-black text-amber-200 drop-shadow-md">{attendanceMsg}</p>
-                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
-                  {attendanceMsg.includes('entrada abierta')
-                    ? 'Ya estás en la cancha.' 
-                    : 'Ya completaste todos los cambios permitidos hoy.'}
+                <p className="text-amber-300 font-bold">{attendanceMsg || 'Ya completaste los registros permitidos de hoy'}</p>
+                <p className="text-slate-400 mt-4 text-sm max-w-[250px]">
+                  {attendanceMsg === 'Ya tenés una entrada abierta' 
+                    ? 'Ya has registrado tu ingreso previamente hoy.' 
+                    : 'Ya completaste todas las entradas permitidas para hoy.'}
                 </p>
               </div>
-              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
-              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-1 opacity-70">⚽</div>
-              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-3 opacity-70">🟨</div>
-              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-2 opacity-70">🇦🇷</div>
-              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-3 opacity-50">⚽</div>
-              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-1 opacity-50">🥅</div>
             </div>
           )}
           {status === 'wait' && (
-            <div className="absolute inset-0 bg-blue-600/50 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300 overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300/30 via-white/10 to-transparent animate-pulse pointer-events-none"></div>
-              <div className="p-6 rounded-full shadow-lg transition-all bg-white shadow-blue-400/50 z-10 border-4 border-blue-400">
-                <span className="text-6xl md:text-8xl animate-spin-slow block drop-shadow-md">⏱️</span>
+            <div className="absolute inset-0 bg-blue-950/60 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="bg-blue-500 p-6 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                <RefreshCcw className="w-20 h-20 text-white animate-reverse-spin" />
               </div>
-              <div className="text-center px-6 z-10">
-                <p className="text-4xl md:text-5xl font-black text-white mb-2 uppercase drop-shadow-lg shadow-blue-900">¡TIEMPO MUERTO!</p>
-                <p className="text-xl md:text-2xl font-black text-blue-200 drop-shadow-md">Entrada recién registrada</p>
-                <p className="text-blue-100 mt-4 text-sm max-w-[250px] font-bold mx-auto drop-shadow-md">
-                  Aguarde unos minutos antes de salir a la cancha otra vez.
+              <div className="text-center px-6">
+                <p className="text-4xl font-black text-white mb-2 uppercase">ESPERE UN MOMENTO</p>
+                <p className="text-blue-300 font-bold">Entrada recién registrada</p>
+                <p className="text-slate-300 mt-4 text-sm max-w-[250px]">
+                  Aguarde 10 minutos antes de marcar su salida.
                 </p>
               </div>
-              <div className="absolute top-[8%] left-[8%] text-3xl animate-float-3 opacity-70">⚽</div>
-              <div className="absolute top-[15%] right-[12%] text-3xl animate-float-1 opacity-70">🇦🇷</div>
-              <div className="absolute bottom-[18%] left-[15%] text-3xl animate-float-2 opacity-70">⏱️</div>
-              <div className="absolute bottom-[12%] right-[10%] text-3xl animate-float-3 opacity-70">🇦🇷</div>
-              <div className="absolute top-[40%] left-[5%] text-2xl animate-float-1 opacity-50">⚽</div>
-              <div className="absolute top-[35%] right-[5%] text-2xl animate-float-2 opacity-50">🥅</div>
             </div>
           )}
         </div>
@@ -844,32 +829,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         .animate-reverse-spin {
           animation: reverse-spin 2s linear infinite;
         }
+        @keyframes reverse-spin {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
         .safe-area-inset {
           padding-top: env(safe-area-inset-top);
           padding-bottom: env(safe-area-inset-bottom);
           padding-left: env(safe-area-inset-left);
           padding-right: env(safe-area-inset-right);
         }
-        @keyframes float-1 {
-          0%   { transform: translateY(0px) rotate(0deg) scale(1); }
-          33%  { transform: translateY(-18px) rotate(15deg) scale(1.1); }
-          66%  { transform: translateY(-8px) rotate(-10deg) scale(0.95); }
-          100% { transform: translateY(0px) rotate(0deg) scale(1); }
-        }
-        @keyframes float-2 {
-          0%   { transform: translateY(0px) rotate(0deg) scale(1); }
-          40%  { transform: translateY(-22px) rotate(-20deg) scale(1.15); }
-          80%  { transform: translateY(-6px) rotate(12deg) scale(0.9); }
-          100% { transform: translateY(0px) rotate(0deg) scale(1); }
-        }
-        @keyframes float-3 {
-          0%   { transform: translateY(0px) rotate(5deg) scale(1); }
-          50%  { transform: translateY(-14px) rotate(-8deg) scale(1.08); }
-          100% { transform: translateY(0px) rotate(5deg) scale(1); }
-        }
-        .animate-float-1 { animation: float-1 3s ease-in-out infinite; }
-        .animate-float-2 { animation: float-2 4s ease-in-out infinite; }
-        .animate-float-3 { animation: float-3 2.5s ease-in-out infinite; }
       `}</style>
       {/* ── PIN PAD MODAL ── */}
       {showPinPad && (
