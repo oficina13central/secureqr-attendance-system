@@ -1132,7 +1132,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   <h3 className="text-xl font-black text-slate-800">Movimientos Recientes</h3>
                 </div>
                 <div className="p-4 space-y-3 overflow-y-auto max-h-[400px]">
-                  {restLogs.map(log => (
+                  {restLogs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                      <History className="w-10 h-10 mb-3 opacity-30" />
+                      <p className="text-sm font-bold">Sin movimientos registrados</p>
+                    </div>
+                  ) : restLogs.map(log => (
                     <div key={log.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${log.amount > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -1141,7 +1146,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                         <div>
                           <p className="font-black text-slate-700 text-sm leading-tight">{log.reason}</p>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                            {new Date(log.created_at).toLocaleDateString()} • Por: {log.manager_name}
+                            {new Date(log.created_at).toLocaleDateString()} • Registrado por: {log.manager_name}
                           </p>
                         </div>
                       </div>
