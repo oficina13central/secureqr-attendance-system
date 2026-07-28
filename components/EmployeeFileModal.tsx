@@ -188,6 +188,12 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
   const fetchInitialData = async () => {
     setLoading(true);
+    // Limpiar datos anteriores inmediatamente para evitar mostrar
+    // movimientos/documentos de otro empleado mientras carga el nuevo.
+    setRestLogs([]);
+    setDocuments([]);
+    setEmployee(null);
+    setScoring(null);
     const { data: empData } = await supabase.from('profiles').select('*').eq('id', employeeId).single();
     setEmployee(empData);
     if (empData?.sector_id) {
