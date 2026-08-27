@@ -112,7 +112,7 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
       
       <div className="flex items-center space-x-2 text-slate-400">
         <CreditCard className="w-4 h-4" />
-        <span className="text-[10px] font-black uppercase tracking-tighter">SecureQR Attendance System v2.0</span>
+        <span className="text-[10px] font-black uppercase tracking-tighter">Asistencias QR v2.0</span>
       </div>
     </div>
   );

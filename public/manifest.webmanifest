@@ -1,6 +1,6 @@
 {
-  "name": "Secure QR Attendance",
-  "short_name": "Secure QR",
+  "name": "Asistencias QR",
+  "short_name": "Asistencias QR",
   "description": "Control de asistencias y cronogramas",
   "start_url": "/",
   "scope": "/",

@@ -599,8 +599,8 @@ const App: React.FC = () => {
               <ShieldCheck className="w-6 h-6 text-indigo-400" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-black tracking-tighter leading-none">SECURE QR</span>
-              <span className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">Control System</span>
+              <span className="text-lg font-black tracking-tighter leading-none">Asistencias QR</span>
+              <span className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">Control de acceso</span>
             </div>
           </div>
 

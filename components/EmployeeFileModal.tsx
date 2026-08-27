@@ -1286,7 +1286,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
 
         {/* Footer */}
         <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-3 px-6 md:px-12">
-          <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center md:text-left">SecureQR HR Management • Confidential</p>
+          <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center md:text-left">Asistencias QR HR Management • Confidential</p>
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600" />
             <span className="text-[8px] md:text-[10px] font-black text-indigo-600 uppercase tracking-widest">Sincronizado con Supabase Cloud</span>

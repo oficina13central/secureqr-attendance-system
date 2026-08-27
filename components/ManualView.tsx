@@ -34,7 +34,7 @@ const ManualView: React.FC = () => {
             Manual de <span className="text-indigo-600">Usuario</span>
           </h1>
           <p className="text-slate-500 font-medium max-w-2xl">
-            Guía completa para administradores y encargados sobre el uso del sistema integral de asistencia SecureQR.
+            Guía completa para administradores y encargados sobre el uso del sistema integral de asistencia Asistencias QR.
           </p>
         </div>
         <button 
@@ -48,7 +48,7 @@ const ManualView: React.FC = () => {
 
       {/* Print-only Header */}
       <div className="hidden print:block mb-8 text-center border-b-2 border-slate-950 pb-8">
-        <h1 className="text-4xl font-black uppercase tracking-tighter">SecureQR Attendance System</h1>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">Asistencias QR</h1>
         <p className="text-xl font-bold mt-2">Manual de Usuario Oficial</p>
         <p className="text-sm mt-1 text-slate-500 italic">Documentación generada el {new Date().toLocaleDateString()}</p>
       </div>
@@ -402,7 +402,7 @@ const ManualView: React.FC = () => {
             <HelpCircle className="w-8 h-8 mr-4 text-indigo-600" />
             Preguntas Frecuentes
           </h2>
-          <p className="text-slate-500 font-medium">Todo lo que necesitas saber sobre el día a día en SecureQR.</p>
+          <p className="text-slate-500 font-medium">Todo lo que necesitas saber sobre el día a día en Asistencias QR.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -473,7 +473,7 @@ const ManualView: React.FC = () => {
       <footer className="text-center pt-12 pb-20 space-y-4 print:pt-4 pt-10">
         <div className="flex items-center justify-center space-x-2 text-indigo-600">
            <ShieldCheck className="w-5 h-5" />
-           <span className="font-black tracking-tighter">SECURE QR CONTROL</span>
+           <span className="font-black tracking-tighter">ASISTENCIAS QR</span>
         </div>
         <div className="flex flex-col items-center space-y-1">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Versión 2.0.4 • 2026</p>
