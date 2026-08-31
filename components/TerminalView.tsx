@@ -371,33 +371,41 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
       if (employeeId && employeeId !== "PENDING") {
         console.log(`Procesando escaneo (${scanMode}): Nombre=${employeeName}, ID=${employeeId}`);
-        const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined);
+        try {
+          const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined);
 
-        if (result.type === 'in' || result.type === 'out') {
-          const successPresentation = getSuccessMessage(result.type, result.record?.status);
-          setStatus('success');
-          setLastUser(employeeName);
-          setScanType(result.type);
-          setAttendanceMsg(successPresentation.message);
-          setMsgColor(successPresentation.color);
-          void playStatusSound('success');
-          playStatusHaptic('success');
-        } else if (result.reason === 'queued_offline') {
-          const offlinePresentation = getFailurePresentation(result.reason);
-          setStatus('success');
-          setLastUser(employeeName);
-          setScanType(scanMode || 'in'); 
-          setAttendanceMsg(offlinePresentation.message);
-          setMsgColor('text-amber-400');
-          setPendingCount(offlineService.count);
-          void playStatusSound('offline');
-          playStatusHaptic('offline');
-        } else {
-          const failurePresentation = getFailurePresentation(result.reason);
-          setStatus(failurePresentation.status);
-          setAttendanceMsg(failurePresentation.message);
-          void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
-          playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
+          if (result.type === 'in' || result.type === 'out') {
+            const successPresentation = getSuccessMessage(result.type, result.record?.status);
+            setStatus('success');
+            setLastUser(employeeName);
+            setScanType(result.type);
+            setAttendanceMsg(successPresentation.message);
+            setMsgColor(successPresentation.color);
+            void playStatusSound('success');
+            playStatusHaptic('success');
+          } else if (result.reason === 'queued_offline') {
+            const offlinePresentation = getFailurePresentation(result.reason);
+            setStatus('success');
+            setLastUser(employeeName);
+            setScanType(scanMode || 'in'); 
+            setAttendanceMsg(offlinePresentation.message);
+            setMsgColor('text-amber-400');
+            setPendingCount(offlineService.count);
+            void playStatusSound('offline');
+            playStatusHaptic('offline');
+          } else {
+            const failurePresentation = getFailurePresentation(result.reason);
+            setStatus(failurePresentation.status);
+            setAttendanceMsg(failurePresentation.message);
+            void playStatusSound(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
+            playStatusHaptic(failurePresentation.status === 'duplicate' ? 'duplicate' : 'error');
+          }
+        } catch (error) {
+          console.error("Error no manejado en handleScan:", error);
+          setStatus('error');
+          setAttendanceMsg('Error al registrar, intente nuevamente');
+          void playStatusSound('error');
+          playStatusHaptic('error');
         }
       } else {
         const invalidQrPresentation = getFailurePresentation(undefined, true);

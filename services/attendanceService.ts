@@ -656,6 +656,9 @@ export const attendanceService = {
             console.error("Network error during scan:", err);
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
+            if (err.message === 'compensatory_rest') return { type: 'error', record: null, reason: 'compensatory_rest' };
+            if (err.message === 'suspended') return { type: 'error', record: null, reason: 'suspended' };
+            if (err.message === 'medical') return { type: 'error', record: null, reason: 'medical' };
 
             // Detectar errores de red: sin internet o fallo de fetch
             const isNetworkError =

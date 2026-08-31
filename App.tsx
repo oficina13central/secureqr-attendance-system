@@ -525,7 +525,7 @@ const App: React.FC = () => {
   }
 
   // Check for approval - ONLY isaacgomez78@gmail.com can bypass if state is messy
-  if (currentUser?.is_approved === false && currentUser?.email !== 'isaacgomez78@gmail.com') {
+  if (currentUser?.is_approved === false) {
     return (
       <>
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-800">

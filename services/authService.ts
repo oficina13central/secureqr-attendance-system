@@ -170,25 +170,8 @@ export const authService = {
                 return await this.enrichProfile(profile);
             }
 
-            // Failsafe: Si no encontramos el perfil, verificamos si es el superadmin original
-            const { data: authData } = await supabase.auth.getUser();
-            if (authData?.user?.email === 'isaacgomez78@gmail.com') {
-                return {
-                    id: userId,
-                    full_name: 'Isaac Gomez (Admin)',
-                    email: 'isaacgomez78@gmail.com',
-                    role: 'superusuario',
-                    is_suspended: false,
-                    deleted_at: null,
-                    roles: {
-                        id: 'superusuario',
-                        name: 'Modo Emergencia',
-                        permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
-                    }
-                };
-            }
-
             // Perfil Restringido: Para usuarios que fallaron en la migración o no están aprobados
+            const { data: authData } = await supabase.auth.getUser();
             return {
                 id: userId,
                 full_name: 'Usuario Pendiente',
@@ -216,19 +199,6 @@ export const authService = {
     },
 
     async enrichProfile(profile: any) {
-        // Forzar permisos de superusuario siempre para este usuario específico
-        if (profile.email === 'isaacgomez78@gmail.com') {
-            profile.role = 'superusuario';
-            profile.is_suspended = false;
-            profile.deleted_at = null;
-            profile.roles = {
-                id: 'superusuario',
-                name: 'Superusuario',
-                permissions: ['VIEW_DASHBOARD', 'MANAGE_SETTINGS', 'MANAGE_PERSONNEL', 'MANAGE_SCHEDULES', 'MANAGE_RULES', 'MANAGE_SECTORS', 'MANAGE_ROLES', 'MANAGE_USERS']
-            };
-            return profile;
-        }
-
         // Logic for checking effective suspension
         if (profile.is_suspended) {
             if (profile.suspended_until) {
