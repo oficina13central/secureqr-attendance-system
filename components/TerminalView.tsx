@@ -13,7 +13,7 @@ interface TerminalViewProps {
 const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [sessionActive, setSessionActive] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
+  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
   const [lastUser, setLastUser] = useState<string | null>(null);
   const [scanType, setScanType] = useState<'in' | 'out' | null>(null);
   const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null);
@@ -38,6 +38,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
+  const feedbackTimeoutRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioUnlockedRef = useRef(false);
   
@@ -252,6 +253,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   };
 
   const resetTerminal = () => {
+    if (feedbackTimeoutRef.current) {
+      window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
     setSessionActive(false);
     setScanning(false);
     setStatus('idle');
@@ -313,6 +318,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (feedbackTimeoutRef.current) window.clearTimeout(feedbackTimeoutRef.current);
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
@@ -347,6 +353,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const handleScan = async (token: string) => {
     console.log("Token detectado:", token);
     setScanning(false);
+    setStatus('processing');
 
     // Format: SECURE_USER:Name_Surname_ID
     if (token.startsWith("SECURE_USER")) {
@@ -357,16 +364,11 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       let employeeId = "";
 
       if (lastUnderscoreIndex !== -1) {
-        // Asumimos que lo último después del guión bajo es el ID si parece un ID (UUID o numérico)
-        // O si simplemente hay un guión bajo separando.
         employeeName = info.substring(0, lastUnderscoreIndex).replace(/_/g, " ");
         employeeId = info.substring(lastUnderscoreIndex + 1);
-
-        // Si el "ID" extraído parece ser parte del nombre (ej: "Garcia" en "Ana_Garcia" sin ID al final)
-        // Necesitamos ser cuidadosos. Intentaremos buscar el perfil por nombre si el ID no machea nada.
       } else {
         employeeName = info.replace(/_/g, " ");
-        employeeId = "PENDING"; // O intentar usar el nombre como ID fallback
+        employeeId = "PENDING";
       }
 
       if (employeeId && employeeId !== "PENDING") {
@@ -415,20 +417,20 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
         playStatusHaptic('error');
       }
 
-      setTimeout(() => {
-        setStatus('idle');
-        setSessionActive(false);
-        setScanning(false);
-      }, 6000);
+      if (feedbackTimeoutRef.current) window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = window.setTimeout(() => {
+        resetTerminal();
+      }, 3000);
     } else {
       const invalidQrPresentation = getFailurePresentation(undefined, true);
       setStatus(invalidQrPresentation.status);
       setAttendanceMsg(invalidQrPresentation.message);
       void playStatusSound('error');
       playStatusHaptic('error');
-      setTimeout(() => {
+      if (feedbackTimeoutRef.current) window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = window.setTimeout(() => {
         resetTerminal();
-      }, 5000);
+      }, 3000);
     }
   };
 
@@ -452,6 +454,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     void unlockAudioFeedback();
     setProcessingManual(true);
     setScanning(false);
+    setStatus('processing');
     
     try {
       // Intentar obtener el nombre del empleado para la UI
@@ -493,9 +496,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       playStatusHaptic('error');
     } finally {
       setProcessingManual(false);
-      setTimeout(() => {
+      if (feedbackTimeoutRef.current) window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = window.setTimeout(() => {
         resetTerminal();
-      }, 6000);
+      }, 3000);
     }
   };
 
@@ -664,6 +668,18 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
             </div>
           )}
 
+          {status === 'processing' && (
+            <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-200 z-30">
+              <div className="p-6 rounded-full bg-indigo-600/20 border border-indigo-500/30">
+                <RefreshCcw className="w-16 h-16 text-indigo-400 animate-spin" />
+              </div>
+              <div className="text-center px-6 space-y-2">
+                <p className="text-2xl font-black text-white uppercase tracking-wider">Verificando...</p>
+                <p className="text-slate-400 text-sm">Procesando registro de asistencia</p>
+              </div>
+            </div>
+          )}
+
           {status === 'success' && (
             <div className="absolute inset-0 bg-emerald-950/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
               <div className={`p-6 rounded-full shadow-lg transition-all ${scanType === 'out' ? 'bg-blue-500 shadow-blue-500/50' : 'bg-emerald-500 shadow-emerald-500/50'}`}>
@@ -679,9 +695,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
                 </p>
                 <p className="text-2xl text-emerald-300 font-bold mb-1">{lastUser}</p>
                 <p className={`text-xl font-black uppercase tracking-widest ${msgColor}`}>{attendanceMsg}</p>
-                <div className="mt-4 flex items-center justify-center space-x-2 text-slate-400">
-                  <RefreshCcw className="w-4 h-4 animate-spin-slow" />
-                  <span className="text-sm">Registrando en base de datos...</span>
+                <div className="mt-4 flex items-center justify-center space-x-2 text-emerald-400/80">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Registro completado</span>
                 </div>
               </div>
             </div>
