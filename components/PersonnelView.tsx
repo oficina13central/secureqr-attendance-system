@@ -551,33 +551,33 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             </div>`;
         }
 
-        return `<div style="width: 500px; height: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif; box-sizing: border-box;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 135px; padding: 0.8rem 2rem 0 2rem; text-align: center; margin-bottom: 1rem;">
-                    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px;">
-                        <img src="${VILLECCO_LOGO}" alt="Panadería Villecco" style="height: 38px; object-fit: contain;" />
+        return `<div style="width: 500px; height: 350px; background: #FCFBF7; border: 1px solid #E6DFD5; border-radius: 0.75rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif; box-sizing: border-box;">
+                <div style="position: absolute; inset: 10px; border: 1.5px solid rgba(198, 146, 85, 0.45); border-radius: 0.5rem; pointer-events: none; z-index: 1;"></div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 148px; padding: 1.1rem 2rem 0 2rem; text-align: center; z-index: 10;">
+                    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                        <img src="${VILLECCO_LOGO}" alt="Panadería Villecco" style="height: 54px; width: auto; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(27, 67, 50, 0.12));" />
                     </div>
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 800; color: #1e293b; text-transform: uppercase; margin: 0; line-height: 1.1;">
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1B4332; text-transform: uppercase; margin: 2px 0 0 0; line-height: 1.1; letter-spacing: -0.01em;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.75rem; font-weight: 700; color: #1B4332; letter-spacing: 0.25em; text-transform: uppercase; margin: 4px 0 0 0; opacity: 0.85;">
-                        Credencial de Acceso
+                    <p style="font-size: 0.68rem; font-weight: 800; color: #8C6D3F; letter-spacing: 0.22em; text-transform: uppercase; margin: 4px 0 0 0;">
+                        Credencial de Acceso • Personal
                     </p>
                 </div>
 
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; flex: 1; z-index: 10;">
-                    <div style="background: #52B788; padding: 0.8rem; border-radius: 1rem;">
-                        <div style="background: white; padding: 0.15rem; border-radius: 1px;">
-                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 110px; height: 110px; display: block;" />` : `<div style="width: 110px; height: 110px; background: #f1f5f9;"></div>`}
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; z-index: 10; padding-bottom: 14px;">
+                    <div style="background: #1B4332; padding: 6px; border-radius: 14px; border: 1px solid rgba(198, 146, 85, 0.4); box-shadow: 0 4px 14px rgba(27, 67, 50, 0.25);">
+                        <div style="background: white; padding: 4px; border-radius: 8px;">
+                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 105px; height: 105px; display: block;" />` : `<div style="width: 105px; height: 105px; background: #f1f5f9;"></div>`}
                         </div>
                     </div>
                 </div>
 
-                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; z-index: 0; line-height: 0;">
-                    <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width: 100%; height: 100%;">
-                        <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3"></path>
-                        <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6"></path>
-                        <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1"></path>
-                    </svg>
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 9px; z-index: 5; display: flex;">
+                    <div style="flex: 1; background: #1B4332;"></div>
+                    <div style="width: 70px; background: #C69255;"></div>
+                    <div style="flex: 1; background: #2D6A4F;"></div>
                 </div>
             </div>`;
     };
@@ -640,7 +640,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                 const dataUrl = await toPng(node, {
                     quality: 0.95,
                     pixelRatio: 2,
-                    backgroundColor: isCardMiles ? '#FAF8F5' : '#ffffff'
+                    backgroundColor: isCardMiles ? '#FAF8F5' : '#FCFBF7'
                 });
                 const link = document.createElement('a');
                 link.download = `credencial-${showCardModal.full_name.replace(/\s+/g, '-')}.png`;
@@ -1303,36 +1303,64 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                             ) : (
                                 <div
                                     id="printable-badge"
-                                    className="bg-white border border-slate-200 overflow-hidden relative flex flex-col"
-                                    style={{ width: '500px', height: '330px', borderRadius: '0.5rem', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)' }}
+                                    className="overflow-hidden relative flex flex-col"
+                                    style={{
+                                        width: '500px',
+                                        height: '330px',
+                                        borderRadius: '0.85rem',
+                                        background: '#FCFBF7',
+                                        border: '1.5px solid #E6DFD5',
+                                        boxShadow: '0 20px 40px -10px rgba(27, 67, 50, 0.25)',
+                                        boxSizing: 'border-box'
+                                    }}
                                 >
+                                    {/* Marco interior decorativo trigo dorado */}
+                                    <div style={{ position: 'absolute', inset: '10px', border: '1.5px solid rgba(198, 146, 85, 0.45)', borderRadius: '0.6rem', pointerEvents: 'none', zIndex: 1 }} />
+
                                     <div
-                                        style={{ height: '130px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '0.8rem' }}
+                                        style={{
+                                            height: '148px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '1.1rem 2rem 0 2rem',
+                                            textAlign: 'center',
+                                            zIndex: 10
+                                        }}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px' }}>
-                                            <img src="/villecco_logo.png" alt="Panadería Villecco" style={{ height: '40px', objectFit: 'contain' }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
+                                            <img
+                                                src={VILLECCO_LOGO}
+                                                alt="Panadería Villecco"
+                                                className="logo-image"
+                                                style={{ height: '54px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(27, 67, 50, 0.12))' }}
+                                            />
                                         </div>
+
                                         <h2
-                                            className="font-black text-slate-800 uppercase"
+                                            className="font-black uppercase"
                                             style={{
+                                                color: '#1B4332',
                                                 fontSize: showCardModal.full_name.length > 28 ? '1.15rem'
                                                         : showCardModal.full_name.length > 22 ? '1.35rem'
                                                         : showCardModal.full_name.length > 16 ? '1.65rem'
                                                         : '1.95rem',
                                                 lineHeight: 1.1,
-                                                margin: 0
+                                                margin: '2px 0 0 0',
+                                                letterSpacing: '-0.01em'
                                             }}
                                         >
                                             {showCardModal.full_name}
                                         </h2>
-                                        <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1B4332', letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.85, margin: '6px 0 0 0' }}>
-                                            Credencial de Acceso
+                                        <p style={{ fontSize: '0.68rem', fontWeight: 800, color: '#8C6D3F', letterSpacing: '0.22em', textTransform: 'uppercase', margin: '4px 0 0 0' }}>
+                                            Credencial de Acceso • Personal
                                         </p>
                                     </div>
 
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
-                                        <div className="bg-[#52B788] p-3 rounded-2xl shadow-sm">
-                                            <div className="bg-white p-0.5 rounded-sm">
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, paddingBottom: '14px' }}>
+                                        <div style={{ background: '#1B4332', padding: '6px', borderRadius: '14px', border: '1px solid rgba(198, 146, 85, 0.4)', boxShadow: '0 4px 14px rgba(27, 67, 50, 0.25)' }}>
+                                            <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px' }}>
                                                 <img
                                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=1B4332`}
                                                     alt="QR Access Code"
@@ -1342,12 +1370,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                         </div>
                                     </div>
 
-                                    <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0, lineHeight: 0 }}>
-                                        <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                            <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3" />
-                                            <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6" />
-                                            <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1" />
-                                        </svg>
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '9px', zIndex: 5, display: 'flex' }}>
+                                        <div style={{ flex: 1, background: '#1B4332' }} />
+                                        <div style={{ width: '70px', background: '#C69255' }} />
+                                        <div style={{ flex: 1, background: '#2D6A4F' }} />
                                     </div>
                                 </div>
                             )}
@@ -1368,7 +1394,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                 </button>
                                 <button
                                     onClick={handleDownload}
-                                    className={`px-8 py-3 rounded-xl ${isCardMiles ? 'bg-[#A08266] hover:bg-[#8C7055] shadow-[#A08266]/30' : 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/30'} text-white font-bold shadow-lg transition-all flex items-center space-x-2`}
+                                    className={`px-8 py-3 rounded-xl ${isCardMiles ? 'bg-[#A08266] hover:bg-[#8C7055] shadow-[#A08266]/30' : 'bg-[#1B4332] hover:bg-[#143225] shadow-[#1B4332]/30'} text-white font-bold shadow-lg transition-all flex items-center space-x-2`}
                                 >
                                     <Download className="w-5 h-5" />
                                     <span>Descargar PNG</span>

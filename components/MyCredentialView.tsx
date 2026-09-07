@@ -3,7 +3,7 @@ import { Download, CreditCard, LogOut } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Profile } from '../types';
 import { authService } from '../services/authService';
-import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO } from '../utils/companyTheme';
+import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO, VILLECCO_LOGO } from '../utils/companyTheme';
 
 interface MyCredentialViewProps {
   user: Profile;
@@ -21,7 +21,7 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
         const dataUrl = await toPng(node, {
           quality: 0.95,
           pixelRatio: 3,
-          backgroundColor: isMiles ? '#FAF8F5' : '#ffffff'
+          backgroundColor: isMiles ? '#FAF8F5' : '#FCFBF7'
         });
         const link = document.createElement('a');
         link.download = `credencial-${user.full_name.replace(/\s+/g, '-')}.png`;
@@ -108,53 +108,59 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
           /* Credencial oficial Panadería Villecco */
           <div 
             id="my-qr-badge" 
-            className="bg-white overflow-hidden relative flex flex-col shadow-2xl"
+            className="overflow-hidden relative flex flex-col shadow-2xl"
             style={{ 
               width: '380px', 
               height: '580px', 
-              borderRadius: '1rem',
-              border: '1px solid #e2e8f0',
+              borderRadius: '1.25rem',
+              background: '#FCFBF7',
+              border: '1.5px solid #E6DFD5',
               boxSizing: 'border-box'
             }}
           >
+            {/* Marco decorativo interior trigo dorado */}
+            <div style={{ position: 'absolute', inset: '12px', border: '1.5px solid rgba(198, 146, 85, 0.45)', borderRadius: '1rem', pointerEvents: 'none', zIndex: 1 }} />
+
             {/* Header Block */}
-            <div style={{ height: '190px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1.2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                <img src="/villecco_logo.png" alt="Panadería Villecco" style={{ height: '48px', objectFit: 'contain' }} />
+            <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1.5rem 2rem 0 2rem', textAlign: 'center', zIndex: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                <img 
+                  src={VILLECCO_LOGO} 
+                  alt="Panadería Villecco" 
+                  style={{ height: '64px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(27, 67, 50, 0.12))' }} 
+                />
               </div>
-              <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', margin: 0, lineHeight: 1.1 }}>
+              <h3 style={{ fontSize: user.full_name.length > 25 ? '1.4rem' : user.full_name.length > 18 ? '1.65rem' : '1.9rem', fontWeight: 900, color: '#1B4332', textTransform: 'uppercase', margin: 0, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
                 {user.full_name}
               </h3>
-              <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1B4332', letterSpacing: '0.25em', textTransform: 'uppercase', margin: '0.6rem 0 0 0', opacity: 0.85 }}>
-                Credencial de Acceso
+              <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8C6D3F', letterSpacing: '0.22em', textTransform: 'uppercase', margin: '6px 0 0 0' }}>
+                Credencial de Acceso • Personal
               </p>
             </div>
 
             {/* QR Area */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
-              <div style={{ background: '#52B788', padding: '1rem', borderRadius: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                <div style={{ background: 'white', padding: '0.2rem', borderRadius: '2px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, paddingBottom: '20px' }}>
+              <div style={{ background: '#1B4332', padding: '8px', borderRadius: '1.25rem', border: '1.5px solid rgba(198, 146, 85, 0.4)', boxShadow: '0 8px 20px -4px rgba(27, 67, 50, 0.3)' }}>
+                <div style={{ background: 'white', padding: '0.4rem', borderRadius: '0.75rem' }}>
                   <img 
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${user.qr_token}&bgcolor=ffffff&color=1B4332`}
                     alt="QR Access Code" 
-                    className="w-48 h-48 object-contain"
+                    className="w-44 h-44 object-contain"
                   />
                 </div>
               </div>
-              <div className="mt-6 text-center">
-                <p style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div className="mt-4 text-center">
+                <p style={{ fontSize: '10px', fontWeight: 800, color: '#8C6D3F', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
                   ID: {user.id.substring(0, 8).toUpperCase()}
                 </p>
               </div>
             </div>
 
-            {/* Triple Wave al pie */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 100 + '%', height: '80px', zIndex: 0, lineHeight: 0 }}>
-              <svg viewBox="0 0 500 150" preserveAspectRatio="none" style={{ width: 100 + '%', height: 100 + '%' }}>
-                  <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3"></path>
-                  <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6"></path>
-                  <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1"></path>
-              </svg>
+            {/* Cinta inferior tricolor Villecco */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '10px', zIndex: 5, display: 'flex' }}>
+              <div style={{ flex: 1, background: '#1B4332' }} />
+              <div style={{ width: '80px', background: '#C69255' }} />
+              <div style={{ flex: 1, background: '#2D6A4F' }} />
             </div>
           </div>
         )}
