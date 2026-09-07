@@ -1,7 +1,7 @@
 # Manual de Usuario Oficial: SecureQR Attendance System
-### Panadería Villecco (Desde 1925) & Bar Miles
+### Sistema de Control de Asistencia, Cronogramas y Legajos Digitales
 
-Bienvenido al manual operativo integral de **SecureQR**, el sistema biométrico y digital de control de asistencia, cronogramas, auditoría y legajos diseñado para operaciones continuas de alta demanda comercial y gastronómica.
+Bienvenido al manual operativo integral de **SecureQR**, el sistema biométrico y digital de control de asistencia, cronogramas, auditoría y legajos diseñado para operaciones continuas de alta demanda comercial y de servicios.
 
 ---
 
@@ -9,35 +9,26 @@ Bienvenido al manual operativo integral de **SecureQR**, el sistema biométrico 
 
 SecureQR opera como una plataforma robusta, confiable y segura basada en tokens QR persistentes vinculados al DNI del personal. Combina validación de reglas de turnos en milisegundos con auditoría inmutable de cambios y tolerancia total a cortes de energía o internet.
 
-### 1.1 Modelo Multi-Empresa Independiente
+### 1.1 Arquitectura e Independencia Operativa
 
-El sistema atiende a dos empresas totalmente diferenciadas e independientes:
+SecureQR está diseñado bajo un modelo de **arquitectura independiente y aislada por empresa**, garantizando que cada organización cuente con un entorno 100% autónomo y privado:
 
-| Atributo | Panadería Villecco | Bar Miles |
-| :--- | :--- | :--- |
-| **Razón / Nombre** | Panadería Villecco (Desde 1925) | Bar Miles (Miles Bar & Resto) |
-| **Identidad Visual** | Verde institucional (`#1B4332`, `#2D6A4F`, `#52B788`) con detalles trigo/dorado | Lino/marfil cálido (`#FAF8F5`), acentos moca/café (`#B89E84`, `#A08266`) y serif vintage |
-| **Logotipo** | Sello tradicional con espigas de trigo y leyenda histórica | Isologo circular de sello con tipografía de bar vintage |
-| **Credenciales** | Carnet verde esmeralda con triple ola inferior y logo Villecco | Carnet lino/marfil con logo de Staff, cinta tricolor y reborde moca |
-| **Infraestructura Supabase** | Base de datos principal de Villecco | Base de datos dedicada e independiente (`sgtsslarkrtacgaadoxt`) |
-| **Despliegue Vercel** | Aplicación web exclusiva de Villecco | Aplicación web exclusiva de Bar Miles |
-| **Sectores Operativos Típicos** | Cuadra / Panificados, Pastelería, Mostrador, Envasado, Reparto, Mantenimiento, Administración | Barra, Cocina, Salón / Mozos, Caja, Bachero / Limpieza, Seguridad / Recepción, Administración |
+* **Base de Datos Exclusiva**: Cada implementación cuenta con su propio repositorio de datos seguro e independiente, garantizando aislamiento absoluto de la información de personal, fichadas y cronogramas.
+* **Identidad Visual Corporativa**: El sistema adopta automáticamente la identidad, logotipo y paleta de colores oficial de la organización.
+* **Credenciales Personalizadas**: Generación de carnets institucionales de alta definición con el logotipo corporativo, código QR persistente y diseño adaptado a la empresa.
+* **Despliegue y Acceso Dedicado**: Aplicación web y PWA dedicada para cada organización, eliminando la necesidad de seleccionar empresa y evitando cualquier exposición cruzada de datos.
+* **Sectores Organizacionales Flexibles**: Organización adaptada a la estructura operativa de cada empresa (ej. Producción, Elaboración, Mostrador, Salón, Caja, Mantenimiento, Administración).
 
 > [!IMPORTANT]
-> **Separación Total**: Las bases de datos y accesos de **Panadería Villecco** y **Bar Miles** están completamente aislados en Supabase y Vercel. En ningún formulario ni vista de personal se requiere seleccionar la empresa: cada aplicación ya sabe por su entorno a qué negocio pertenece, protegiendo la privacidad y evitando cualquier mezcla de personal.
+> **Aislamiento y Confidencialidad Total**: La infraestructura garantiza que los datos, legajos y registros operativos pertenecen exclusivamente a la organización, operando de manera estricta y sin interacción ni visibilidad cruzada con ningún otro entorno.
 
 ```mermaid
 graph TD
-    subgraph "Panadería Villecco"
-        V_Vercel[Vercel: App Panadería] --> V_DB[(Supabase Villecco)]
-        V_DB --> V_Badge[Carnet Verde Villecco]
-        V_DB --> V_Sectors[Sectores Panadería]
-    end
-
-    subgraph "Bar Miles"
-        M_Vercel[Vercel: App Bar Miles] --> M_DB[(Supabase Bar Miles)]
-        M_DB --> M_Badge[Carnet Marfil / Moca Miles]
-        M_DB --> M_Sectors[Sectores Gastronomía Bar]
+    subgraph "Entorno Corporativo"
+        App[Aplicación Web / PWA Dedicada] --> DB[(Base de Datos Exclusiva)]
+        DB --> Badge[Credenciales Institucionales con QR]
+        DB --> Sectors[Sectores y Turnos de la Empresa]
+        DB --> Audits[Auditoría y Fichadas en Tiempo Real]
     end
 ```
 
@@ -137,19 +128,14 @@ Campos obligatorios y configuraciones clave:
 * **Tipo de Personal**:
   - **Efectivo**: Empleado permanente bajo relación laboral estándar (elegible para francos compensatorios por domingos y feriados trabajados).
   - **Jornalero**: Personal por jornada o eventual.
-* **Sector / Área**:
-  - En **Panadería Villecco**: Cuadra, Pastelería, Mostrador, Envasado, Reparto, Mantenimiento, Administración.
-  - En **Bar Miles**: Barra, Cocina, Salón / Mozos, Caja, Bachero, Seguridad, Administración.
+* **Sector / Área**: Sector asignado según la estructura de la empresa (ej. Producción, Mostrador, Salón, Cocina, Reparto, Mantenimiento, Administración).
 * **Rol en el Sistema**: Rol que tendrá en caso de que también acceda al sistema web.
 
 ### 4.2 Emisión y Descarga de Carnets (Individual y Masiva ZIP)
 * **Visualización en Pantalla**: Permite abrir el carnet con alta fidelidad para verificar su diseño y datos.
-* **Descarga Individual (PNG)**: Exporta una imagen de 500x330 px lista para credenciales de PVC o tarjetas térmicas.
+* **Descarga Individual (PNG)**: Exporta una imagen de alta resolución (500x330 px) lista para credenciales de PVC o tarjetas térmicas.
 * **Descarga Masiva (ZIP)**: Genera un archivo comprimido que contiene los carnets de todos los empleados del sector seleccionado o de toda la empresa, nombrados automáticamente por nombre y DNI.
-
-#### Diseños de Carnet por Empresa:
-* **Panadería Villecco**: Fondo blanco nítido con el logotipo oficial histórico (`.PANADERIA. Villecco DESDE 1925`), nombre en negrita institucional, QR en verde bosque (`#1B4332`) y triple ola inferior dinámica (`#52B788`, `#2D6A4F`, `#1B4332`).
-* **Bar Miles**: Fondo marfil/lino suave (`#FAF8F5`), marco fino artesanal, sello circular del Bar Miles Staff, tipografía serif vintage, código QR en café oscuro (`#1C1917`) con acentos moca (`#B89E84`) y cinta tricolor inferior.
+* **Identidad Institucional**: El carnet incorpora el logotipo oficial de la organización, la paleta cromática corporativa, tipografía institucional y código QR de alta legibilidad para escaneo instantáneo.
 
 ---
 
@@ -261,8 +247,8 @@ Desde la ficha del empleado (**Legajo Digital**), los administradores centraliza
   - Copia de DNI y CUIL.
   - Contrato de trabajo y alta temprana en AFIP / ARCA.
   - Recibos de sueldo firmados.
-  - Libreta Sanitaria (indispensable para Villecco y Miles).
-  - Certificados de cursos de manipulación de alimentos.
+  - Libreta Sanitaria y habilitaciones profesionales o de salud según rubro.
+  - Certificados de cursos específicos (ej. manipulación de alimentos, seguridad laboral).
 * **Historial de Sanciones y Notificaciones**:
   - Registro de llamados de atención verbales y apercibimientos por escrito.
   - Suspensiones disciplinarias con fechas de inicio y fin.
@@ -331,7 +317,7 @@ Calendario oficial de feriados nacionales y provinciales. Al dar de alta un feri
 ## 12. Instalación como PWA y Resolución de Problemas
 
 ### 12.1 Instalación como App (Progressive Web App)
-Tanto la aplicación de **Panadería Villecco** como la de **Bar Miles** son PWAs instalables en cualquier plataforma:
+La aplicación de SecureQR es una PWA (Progressive Web App) instalable en cualquier dispositivo y plataforma:
 * **En Tablets y Celulares Android / iOS**:
   1. Abra el navegador (Chrome en Android, Safari en iOS).
   2. Presione el botón flotante verde con el ícono de descarga (📥) en la esquina inferior derecha o seleccione *"Agregar a la pantalla de inicio"*.
@@ -362,11 +348,11 @@ Tanto la aplicación de **Panadería Villecco** como la de **Bar Miles** son PWA
 **1. ¿Las credenciales impresas pierden vigencia con el tiempo?**
 No. El token QR está vinculado de forma persistente y segura al DNI del colaborador. Una vez impreso en tarjeta plástica o papel plastificado, sirve indefinidamente a menos que un administrador regenere expresamente el token por extravío.
 
-**2. ¿Qué ocurre si un colaborador de la Panadería o del Bar trabaja en su día de descanso?**
+**2. ¿Qué ocurre si un colaborador trabaja en su día de descanso?**
 Si el colaborador es efectivo y trabaja un domingo o feriado, el sistema le acreditará automáticamente 1 Franco Compensatorio en su legajo una vez que fiche y finalice la jornada.
 
-**3. ¿Cómo se respalda la información de las dos empresas?**
-Tanto **Panadería Villecco** como **Bar Miles** cuentan con réplicas y copias de seguridad continuas y automáticas en sus respectivos servidores de Supabase, garantizando disponibilidad 24/7 y cero pérdida de datos.
+**3. ¿Cómo se respalda la información operativa?**
+El sistema cuenta con réplicas y copias de seguridad continuas y automáticas en la nube de Supabase, garantizando disponibilidad 24/7 y tolerancia ante contingencias sin pérdida de datos.
 
 ---
 

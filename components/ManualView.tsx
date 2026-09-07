@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   BookOpen, 
   Printer, 
@@ -17,19 +17,13 @@ import {
   FileText,
   Building2,
   Award,
-  AlertTriangle,
   FileSpreadsheet,
-  Download,
   Layers,
   Smartphone,
   Check
 } from 'lucide-react';
-import { isBarMiles, BAR_MILES_LOGO, VILLECCO_LOGO } from '../utils/companyTheme';
 
 const ManualView: React.FC = () => {
-  const isMilesApp = isBarMiles();
-  const [selectedCompany, setSelectedCompany] = useState<'all' | 'villecco' | 'miles'>('all');
-
   const handlePrint = () => {
     window.print();
   };
@@ -47,7 +41,7 @@ const ManualView: React.FC = () => {
             Manual de <span className="text-emerald-700">Usuario</span>
           </h1>
           <p className="text-slate-500 font-medium max-w-2xl text-sm md:text-base">
-            Guía integral para administradores y encargados de <strong>Panadería Villecco (Desde 1925)</strong> y <strong>Bar Miles</strong>.
+            Guía integral para administradores, encargados y colaboradores sobre el uso y las funcionalidades del sistema de control de asistencia.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -64,41 +58,14 @@ const ManualView: React.FC = () => {
       {/* Print-only Header */}
       <div className="hidden print:block mb-8 text-center border-b-2 border-slate-950 pb-6">
         <h1 className="text-3xl font-black uppercase tracking-tight">Manual Operativo Oficial • SecureQR</h1>
-        <p className="text-lg font-bold mt-1 text-slate-800">Panadería Villecco (Desde 1925) & Bar Miles</p>
+        <p className="text-lg font-bold mt-1 text-slate-800">Sistema Integral de Control de Asistencia, Cronogramas y Legajos</p>
         <p className="text-xs mt-1 text-slate-500 italic">Documentación técnica generada el {new Date().toLocaleDateString('es-AR')}</p>
-      </div>
-
-      {/* Company Selector Filter */}
-      <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200/80 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-slate-600" />
-          <span className="text-xs font-black uppercase tracking-wider text-slate-700">Enfoque de Empresa:</span>
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {[
-            { id: 'all', label: 'Ambas Empresas' },
-            { id: 'villecco', label: 'Panadería Villecco' },
-            { id: 'miles', label: 'Bar Miles' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedCompany(tab.id as any)}
-              className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-xs transition-all ${
-                selectedCompany === tab.id
-                  ? 'bg-slate-900 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Quick Navigation Card */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden">
         {[
-          { id: 'sec-1', label: '1. Modelo de Empresas', icon: Building2 },
+          { id: 'sec-1', label: '1. Introducción y Sistema', icon: Building2 },
           { id: 'sec-2', label: '2. Acceso y Roles', icon: ShieldCheck },
           { id: 'sec-3', label: '3. Terminal y Scanner', icon: ScanLine },
           { id: 'sec-4', label: '4. Personal y Carnets', icon: Users },
@@ -125,64 +92,50 @@ const ManualView: React.FC = () => {
         ))}
       </div>
 
-      {/* SECTION 1: MODELO MULTI-EMPRESA */}
+      {/* SECTION 1: INTRODUCCION Y ARQUITECTURA */}
       <section id="sec-1" className="space-y-6 scroll-mt-24 break-inside-avoid">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">1</div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Arquitectura y Separación de Empresas</h2>
-            <p className="text-xs md:text-sm text-slate-500 font-medium">Bases de datos independientes y marcas visuales dedicadas</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Introducción y Arquitectura del Sistema</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Plataforma integral de control de asistencia, cronogramas y legajos</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Panaderia Villecco */}
-          <div className={`p-6 rounded-[2rem] border transition-all ${
-            selectedCompany === 'miles' ? 'opacity-40' : 'bg-white border-emerald-100 shadow-sm'
-          }`}>
-            <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <img src={VILLECCO_LOGO} alt="Panadería Villecco" className="h-10 object-contain" />
-                <div>
-                  <h3 className="font-black text-slate-800 text-base">Panadería Villecco</h3>
-                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Desde 1925</span>
-                </div>
-              </div>
-              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-black uppercase">Verde Bosque</span>
+          <div className="p-6 rounded-[2rem] bg-white border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-3 text-emerald-800 font-black text-base">
+              <ShieldCheck className="w-6 h-6 text-emerald-600" />
+              <h3>Seguridad y Precisión en Tiempo Real</h3>
             </div>
+            <p className="text-xs leading-relaxed text-slate-600 font-medium">
+              SecureQR utiliza tecnología de tokens criptográficos persistentes vinculados al DNI del personal. Cada marcación es validada en milisegundos contra el cronograma asignado, garantizando que el registro sea presencial, exacto y plenamente auditable.
+            </p>
             <ul className="space-y-2 text-xs text-slate-600 font-medium">
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Sectores:</strong> Cuadra, Pastelería, Mostrador, Envasado, Reparto, Mantenimiento, Administración.</span></li>
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Carnet:</strong> Blanco nítido con logo de espigas, triple ola verde inferior y QR en verde bosque.</span></li>
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Base de datos:</strong> Proyecto Supabase principal de Villecco.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span>Tolerancia cero a duplicidad de fichadas en intervalos cortos.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span>Trazabilidad total de cada evento con fecha, hora y terminal.</span></li>
             </ul>
           </div>
 
-          {/* Bar Miles */}
-          <div className={`p-6 rounded-[2rem] border transition-all ${
-            selectedCompany === 'villecco' ? 'opacity-40' : 'bg-[#FAF8F5] border-[#E5DDD2] shadow-sm'
-          }`}>
-            <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-[#E5DDD2]">
-              <div className="flex items-center gap-3">
-                <img src={BAR_MILES_LOGO} alt="Bar Miles" className="h-10 w-10 rounded-full object-contain" />
-                <div>
-                  <h3 className="font-black text-slate-800 text-base">Bar Miles</h3>
-                  <span className="text-[10px] font-bold text-[#A08266] uppercase tracking-widest">Miles Bar & Resto</span>
-                </div>
-              </div>
-              <span className="px-3 py-1 bg-[#B89E84]/20 text-[#6D543F] border border-[#B89E84]/40 rounded-full text-[10px] font-black uppercase">Marfil & Moca</span>
+          <div className="p-6 rounded-[2rem] bg-white border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-3 text-slate-800 font-black text-base">
+              <Building2 className="w-6 h-6 text-slate-700" />
+              <h3>Entorno Dedicado y Autónomo</h3>
             </div>
+            <p className="text-xs leading-relaxed text-slate-600 font-medium">
+              La plataforma opera en una infraestructura en la nube de alta disponibilidad, con base de datos propia y parámetros adaptados a la estructura operativa de la empresa (sectores, turnos habituales, descansos y jerarquías).
+            </p>
             <ul className="space-y-2 text-xs text-slate-600 font-medium">
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Sectores:</strong> Barra, Cocina, Salón / Mozos, Caja, Bachero, Seguridad, Administración.</span></li>
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Carnet:</strong> Fondo lino marfil, marco artesanal, sello circular Staff, acentos café y cinta tricolor.</span></li>
-              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Base de datos:</strong> Proyecto Supabase independiente dedicado.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-slate-700 shrink-0 mt-0.5" /><span>Bases de datos aisladas e independientes para máxima confidencialidad.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-slate-700 shrink-0 mt-0.5" /><span>Modo Centinela (Offline): continúa operando incluso ante cortes de internet.</span></li>
             </ul>
           </div>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200/80 p-5 rounded-2xl flex items-start gap-3 text-amber-900">
-          <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="bg-emerald-50/70 border border-emerald-200/80 p-5 rounded-2xl flex items-start gap-3 text-emerald-950">
+          <Info className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed font-medium">
-            <strong>Sin selectores manuales:</strong> El sistema identifica automáticamente a qué empresa pertenece el entorno mediante la URL de base de datos y el dominio en Vercel. En ningún formulario se mezcla el personal de la Panadería con el del Bar.
+            <strong>Arquitectura autónoma:</strong> El sistema funciona con independencia total de cualquier otra organización, gestionando de forma exclusiva el personal, los cronogramas y la liquidación del establecimiento.
           </p>
         </div>
       </section>
@@ -206,7 +159,7 @@ const ManualView: React.FC = () => {
             <ol className="space-y-3 text-xs text-slate-600 font-medium list-decimal list-inside">
               <li><strong>Registro Inicial:</strong> El usuario se registra con su correo y contraseña.</li>
               <li><strong>Estado Pendiente:</strong> El acceso queda bloqueado preventivamente hasta la revisión.</li>
-              <li><strong>Autorización Administrativa:</strong> Un administrador o superusuario revisa el DNI, asigna el rol y activa la cuenta.</li>
+              <li><strong>Autorización Administrativa:</strong> Un administrador revisa el DNI, asigna el rol correspondiente y activa la cuenta.</li>
               <li><strong>Vinculación con Legajo:</strong> La cuenta se conecta automáticamente con el legajo del colaborador según su DNI.</li>
             </ol>
           </div>
@@ -247,9 +200,9 @@ const ManualView: React.FC = () => {
               <h3 className="text-lg font-black text-slate-800">Funcionalidades Principales</h3>
               <ul className="space-y-3 text-xs text-slate-600 font-medium">
                 <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Escaneo QR Instantáneo:</strong> Detección en menos de 300 ms con cámara frontal, trasera o externa.</span></li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Ingreso Manual por DNI:</strong> Teclado numérico en pantalla para contingencias si el empleado olvidó su credencial.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Ingreso Manual por DNI:</strong> Teclado numérico en pantalla para contingencias si el colaborador olvidó su credencial.</span></li>
                 <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Protección Antiduplicado:</strong> Bloqueo automático de 10 minutos para evitar que se fiche dos veces el mismo evento.</span></li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Control de Descansos y Licencias:</strong> La terminal avisa y no genera asistencia estándar si la persona está de franco o de vacaciones.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Control de Descansos y Licencias:</strong> La terminal avisa y no genera asistencia estándar si la persona está de franco o vacaciones.</span></li>
                 <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Modo Centinela (Offline):</strong> Si se corta internet, las fichadas se guardan de forma local en el dispositivo y se sincronizan solas cuando vuelve la red.</span></li>
               </ul>
             </div>
@@ -272,7 +225,7 @@ const ManualView: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">4</div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Gestión de Personal y Carnets</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Gestión de Personal y Credenciales</h2>
             <p className="text-xs md:text-sm text-slate-500 font-medium">Legajos, modalidad de contratación y descarga masiva de credenciales en ZIP</p>
           </div>
         </div>
@@ -417,7 +370,7 @@ const ManualView: React.FC = () => {
                 Liquidación de Sueldos
               </h4>
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                El módulo de Auditoría consolida las horas trabajadas, minutos de tardanza y faltas de todo el mes. Con el botón de <strong>Exportar CSV / Excel</strong>, se obtiene una planilla lista para importar en el sistema contable o de liquidación de haberes.
+                El módulo de Auditoría consolida las horas trabajadas, minutos de tardanza y faltas de todo el mes. Con el botón de <strong>Exportar CSV / Excel</strong>, se obtiene una planilla lista para importar en el software contable o de liquidación de haberes.
               </p>
             </div>
           </div>
@@ -430,7 +383,7 @@ const ManualView: React.FC = () => {
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">8</div>
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Legajos Digitales y Documentación</h2>
-            <p className="text-xs md:text-sm text-slate-500 font-medium">Expediente único del colaborador, altas AFIP, libretas sanitarias y sanciones</p>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Expediente único del colaborador, altas AFIP, certificados y sanciones</p>
           </div>
         </div>
 
@@ -445,7 +398,7 @@ const ManualView: React.FC = () => {
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <strong className="block text-slate-800 font-black mb-1">Documentos y Certificados:</strong>
-              Contrato, alta AFIP/ARCA, recibos de sueldo, libreta sanitaria y manipulación de alimentos.
+              Contrato, alta AFIP/ARCA, recibos de sueldo, libreta sanitaria y capacitaciones.
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <strong className="block text-slate-800 font-black mb-1">Historial Disciplinario:</strong>
@@ -603,7 +556,7 @@ const ManualView: React.FC = () => {
            <span className="font-black tracking-tight text-sm">SECUREQR • SISTEMA DE ASISTENCIAS</span>
         </div>
         <div className="flex flex-col items-center space-y-0.5">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Panadería Villecco (Desde 1925) • Bar Miles</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Documentación Operativa Oficial</p>
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Versión 2.1.0 • 2026</p>
         </div>
       </footer>
