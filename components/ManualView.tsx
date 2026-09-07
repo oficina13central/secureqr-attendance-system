@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   BookOpen, 
   Printer, 
@@ -13,10 +13,23 @@ import {
   Info,
   CheckCircle2,
   HelpCircle,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  Building2,
+  Award,
+  AlertTriangle,
+  FileSpreadsheet,
+  Download,
+  Layers,
+  Smartphone,
+  Check
 } from 'lucide-react';
+import { isBarMiles, BAR_MILES_LOGO, VILLECCO_LOGO } from '../utils/companyTheme';
 
 const ManualView: React.FC = () => {
+  const isMilesApp = isBarMiles();
+  const [selectedCompany, setSelectedCompany] = useState<'all' | 'villecco' | 'miles'>('all');
+
   const handlePrint = () => {
     window.print();
   };
@@ -26,465 +39,578 @@ const ManualView: React.FC = () => {
       {/* Header section */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 print:hidden">
         <div className="space-y-2">
-          <div className="flex items-center space-x-3 text-indigo-600">
+          <div className="flex items-center space-x-3 text-emerald-700">
             <BookOpen className="w-6 h-6" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Documentación Oficial</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Documentación y Guía Oficial</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter">
-            Manual de <span className="text-indigo-600">Usuario</span>
+          <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tighter">
+            Manual de <span className="text-emerald-700">Usuario</span>
           </h1>
-          <p className="text-slate-500 font-medium max-w-2xl">
-            Guía completa para administradores y encargados sobre el uso del sistema integral de asistencia Asistencias QR.
+          <p className="text-slate-500 font-medium max-w-2xl text-sm md:text-base">
+            Guía integral para administradores y encargados de <strong>Panadería Villecco (Desde 1925)</strong> y <strong>Bar Miles</strong>.
           </p>
         </div>
-        <button 
-          onClick={handlePrint}
-          className="flex items-center space-x-3 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm shadow-xl shadow-slate-900/20 transition-all active:scale-95 group"
-        >
-          <Printer className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-          <span>IMPRIMIR PDF</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button 
+            onClick={handlePrint}
+            className="flex items-center space-x-3 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm shadow-xl shadow-slate-900/20 transition-all active:scale-95 group"
+          >
+            <Printer className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+            <span>IMPRIMIR / PDF</span>
+          </button>
+        </div>
       </header>
 
       {/* Print-only Header */}
-      <div className="hidden print:block mb-8 text-center border-b-2 border-slate-950 pb-8">
-        <h1 className="text-4xl font-black uppercase tracking-tighter">Asistencias QR</h1>
-        <p className="text-xl font-bold mt-2">Manual de Usuario Oficial</p>
-        <p className="text-sm mt-1 text-slate-500 italic">Documentación generada el {new Date().toLocaleDateString()}</p>
+      <div className="hidden print:block mb-8 text-center border-b-2 border-slate-950 pb-6">
+        <h1 className="text-3xl font-black uppercase tracking-tight">Manual Operativo Oficial • SecureQR</h1>
+        <p className="text-lg font-bold mt-1 text-slate-800">Panadería Villecco (Desde 1925) & Bar Miles</p>
+        <p className="text-xs mt-1 text-slate-500 italic">Documentación técnica generada el {new Date().toLocaleDateString('es-AR')}</p>
+      </div>
+
+      {/* Company Selector Filter */}
+      <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200/80 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-slate-600" />
+          <span className="text-xs font-black uppercase tracking-wider text-slate-700">Enfoque de Empresa:</span>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {[
+            { id: 'all', label: 'Ambas Empresas' },
+            { id: 'villecco', label: 'Panadería Villecco' },
+            { id: 'miles', label: 'Bar Miles' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedCompany(tab.id as any)}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+                selectedCompany === tab.id
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Quick Navigation Card */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:hidden">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden">
         {[
-          { id: 'sec-1', label: 'Introducción', icon: Info },
-          { id: 'sec-2', label: 'Lector de Acceso', icon: ScanLine },
-          { id: 'sec-3', label: 'Personal y Scoring', icon: Users },
-          { id: 'sec-4', label: 'Horarios', icon: Calendar },
-          { id: 'sec-5', label: 'Auditoría', icon: History },
-          { id: 'sec-faq', label: 'Preguntas Frecuentes', icon: HelpCircle },
+          { id: 'sec-1', label: '1. Modelo de Empresas', icon: Building2 },
+          { id: 'sec-2', label: '2. Acceso y Roles', icon: ShieldCheck },
+          { id: 'sec-3', label: '3. Terminal y Scanner', icon: ScanLine },
+          { id: 'sec-4', label: '4. Personal y Carnets', icon: Users },
+          { id: 'sec-5', label: '5. Scoring de Asistencia', icon: Award },
+          { id: 'sec-6', label: '6. Horarios y Francos', icon: Calendar },
+          { id: 'sec-7', label: '7. Auditoría y Liquidación', icon: History },
+          { id: 'sec-8', label: '8. Legajos Digitales', icon: FileText },
+          { id: 'sec-9', label: '9. Solicitudes RRHH', icon: Layers },
+          { id: 'sec-10', label: '10. Fraude y Sistema', icon: ShieldAlert },
+          { id: 'sec-11', label: '11. App PWA y Kiosco', icon: Smartphone },
+          { id: 'sec-faq', label: '12. Preguntas Frecuentes', icon: HelpCircle },
         ].map(item => (
           <a 
             key={item.id} 
             href={`#${item.id}`}
-            className="flex items-center space-x-4 p-4 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-100 transition-all group"
+            className="flex items-center space-x-3 p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-100 transition-all group"
           >
-            <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-               <item.icon className="w-5 h-5 text-indigo-600" />
+            <div className="p-2.5 bg-white rounded-xl shadow-sm group-hover:scale-105 transition-transform text-emerald-700">
+               <item.icon className="w-4 h-4" />
             </div>
-            <span className="font-bold text-slate-700">{item.label}</span>
-            <ChevronRight className="w-4 h-4 text-slate-300 ml-auto" />
+            <span className="font-bold text-xs text-slate-700">{item.label}</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-300 ml-auto" />
           </a>
         ))}
       </div>
 
-      {/* SECTION 1: INTRO */}
-      <section id="sec-1" className="space-y-6 scroll-mt-32 break-inside-avoid">
+      {/* SECTION 1: MODELO MULTI-EMPRESA */}
+      <section id="sec-1" className="space-y-6 scroll-mt-24 break-inside-avoid">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-            <span className="font-black text-lg">1</span>
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">1</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Arquitectura y Separación de Empresas</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Bases de datos independientes y marcas visuales dedicadas</p>
           </div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Introducción y Acceso</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-4 h-full">
-              <h3 className="text-xl font-black text-slate-800 flex items-center">
-                <ShieldCheck className="w-5 h-5 mr-3 text-emerald-500" />
-                Seguridad de Registro
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium">
-                Cuando un nuevo usuario se registra, su cuenta queda en **Estado Pendiente**. Un administrador con los permisos adecuados debe revisar el perfil y autorizar el acceso vinculando el DNI al legajo correspondiente.
-              </p>
-              <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
-                <p className="text-xs text-amber-800 font-bold leading-relaxed italic">
-                  "El sistema previene el acceso duplicado validando que cada DNI sólo pueda estar vinculado a una cuenta activa."
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden h-full">
-             <div className="absolute top-0 right-0 p-8 opacity-10">
-                <ShieldCheck className="w-32 h-32" />
-             </div>
-             <h3 className="text-lg font-black uppercase tracking-widest text-indigo-400">Esquema de Aprobación</h3>
-             <div className="space-y-4 relative z-10 font-bold text-xs">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-indigo-500 flex items-center justify-center">1</div>
-                  <span>Registro de Usuario</span>
-                </div>
-                <div className="w-0.5 h-4 bg-indigo-500/30 ml-4"></div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-amber-500 flex items-center justify-center text-amber-400">2</div>
-                  <span>Revisión Administrativa</span>
-                </div>
-                <div className="w-0.5 h-4 bg-indigo-500/30 ml-4"></div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">3</div>
-                  <span>Acceso Activo + Vinculación DNI</span>
-                </div>
-             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 2: TERMINAL */}
-      <section id="sec-2" className="space-y-6 scroll-mt-32 break-inside-avoid">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-lg font-black">2</div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">El Lector de Acceso (Terminal)</h2>
-        </div>
-
-        <div className="bg-white rounded-[2.5rem] border-4 border-slate-100 p-8 md:p-12 shadow-sm space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h3 className="text-2xl font-black text-slate-800">Modo de Operación</h3>
-                <p className="text-slate-500 font-medium leading-relaxed">
-                  El sistema detecta automáticamente si la terminal está conectada. En caso de corte de red, el sistema entra en **Modo Centinela (Offline)**.
-                </p>
-              </div>
-              <ul className="space-y-4">
-                {[
-                  { title: "Escaneo QR", desc: "Uso de credencial digital o física impresa.", color: "text-indigo-600" },
-                  { title: "Selección de Cámara", desc: "Cambie entre cámara frontal o trasera manualmente.", color: "text-blue-500" },
-                  { title: "Ingreso DNI", desc: "Teclado numérico para marcación directa en caso de falla de cámara.", color: "text-amber-500" },
-                  { title: "Validación de Licencias", desc: "Rechazo automático en días de descanso o vacaciones.", color: "text-rose-500" },
-                  { title: "Sync Automático", desc: "Las fichadas offline se suben en cuanto vuelve el internet.", color: "text-emerald-500" },
-                ].map((item, idx) => (
-                  <li key={idx} className="flex items-start space-x-3">
-                    <CheckCircle2 className={`w-5 h-5 shrink-0 ${item.color}`} />
-                    <div>
-                      <span className="block font-black text-slate-700 text-sm italic">{item.title}</span>
-                      <span className="text-xs text-slate-400 font-medium">{item.desc}</span>
-                    </div>
-                  </li>
-                ))}
-
-              </ul>
-            </div>
-            
-            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col items-center justify-center space-y-4">
-              <div className="w-full flex justify-between px-4">
-                 <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div><span className="text-[8px] font-black uppercase text-slate-400">Terminal OK</span></div>
-                 <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div><span className="text-[8px] font-black uppercase text-slate-400">Syncing</span></div>
-              </div>
-              <div className="w-48 h-48 bg-white rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center relative overflow-hidden group">
-                 <ScanLine className="w-20 h-20 text-indigo-600 opacity-20" />
-                 <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500/50 shadow-lg animate-bounce"></div>
-                 <span className="absolute bottom-4 text-[10px] font-black text-slate-300">LISTO PARA ESCANEAR</span>
-              </div>
-              <div className="flex gap-2">
-                 <div className="w-20 h-8 bg-emerald-500/10 rounded-lg border border-emerald-500/20 flex items-center justify-center text-[10px] font-black text-emerald-600">ENTRADA</div>
-                 <div className="w-20 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400">SALIDA</div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-8 bg-rose-50 border border-rose-100 p-6 rounded-2xl flex flex-col md:flex-row items-center md:space-x-6 space-y-4 md:space-y-0 text-rose-900 shadow-sm print:border-black print:border-2">
-             <div className="p-4 bg-white rounded-full shadow-sm shrink-0">
-               <ShieldAlert className="w-8 h-8 text-rose-500" />
-             </div>
-             <div>
-                <h4 className="text-lg font-black uppercase tracking-tight mb-1">Cierre de Sesión Seguro (Protección por PIN)</h4>
-                <p className="text-sm font-medium leading-relaxed">
-                  Para evitar cierres de sesión accidentales, el botón de salida está protegido. Para cerrar la sesión, debe presionar el botón <strong>"Salir Terminal"</strong> en la esquina superior izquierda e ingresar el <strong>PIN de seguridad provisto por el administrador</strong>. Luego, confirme la acción en el cuadro de diálogo flotante.
-                </p>
-              </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 3: SCORING */}
-      <section id="sec-3" className="space-y-6 scroll-mt-32 break-inside-avoid">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-lg font-black">3</div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de Personal y Scoring</h2>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 flex flex-col justify-center">
-            <h3 className="text-lg font-black text-indigo-400 uppercase tracking-widest">Escala de Clasificación</h3>
-            <div className="space-y-3 font-bold text-xs uppercase tracking-tighter">
-              <div className="flex items-center space-x-3 text-indigo-300"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 0: Altamente Puntual (Puntaje Perfecto)</span></div>
-
-              <div className="flex items-center space-x-3 text-emerald-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 1: Excelente</span></div>
-              <div className="flex items-center space-x-3 text-amber-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 2: Estable</span></div>
-              <div className="flex items-center space-x-3 text-orange-400"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 3: Regular</span></div>
-              <div className="flex items-center space-x-3 text-rose-500"><div className="w-2 h-2 rounded-full bg-current"></div><span>Clase 4: Alerta / Crónica</span></div>
-            </div>
-          </div>
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-6">
-            <div>
-              <h3 className="text-xl font-black text-slate-800">Cálculo de Puntos</h3>
-              <p className="text-sm text-slate-500 font-medium mt-1">
-                El scoring parte de 999 puntos y descuenta eventos de asistencia de los últimos 90 días.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Eventos que descuentan</p>
-                <div className="space-y-2 text-sm font-bold text-slate-700">
-                  <p>Llegada tarde: <span className="text-indigo-600">20 pts + minutos tarde</span></p>
-                  <p>Sin presentismo: <span className="text-indigo-600">100 pts + minutos tarde</span></p>
-                  <p>Ausencia injustificada: <span className="text-indigo-600">250 pts</span></p>
-                  <p>Licencia médica: <span className="text-indigo-600">20 pts, tope 100 pts</span></p>
-                </div>
-              </div>
-
-              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Peso por antigüedad</p>
-                <div className="space-y-2 text-sm font-bold text-slate-700">
-                  <p>Últimos 30 días: <span className="text-emerald-600">100%</span></p>
-                  <p>31 a 60 días: <span className="text-amber-600">60%</span></p>
-                  <p>61 a 90 días: <span className="text-orange-600">30%</span></p>
-                  <p>Más de 90 días: <span className="text-slate-500">no cuenta</span></p>
-                </div>
-              </div>
-
-              <div className="p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Rangos de clase</p>
-                <div className="grid grid-cols-2 gap-y-2 text-sm font-black text-slate-700">
-                  <span>990-999</span><span>Clase 0</span>
-                  <span>950-989</span><span>Clase 1</span>
-                  <span>750-949</span><span>Clase 2</span>
-                  <span>500-749</span><span>Clase 3</span>
-                  <span>250-499</span><span>Clase 4</span>
-                  <span>0-249</span><span>Clase 5</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5 bg-emerald-50 rounded-2xl border-l-4 border-emerald-500">
-              <p className="text-sm font-bold text-emerald-900">
-                Ejemplo: una llegada tarde reciente de 15 minutos descuenta 35 puntos (20 + 15), por lo que el puntaje baja de 999 a 964.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: HORARIOS */}
-      <section id="sec-4" className="space-y-6 scroll-mt-32 break-inside-avoid">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-lg font-black">4</div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Cronogramas de Trabajo</h2>
-        </div>
-
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3 text-indigo-600 mb-2">
-              <Calendar className="w-5 h-5" />
-              <h3 className="text-xl font-black text-slate-800">Plantillas vs. Excepciones</h3>
-            </div>
-            <p className="text-slate-600 leading-relaxed font-medium">
-              El sistema utiliza un motor de herencia para determinar el horario de un empleado en un día específico.
-            </p>
-            <div className="space-y-4 mt-6">
-              <div className="p-5 bg-slate-50 rounded-2xl border-l-4 border-indigo-600">
-                <span className="block font-black text-slate-800 text-sm">1. Plantilla Base</span>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Define el horario habitual (ej: L-V de 08:00 a 16:00). <strong className="text-slate-700">Importante:</strong> Su cálculo NO es retroactivo; aplica unicamente desde el momento en que se le es configurado en adelante.</p>
-              </div>
-              <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-200">
-                <span className="block font-black text-indigo-800 text-sm">2. Excepción Semanal</span>
-                <p className="text-xs text-indigo-600 mt-1 font-medium italic">Sobreescribe la plantilla base para fechas específicas (ej: Cambio de turno temporal).</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center justify-center p-8 bg-indigo-600 rounded-[2rem] text-white space-y-4">
-             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center shadow-inner">
-                <Clock className="w-8 h-8" />
-             </div>
-             <p className="text-center text-sm font-bold uppercase tracking-[0.2em] leading-relaxed">
-               Admite Turnos:<br/>
-               <span className="text-indigo-200">CONTINUOS / CORTADOS / DESCANSOS</span>
-             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5: AUDITORÍA Y DASHBOARD */}
-      <section id="sec-5" className="space-y-6 scroll-mt-32 break-inside-avoid">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-lg font-black">5</div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Auditoría y Dashboard</h2>
-        </div>
-
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-10">
-          {/* Dashboard Intro */}
-          <div className="space-y-4">
-            <h3 className="text-2xl font-black text-slate-800 flex items-center">
-               <History className="w-6 h-6 mr-3 text-indigo-600" />
-               Panel de Mando Interactivo (Dashboard)
-            </h3>
-            <p className="text-slate-600 leading-relaxed font-medium">
-              El Dashboard principal no es solo informativo, es interactivo. Las métricas resumen que observas (como "Presentes", "Ausentes" y "Llegadas Tarde") funcionan como filtros rápidos.
-            </p>
-            <div className="p-5 bg-indigo-50 rounded-2xl border-l-4 border-indigo-600 max-w-3xl">
-              <span className="block font-black text-indigo-900 text-sm mb-1">💡 Tip Pro: Clic en las Estadísticas</span>
-              <p className="text-xs text-indigo-700 font-medium leading-relaxed">
-                Al hacer clic en uno de los bloques de estadísticas en la parte superior (por ejemplo, <strong>"Llegadas Tarde hoy"</strong>), la tabla inferior se filtrará automáticamente para mostrarte en detalle y de inmediato quiénes son exactamente esas personas que desencadenaron la métrica.
-              </p>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-slate-100 space-y-8">
-            <div className="space-y-4">
-              <h3 className="text-2xl font-black text-slate-800 flex items-center">
-                 <ShieldAlert className="w-6 h-6 mr-3 text-amber-500" />
-                 Módulo de Auditoría de Personal
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium max-w-4xl">
-                Este módulo es el corazón analítico del control de presentismo. Contiene todas las herramientas necesarias para la supervisión diaria, ajuste de excepciones y la exportación y liquidación a fin de mes.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               {/* 1. Vistas */}
-               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
-                  <h4 className="font-black text-indigo-900 uppercase tracking-widest text-xs flex items-center"><Calendar className="w-4 h-4 mr-2" /> Modos de Visualización</h4>
-                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
-                    <li className="flex items-start">
-                      <ArrowRight className="w-4 h-4 mr-2 mt-1 shrink-0 text-indigo-400" />
-                      <span><strong className="text-slate-800">Resumen Mensual:</strong> Tabla consolidada rápida útil para analizar quién llega tarde, ideal para exportación. Permite búsquedas por sector, alertas y scoring en tiempo real.</span>
-                    </li>
-                    <li className="flex items-start">
-                      <ArrowRight className="w-4 h-4 mr-2 mt-1 shrink-0 text-indigo-400" />
-                      <span><strong className="text-slate-800">Vista Calendario:</strong> Una grilla visual interactiva que expone el presentismo de todo el equipo, día por día en una hoja de ruta mensual, con colores semánticos intuitivos.</span>
-                    </li>
-                  </ul>
-               </div>
-
-               {/* 2. Recálculo */}
-               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
-                  <h4 className="font-black text-amber-700 uppercase tracking-widest text-xs flex items-center"><History className="w-4 h-4 mr-2" /> Recálculo Automático</h4>
-                  <p className="text-sm text-slate-600 font-medium">
-                    Si corriges el cronograma de un empleado o justificaste inasistencias pasadas, debes ubicar al usuario y presionar <strong>"Recalcular Periodo"</strong>. Esto obligará al sistema a:
-                  </p>
-                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-4 h-4 mr-2 mt-1 shrink-0 text-amber-500" />
-                      <span>Re-evaluar si llegó tarde o ausente en el pasado en base a tu nuevo mapa de horario.</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-4 h-4 mr-2 mt-1 shrink-0 text-amber-500" />
-                      <span>Volver a actualizar en fracciones de segundo la suma final y su <strong>estado de Scoring</strong> dinámico en pantalla.</span>
-                    </li>
-                  </ul>
-               </div>
-
-               {/* 3. Gestión y Modificación */}
-               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4 flex flex-col">
-                  <h4 className="font-black text-emerald-800 uppercase tracking-widest text-xs flex items-center"><ShieldCheck className="w-4 h-4 mr-2" /> Control y Edición Fina</h4>
-                  <ul className="space-y-3 text-sm text-slate-600 font-medium list-none">
-                    <li className="flex items-start">
-                      <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
-                      <span><strong className="text-slate-800">Directorio y Credenciales:</strong> Gestión completa de legajos con capacidad de <strong>descarga masiva de carnets (ZIP)</strong> por sector para impresión rápida.</span>
-                    </li>
-                    <li className="flex items-start">
-                      <ArrowRight className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-emerald-500" />
-                      <span><strong className="text-slate-800">Edición Detallada:</strong> Con el botón "Ver Detalle" puedes justificar fechas pasadas (licencias, vacaciones) además de poder extraer el CSV minucioso de ese único empleado.</span>
-                    </li>
-
-                  </ul>
-               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ SECTION */}
-      <section id="sec-faq" className="space-y-8 scroll-mt-32 break-inside-avoid">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center">
-            <HelpCircle className="w-8 h-8 mr-4 text-indigo-600" />
-            Preguntas Frecuentes
-          </h2>
-          <p className="text-slate-500 font-medium">Todo lo que necesitas saber sobre el día a día en Asistencias QR.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Panaderia Villecco */}
+          <div className={`p-6 rounded-[2rem] border transition-all ${
+            selectedCompany === 'miles' ? 'opacity-40' : 'bg-white border-emerald-100 shadow-sm'
+          }`}>
+            <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <img src={VILLECCO_LOGO} alt="Panadería Villecco" className="h-10 object-contain" />
+                <div>
+                  <h3 className="font-black text-slate-800 text-base">Panadería Villecco</h3>
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Desde 1925</span>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-black uppercase">Verde Bosque</span>
+            </div>
+            <ul className="space-y-2 text-xs text-slate-600 font-medium">
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Sectores:</strong> Cuadra, Pastelería, Mostrador, Envasado, Reparto, Mantenimiento, Administración.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Carnet:</strong> Blanco nítido con logo de espigas, triple ola verde inferior y QR en verde bosque.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Base de datos:</strong> Proyecto Supabase principal de Villecco.</span></li>
+            </ul>
+          </div>
+
+          {/* Bar Miles */}
+          <div className={`p-6 rounded-[2rem] border transition-all ${
+            selectedCompany === 'villecco' ? 'opacity-40' : 'bg-[#FAF8F5] border-[#E5DDD2] shadow-sm'
+          }`}>
+            <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-[#E5DDD2]">
+              <div className="flex items-center gap-3">
+                <img src={BAR_MILES_LOGO} alt="Bar Miles" className="h-10 w-10 rounded-full object-contain" />
+                <div>
+                  <h3 className="font-black text-slate-800 text-base">Bar Miles</h3>
+                  <span className="text-[10px] font-bold text-[#A08266] uppercase tracking-widest">Miles Bar & Resto</span>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-[#B89E84]/20 text-[#6D543F] border border-[#B89E84]/40 rounded-full text-[10px] font-black uppercase">Marfil & Moca</span>
+            </div>
+            <ul className="space-y-2 text-xs text-slate-600 font-medium">
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Sectores:</strong> Barra, Cocina, Salón / Mozos, Caja, Bachero, Seguridad, Administración.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Carnet:</strong> Fondo lino marfil, marco artesanal, sello circular Staff, acentos café y cinta tricolor.</span></li>
+              <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#A08266] shrink-0 mt-0.5" /><span><strong>Base de datos:</strong> Proyecto Supabase independiente dedicado.</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200/80 p-5 rounded-2xl flex items-start gap-3 text-amber-900">
+          <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs leading-relaxed font-medium">
+            <strong>Sin selectores manuales:</strong> El sistema identifica automáticamente a qué empresa pertenece el entorno mediante la URL de base de datos y el dominio en Vercel. En ningún formulario se mezcla el personal de la Panadería con el del Bar.
+          </p>
+        </div>
+      </section>
+
+      {/* SECTION 2: ACCESO Y ROLES */}
+      <section id="sec-2" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">2</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Acceso, Seguridad y Roles</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Aprobación de cuentas, vinculación por DNI y jerarquía de permisos</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              Circuito de Aprobación de Usuarios
+            </h3>
+            <ol className="space-y-3 text-xs text-slate-600 font-medium list-decimal list-inside">
+              <li><strong>Registro Inicial:</strong> El usuario se registra con su correo y contraseña.</li>
+              <li><strong>Estado Pendiente:</strong> El acceso queda bloqueado preventivamente hasta la revisión.</li>
+              <li><strong>Autorización Administrativa:</strong> Un administrador o superusuario revisa el DNI, asigna el rol y activa la cuenta.</li>
+              <li><strong>Vinculación con Legajo:</strong> La cuenta se conecta automáticamente con el legajo del colaborador según su DNI.</li>
+            </ol>
+          </div>
+
+          <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400">Jerarquía de Roles</h3>
+            <div className="space-y-2.5 text-xs">
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <span className="font-black text-emerald-300 uppercase">Superusuario:</span> Control irrestricto de configuración, base de datos y auditoría.
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <span className="font-black text-emerald-300 uppercase">Administrador:</span> Personal, cronogramas, auditoría de asistencia, recalculo y liquidación.
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <span className="font-black text-amber-300 uppercase">Encargado:</span> Supervisión de sus sectores asignados, carga horaria y justificaciones.
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <span className="font-black text-blue-300 uppercase">Empleado:</span> Consulta exclusiva de su credencial QR y sus horarios.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 3: MODO TERMINAL */}
+      <section id="sec-3" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">3</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">El Lector de Acceso (Terminal)</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Modo kiosco, escaneo QR de alta velocidad, teclado DNI y modo offline</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <h3 className="text-lg font-black text-slate-800">Funcionalidades Principales</h3>
+              <ul className="space-y-3 text-xs text-slate-600 font-medium">
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Escaneo QR Instantáneo:</strong> Detección en menos de 300 ms con cámara frontal, trasera o externa.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Ingreso Manual por DNI:</strong> Teclado numérico en pantalla para contingencias si el empleado olvidó su credencial.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Protección Antiduplicado:</strong> Bloqueo automático de 10 minutos para evitar que se fiche dos veces el mismo evento.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Control de Descansos y Licencias:</strong> La terminal avisa y no genera asistencia estándar si la persona está de franco o de vacaciones.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /><span><strong>Modo Centinela (Offline):</strong> Si se corta internet, las fichadas se guardan de forma local en el dispositivo y se sincronizan solas cuando vuelve la red.</span></li>
+              </ul>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 p-6 rounded-2xl space-y-3 text-rose-950">
+              <div className="flex items-center gap-2 text-rose-700 font-black text-sm uppercase">
+                <ShieldAlert className="w-5 h-5" />
+                <span>Salida Protegida por PIN Maestro</span>
+              </div>
+              <p className="text-xs leading-relaxed font-medium">
+                Para que ningún colaborador pueda cerrar la terminal accidental o intencionalmente, el botón <strong>"Salir Terminal"</strong> (arriba a la izquierda) exige ingresar el <strong>PIN de seguridad de Administrador</strong> antes de volver al panel.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 4: PERSONAL Y CARNETS */}
+      <section id="sec-4" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">4</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Gestión de Personal y Carnets</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Legajos, modalidad de contratación y descarga masiva de credenciales en ZIP</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+              <h4 className="font-black text-xs uppercase text-slate-700">1. Tipo de Personal</h4>
+              <p className="text-xs text-slate-600 font-medium">
+                Se define al colaborador como <strong>Efectivo</strong> (permanente; elegible para francos compensatorios por domingos/feriados) o <strong>Jornalero</strong>.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+              <h4 className="font-black text-xs uppercase text-slate-700">2. Emisión de Credencial</h4>
+              <p className="text-xs text-slate-600 font-medium">
+                Cada colaborador posee un token QR único y persistente. El carnet se puede previsualizar en pantalla e imprimir directamente.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+              <h4 className="font-black text-xs uppercase text-slate-700">3. Descarga Masiva ZIP</h4>
+              <p className="text-xs text-slate-600 font-medium">
+                Permite exportar en un solo archivo comprimido ZIP los carnets en PNG de todo el sector seleccionado para impresión en lote.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 5: SCORING DE ASISTENCIA */}
+      <section id="sec-5" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">5</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Sistema de Scoring (0 a 999 Puntos)</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Evaluación matemática continua de puntualidad y conducta con decaimiento a 90 días</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-5 bg-slate-900 text-white rounded-2xl space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">Escala de Clases</h4>
+              <div className="space-y-1.5 text-xs font-bold">
+                <p className="text-purple-300">Clase 0 (990-999): Altamente Puntual</p>
+                <p className="text-emerald-300">Clase 1 (950-989): Excelente</p>
+                <p className="text-amber-300">Clase 2 (750-949): Estable</p>
+                <p className="text-orange-300">Clase 3 (500-749): Regular</p>
+                <p className="text-rose-400">Clase 4 (250-499): Alerta</p>
+                <p className="text-slate-400">Clase 5 (0-249): Crónica</p>
+              </div>
+            </div>
+
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-700">Descuentos por Infracción</h4>
+              <div className="space-y-2 text-xs text-slate-600 font-medium">
+                <p><strong>Llegada Tarde:</strong> -20 pts + 1 pt por minuto tarde</p>
+                <p><strong>Sin Presentismo:</strong> -100 pts + 1 pt por minuto tarde</p>
+                <p><strong>Ausencia Injustificada:</strong> -250 pts fijas</p>
+                <p><strong>Licencia Médica:</strong> -20 pts (Tope 100 pts en periodo)</p>
+              </div>
+            </div>
+
+            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-emerald-800">Antigüedad (Ventana 90 Días)</h4>
+              <div className="space-y-2 text-xs text-emerald-950 font-medium">
+                <p><strong>Últimos 30 días:</strong> 100% del impacto</p>
+                <p><strong>De 31 a 60 días:</strong> 60% del impacto</p>
+                <p><strong>De 61 a 90 días:</strong> 30% del impacto</p>
+                <p><strong>Más de 90 días:</strong> Caduca (sin descuento)</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 6: HORARIOS Y FRANCOS */}
+      <section id="sec-6" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">6</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Cronogramas y Francos Compensatorios</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Plantillas base, turnos cortados, nocturnos y acreditación de francos</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-600" />
+              Tipos de Turnos Admitidos
+            </h3>
+            <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+              <li><strong>Turno Corrido:</strong> Una sola entrada y salida continua (ej. 06:00 a 14:00).</li>
+              <li><strong>Turno Cortado:</strong> Dos tramos independientes en el día (ej. 08:00 a 12:00 y 16:30 a 20:30).</li>
+              <li><strong>Turno Nocturno:</strong> Turnos que cruzan la medianoche; la salida se concilia con la jornada que inició la noche previa.</li>
+              <li><strong>Descansos:</strong> Días libres programados en el calendario semanal.</li>
+            </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-600" />
+              Regla de Francos Compensatorios
+            </h3>
+            <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+              <li><strong>Acreditación (+1):</strong> El colaborador Efectivo que trabaje un domingo o feriado oficial con fichada real suma 1 franco compensatorio a su saldo.</li>
+              <li><strong>Saldo Visible:</strong> Se consulta y gestiona desde la ficha del colaborador.</li>
+              <li><strong>Consumo:</strong> Al asignar "Franco Compensatorio" en el cronograma, el saldo se debita únicamente al llegar o transcurrir la fecha.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 7: AUDITORÍA Y LIQUIDACIÓN */}
+      <section id="sec-7" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">7</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Auditoría de Personal y Liquidación</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Resumen mensual, vista calendario interactiva, recálculo y exportación a Excel</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <h4 className="font-black text-sm text-slate-800 flex items-center gap-2">
+                <History className="w-4 h-4 text-emerald-600" />
+                Herramientas de Control Diario
+              </h4>
+              <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                <li><strong>Botón "Recalcular Período":</strong> Si modificas un cronograma hacia el pasado, reprocesa las fichadas y elimina inasistencias prematuras.</li>
+                <li><strong>Edición de Hora (✏️):</strong> Permite corregir una marca ante contingencias justificadas.</li>
+                <li><strong>Anulación de Fichada (🗑️):</strong> Borra marcas erróneas que bloqueen la fichada correcta.</li>
+                <li><strong>Cierre Manual de Jornada:</strong> Completa salidas olvidadas con la hora real de retiro.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-black text-sm text-slate-800 flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                Liquidación de Sueldos
+              </h4>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                El módulo de Auditoría consolida las horas trabajadas, minutos de tardanza y faltas de todo el mes. Con el botón de <strong>Exportar CSV / Excel</strong>, se obtiene una planilla lista para importar en el sistema contable o de liquidación de haberes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 8: LEGAJOS DIGITALES */}
+      <section id="sec-8" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">8</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Legajos Digitales y Documentación</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Expediente único del colaborador, altas AFIP, libretas sanitarias y sanciones</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+          <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed">
+            Cada colaborador cuenta con un <strong>Legajo Digital Centralizado</strong> que reúne:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium text-slate-700">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <strong className="block text-slate-800 font-black mb-1">Datos Laborales y Familiares:</strong>
+              DNI, CUIL, domicilio, contacto de emergencia y modalidad de contratación.
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <strong className="block text-slate-800 font-black mb-1">Documentos y Certificados:</strong>
+              Contrato, alta AFIP/ARCA, recibos de sueldo, libreta sanitaria y manipulación de alimentos.
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <strong className="block text-slate-800 font-black mb-1">Historial Disciplinario:</strong>
+              Registro de llamados de atención, apercibimientos por escrito y suspensiones con fecha.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 9: SOLICITUDES RRHH */}
+      <section id="sec-9" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">9</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Solicitudes de RRHH (HrRequests)</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Licencias médicas con certificado adjunto, vacaciones y permisos especiales</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+          <p className="text-xs md:text-sm text-slate-600 font-medium">
+            Flujo formal para la carga y resolución de permisos:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium text-slate-700">
+            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100">
+              <span className="font-black text-emerald-800 block mb-1">Tipos de Solicitudes:</span>
+              Licencias médicas (con subida de foto del certificado médico), vacaciones programadas, solicitud de francos compensatorios y ausencias justificadas.
+            </div>
+            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100">
+              <span className="font-black text-emerald-800 block mb-1">Aprobación Automática a Cronograma:</span>
+              Al ser aprobada por el supervisor, la solicitud impacta de forma automática en el cronograma semanal del colaborador, evitando que la terminal lo marque como ausente.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 10: FRAUDE Y AUDITORIA */}
+      <section id="sec-10" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">10</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Auditoría del Sistema y Análisis de Fraude</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Trazabilidad inmutable de cambios y detección de anomalías en fichadas</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <h4 className="font-black text-xs uppercase text-slate-700 flex items-center gap-2">
+                <History className="w-4 h-4 text-emerald-600" />
+                Log de Auditoría (Audit Log)
+              </h4>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Toda modificación horaria, cambio de rol o justificación queda registrada con el nombre del supervisor, fecha exacta, valor anterior, valor nuevo y el motivo justificado.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-black text-xs uppercase text-slate-700 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-500" />
+                Detección de Fraude
+              </h4>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                El sistema detecta automáticamente marcaciones en tiempos imposibles (ej. dos registros en segundos desde lugares diferentes) y anomalías en el teclado manual.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 11: PWA Y TROUBLESHOOTING */}
+      <section id="sec-11" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">11</div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Instalación PWA y Resolución de Problemas</h2>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">Instalación en tabletas, celulares y guía de incidencias comunes</p>
+          </div>
+        </div>
+
+        {/* Troubleshooting Table */}
+        <div className="bg-slate-900 rounded-[2.5rem] p-6 md:p-10 text-white shadow-2xl space-y-6">
+          <h3 className="text-lg font-black tracking-tight text-emerald-400">Guía de Resolución de Incidencias</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-bold">
+              <thead>
+                <tr className="text-emerald-400 border-b border-white/10 uppercase tracking-widest text-[10px]">
+                  <th className="pb-3">Problema detectado</th>
+                  <th className="pb-3">Causa probable</th>
+                  <th className="pb-3">Procedimiento de solución</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {[
+                  { p: "Cámara no activa", c: "Permisos denegados en el navegador", s: "Clic en el candado de la barra de direcciones y habilitar Cámara." },
+                  { p: "Cámara incorrecta", c: "Dispositivo con múltiples lentes", s: "Use el botón de cambio de cámara en la pantalla de escaneo." },
+                  { p: "QR no leído", c: "Bajo brillo o código dañado", s: "Subir brillo de pantalla o usar 'Ingreso Manual' con DNI." },
+                  { p: "Error 'Ya fichó'", c: "Doble marcación en <10 minutos", s: "Aguardar a que expire la ventana de protección antiduplicado." },
+                  { p: "Acceso por PIN bloqueado", c: "Protección de modo terminal", s: "Ingresar el PIN maestro de seguridad de administrador." },
+                  { p: "Fichadas en ámbar", c: "Corte de conexión a internet", s: "La terminal sigue operando offline y sincronizará sola al volver la red." },
+                ].map((row, i) => (
+                  <tr key={i} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 pr-4 text-white">{row.p}</td>
+                    <td className="py-3.5 pr-4 text-slate-400 italic font-medium">{row.c}</td>
+                    <td className="py-3.5 text-emerald-300">{row.s}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION FAQ */}
+      <section id="sec-faq" className="space-y-6 scroll-mt-24 break-inside-avoid">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center justify-center gap-3">
+            <HelpCircle className="w-7 h-7 text-emerald-700" />
+            Preguntas Frecuentes
+          </h2>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Respuestas rápidas para el día a día operativo</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { 
-              q: "¿Puedo imprimir el QR en una tarjeta física?", 
-              a: "Sí. Los códigos son persistentes y están vinculados al DNI. Una vez impresos, sirven indefinidamente mientras el usuario esté activo." 
+              q: "¿Las credenciales impresas pierden vigencia?", 
+              a: "No. El código QR está vinculado de forma persistente al DNI. Sirve indefinidamente mientras el colaborador continúe activo." 
             },
             { 
-              q: "¿Qué sucede si no hay internet en la planta?", 
-              a: "La terminal entra en modo Offline. Guarda las fichadas localmente y las sincroniza con el servidor en cuanto recupere la conexión." 
+              q: "¿Qué pasa si se corta la luz o internet en el local?", 
+              a: "La terminal entra en Modo Centinela (Offline). Continúa escaneando y registra las fichadas localmente; al regresar la red se sincronizan solas sin perderse datos." 
             },
             { 
-              q: "¿Cómo corregir una fichada olvidada?", 
-              a: "Los administradores pueden usar la función 'Recalcular Periodo' o añadir registros manuales desde el módulo de Auditoría." 
+              q: "¿Cómo corregir si un empleado olvidó fichar su salida?", 
+              a: "Desde el módulo de Auditoría de Personal, el supervisor puede realizar un cierre manual ingresando la hora real de retiro." 
             },
             { 
-              q: "¿Puedo ver quién modificó un horario?", 
-              a: "Sí. Cada cambio realizado por un administrador queda registrado en el Log de Auditoría (Sistema), permitiendo trazabilidad total." 
+              q: "¿Puedo auditar quién modificó un horario pasado?", 
+              a: "Sí. Toda modificación horaria queda registrada con nombre del supervisor, fecha exacta y motivo en el módulo de Auditoría del Sistema." 
             }
           ].map((item, idx) => (
-            <div key={idx} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-4 hover:border-indigo-200 transition-colors">
-              <h4 className="text-lg font-black text-slate-800">{item.q}</h4>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed italic">"{item.a}"</p>
+            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-2 hover:border-emerald-200 transition-colors">
+              <h4 className="font-black text-sm text-slate-800">{item.q}</h4>
+              <p className="text-slate-600 font-medium text-xs leading-relaxed italic">"{item.a}"</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Troubleshooting Table */}
-      <section className="bg-slate-900 rounded-[3rem] p-8 md:p-12 text-white space-y-12 shadow-2xl break-inside-avoid mt-20">
-        <div className="space-y-4">
-          <h2 className="text-3xl font-black tracking-tight">Resolución de Problemas</h2>
-          <p className="text-slate-400 font-medium">Guía rápida para incidencias comunes en terminales.</p>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-bold text-sm">
-            <thead>
-              <tr className="text-indigo-400 border-b border-white/5 uppercase tracking-widest text-[10px]">
-                <th className="pb-4">Problema detectado</th>
-                <th className="pb-4">Causa probable</th>
-                <th className="pb-4">Procedimiento de solución</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {[
-                { p: "Cámara no activa", c: "Permisos denegados", s: "Permitir uso de cámara en el navegador." },
-                { p: "Cámara incorrecta", c: "Dispositivo con múltiples cámaras", s: "Use el botón de cambio de cámara en la pantalla de escaneo." },
-                { p: "Error 'Duplicate'", c: "Fichaje reciente", s: "Aguardar 10 min entre fichadas (evita duplicidad)." },
-                { p: "Acceso Bloqueado", c: "Suspensión administrativa", s: "Consultar log de suspensión en módulo Usuarios." },
-                { p: "QR no leído", c: "Baja luminosidad", s: "Subir el brillo del móvil o limpiar lente de cámara." },
-                { p: "Cierre de Sesión en Terminal", c: "Protección por PIN", s: "Presione 'Salir Terminal' e ingrese el PIN de seguridad." },
-
-              ].map((row, i) => (
-                <tr key={i} className="hover:bg-white/5 transition-colors group">
-                  <td className="py-6 pr-4 flex items-center"><ShieldAlert className="w-4 h-4 mr-3 text-rose-500 opacity-0 group-hover:opacity-100" />{row.p}</td>
-                  <td className="py-6 pr-4 text-slate-500 italic">"{row.c}"</td>
-                  <td className="py-6 text-indigo-400">{row.s}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="text-center pt-12 pb-20 space-y-4 print:pt-4 pt-10">
-        <div className="flex items-center justify-center space-x-2 text-indigo-600">
+      <footer className="text-center pt-8 pb-16 space-y-3 print:pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-center space-x-2 text-emerald-800">
            <ShieldCheck className="w-5 h-5" />
-           <span className="font-black tracking-tighter">ASISTENCIAS QR</span>
+           <span className="font-black tracking-tight text-sm">SECUREQR • SISTEMA DE ASISTENCIAS</span>
         </div>
-        <div className="flex flex-col items-center space-y-1">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Versión 2.0.4 • 2026</p>
-          <p className="text-[9px] font-bold text-indigo-500/60 uppercase tracking-[0.3em]">Diseñado por Isaac Gomez</p>
+        <div className="flex flex-col items-center space-y-0.5">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Panadería Villecco (Desde 1925) • Bar Miles</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Versión 2.1.0 • 2026</p>
         </div>
       </footer>
 
       {/* Print styles */}
       <style>{`
         @media print {
-          /* Force visibility and clear floats/overflows on parent containers */
           html, body { 
             height: auto !important; 
             overflow: visible !important; 
@@ -492,13 +618,9 @@ const ManualView: React.FC = () => {
             padding: 0 !important;
             background: white !important;
           }
-          
-          /* Hide sidebar and toggle components that might exist in the DOM */
           aside, nav, button, .print\\:hidden { 
             display: none !important; 
           }
-          
-          /* Reset the main container constraints */
           main, .min-h-screen, .flex, .overflow-auto, .overflow-hidden {
             display: block !important;
             overflow: visible !important;
@@ -507,28 +629,24 @@ const ManualView: React.FC = () => {
             position: static !important;
             min-height: 0 !important;
           }
-
-          /* Content specific styles */
           h1, h2, h3, h4 { 
             color: black !important; 
             page-break-after: avoid; 
           }
           p, span, td, div { 
-            color: #333 !important; 
+            color: #222 !important; 
           }
           .break-inside-avoid { 
             page-break-inside: avoid; 
           }
           section { 
-            margin-bottom: 2.5rem !important;
-            page-break-inside: avoid;
+            margin-bottom: 2rem !important;
+            page-break-inside: avoid; 
           }
-          
-          /* Remove background colors and shadows for better print ink usage */
-          .bg-slate-900, .bg-indigo-600 {
-            background-color: #f8fafc !important; /* light slate */
+          .bg-slate-900, .bg-emerald-800 {
+            background-color: #f8fafc !important;
             color: black !important;
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid #cbd5e1 !important;
           }
           .shadow-sm, .shadow-md, .shadow-xl, .shadow-2xl {
             box-shadow: none !important;

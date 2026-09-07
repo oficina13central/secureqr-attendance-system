@@ -27,7 +27,7 @@ import { roleService } from '../services/roleService';
 import { attendanceService } from '../services/attendanceService';
 import { Role } from '../types';
 import EmployeeFileModal from './EmployeeFileModal';
-import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO } from '../utils/companyTheme';
+import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO, VILLECCO_LOGO } from '../utils/companyTheme';
 
 interface PersonnelViewProps {
     employees: Profile[];
@@ -552,11 +552,14 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
 
         return `<div style="width: 500px; height: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif; box-sizing: border-box;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 130px; padding: 0 2rem; text-align: center; margin-bottom: 1.5rem;">
-                    <h2 style="font-size: ${nameFontSize}; font-weight: 800; color: #1e293b; text-transform: uppercase; margin: 0; line-height: 1;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 135px; padding: 0.8rem 2rem 0 2rem; text-align: center; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px;">
+                        <img src="${VILLECCO_LOGO}" alt="Panadería Villecco" style="height: 38px; object-fit: contain;" />
+                    </div>
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 800; color: #1e293b; text-transform: uppercase; margin: 0; line-height: 1.1;">
                         ${emp.full_name}
                     </h2>
-                    <p style="font-size: 0.8rem; font-weight: 600; color: #52B788; letter-spacing: 0.3em; text-transform: uppercase; margin: 0.8rem 0 0 0; opacity: 0.8;">
+                    <p style="font-size: 0.75rem; font-weight: 700; color: #1B4332; letter-spacing: 0.25em; text-transform: uppercase; margin: 4px 0 0 0; opacity: 0.85;">
                         Credencial de Acceso
                     </p>
                 </div>
@@ -1304,22 +1307,25 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     style={{ width: '500px', height: '330px', borderRadius: '0.5rem', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)' }}
                                 >
                                     <div
-                                        style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1rem' }}
+                                        style={{ height: '130px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '0.8rem' }}
                                     >
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px' }}>
+                                            <img src="/villecco_logo.png" alt="Panadería Villecco" style={{ height: '40px', objectFit: 'contain' }} />
+                                        </div>
                                         <h2
                                             className="font-black text-slate-800 uppercase"
                                             style={{
-                                                fontSize: showCardModal.full_name.length > 28 ? '1.2rem'
-                                                        : showCardModal.full_name.length > 22 ? '1.5rem'
-                                                        : showCardModal.full_name.length > 16 ? '1.8rem'
-                                                        : '2.2rem',
-                                                lineHeight: 1,
+                                                fontSize: showCardModal.full_name.length > 28 ? '1.15rem'
+                                                        : showCardModal.full_name.length > 22 ? '1.35rem'
+                                                        : showCardModal.full_name.length > 16 ? '1.65rem'
+                                                        : '1.95rem',
+                                                lineHeight: 1.1,
                                                 margin: 0
                                             }}
                                         >
                                             {showCardModal.full_name}
                                         </h2>
-                                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', opacity: 0.8, margin: '10px 0 0 0' }}>
+                                        <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1B4332', letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.85, margin: '6px 0 0 0' }}>
                                             Credencial de Acceso
                                         </p>
                                     </div>

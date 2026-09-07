@@ -105,7 +105,7 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
             </div>
           </div>
         ) : (
-          /* Credencial coincidente con la referencia (Ayres) */
+          /* Credencial oficial Panadería Villecco */
           <div 
             id="my-qr-badge" 
             className="bg-white overflow-hidden relative flex flex-col shadow-2xl"
@@ -118,11 +118,14 @@ const MyCredentialView: React.FC<MyCredentialViewProps> = ({ user }) => {
             }}
           >
             {/* Header Block */}
-            <div style={{ height: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>
+            <div style={{ height: '190px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                <img src="/villecco_logo.png" alt="Panadería Villecco" style={{ height: '48px', objectFit: 'contain' }} />
+              </div>
+              <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', margin: 0, lineHeight: 1.1 }}>
                 {user.full_name}
               </h3>
-              <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', margin: '0.8rem 0 0 0', opacity: 0.8 }}>
+              <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1B4332', letterSpacing: '0.25em', textTransform: 'uppercase', margin: '0.6rem 0 0 0', opacity: 0.85 }}>
                 Credencial de Acceso
               </p>
             </div>
