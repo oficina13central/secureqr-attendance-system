@@ -30,6 +30,7 @@ export interface EmployeeThemeCheck {
   job_category?: string | null;
   qr_token?: string;
   full_name?: string;
+  company?: string;
 }
 
 export interface SectorThemeCheck {
@@ -52,10 +53,14 @@ export const isMilesEmployee = (
 ): boolean => {
   if (!emp) return isBarMiles();
 
-  // 1. Si la app completa está configurada o corriendo como Bar Miles
+  // 1. Asignación explícita de empresa en la ficha del empleado
+  if (emp.company === 'bar_miles') return true;
+  if (emp.company === 'ayres') return false;
+
+  // 2. Si la app completa está configurada o corriendo como Bar Miles
   if (isBarMiles()) return true;
 
-  // 2. Verificación por DNI registrado del personal del bar
+  // 3. Fallbacks para registros históricos previos a la asignación de empresa:
   if (emp.dni && KNOWN_BAR_MILES_DNIS.has(emp.dni.trim())) {
     return true;
   }

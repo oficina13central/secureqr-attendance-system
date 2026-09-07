@@ -19,6 +19,7 @@ export interface Profile {
   full_name: string;
   email: string;
   role: string; // Dynamic role ID
+  company?: 'ayres' | 'bar_miles' | string;
   employment_type?: 'efectivo' | 'jornalero';
   hire_date?: string | null;
   contract_type?: string | null;

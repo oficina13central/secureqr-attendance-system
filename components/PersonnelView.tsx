@@ -49,6 +49,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [selectedClass, setSelectedClass] = useState<string>('all');
     const [selectedSector, setSelectedSector] = useState<string>('all');
     const [selectedEmploymentType, setSelectedEmploymentType] = useState<string>('all');
+    const [selectedCompany, setSelectedCompany] = useState<string>('all');
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
@@ -140,10 +141,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             const matchesClass = selectedClass === 'all' || scoreCategory === selectedClass;
             const matchesSector = selectedSector === 'all' || emp.sector_id === selectedSector;
             const matchesEmploymentType = selectedEmploymentType === 'all' || (emp.employment_type || 'efectivo') === selectedEmploymentType;
+            const empCompany = emp.company || (isMilesEmployee(emp, sectors) ? 'bar_miles' : 'ayres');
+            const matchesCompany = selectedCompany === 'all' || empCompany === selectedCompany;
             
-            return matchesSearch && matchesClass && matchesSector && matchesEmploymentType;
+            return matchesSearch && matchesClass && matchesSector && matchesEmploymentType && matchesCompany;
         });
-    }, [visiblePersonnel, searchTerm, selectedClass, selectedSector, selectedEmploymentType, sectors, scoringData, currentUser]);
+    }, [visiblePersonnel, searchTerm, selectedClass, selectedSector, selectedEmploymentType, selectedCompany, sectors, scoringData, currentUser]);
 
     const cardDownloadEmployees = React.useMemo(
         () => filteredEmployees.filter(emp => !emp.deleted_at),
@@ -167,6 +170,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         nationality: 'Argentina',
         role: 'encargado',
         employment_type: 'efectivo',
+        company: isMiles ? 'bar_miles' : 'ayres',
         hire_date: '',
         contract_type: 'permanent',
         job_position: '',
@@ -194,7 +198,28 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openAddModal = () => {
         setIsEditing(false);
-        setFormData({ full_name: '', email: '', dni: '', cuil: '', birth_date: '', address: '', phone: '', emergency_contact_name: '', emergency_contact_phone: '', marital_status: '', nationality: 'Argentina', role: 'encargado', employment_type: 'efectivo', hire_date: '', contract_type: 'permanent', job_position: '', job_category: '', sector_id: '', managed_sectors: [] });
+        setFormData({
+            full_name: '',
+            email: '',
+            dni: '',
+            cuil: '',
+            birth_date: '',
+            address: '',
+            phone: '',
+            emergency_contact_name: '',
+            emergency_contact_phone: '',
+            marital_status: '',
+            nationality: 'Argentina',
+            role: 'encargado',
+            employment_type: 'efectivo',
+            company: isMiles ? 'bar_miles' : 'ayres',
+            hire_date: '',
+            contract_type: 'permanent',
+            job_position: '',
+            job_category: '',
+            sector_id: '',
+            managed_sectors: []
+        });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -202,7 +227,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
     const openEditModal = (employee: Profile) => {
         setIsEditing(true);
-        setFormData({ ...employee, managed_sectors: employee.managed_sectors || [] });
+        const resolvedCompany = employee.company || (isMilesEmployee(employee, sectors) ? 'bar_miles' : 'ayres');
+        setFormData({
+            ...employee,
+            company: resolvedCompany,
+            managed_sectors: employee.managed_sectors || []
+        });
         setError(null);
         setSuccess(false);
         setShowModal(true);
@@ -285,6 +315,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     job_position: formData.job_position || null,
                     job_category: formData.job_category || null,
                     sector_id: formData.sector_id || null,
+                    company: formData.company || (isMiles ? 'bar_miles' : 'ayres'),
                     managed_sectors: isManagerRole(formData.role || '') ? (formData.managed_sectors || []) : [],
                     qr_token: `SECURE_USER:${formData.full_name?.replace(/\s+/g, '_')}_${formData.id}`
                 };
@@ -310,6 +341,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     nationality: formData.nationality || null,
                     role: formData.role as string,
                     employment_type: formData.employment_type || 'efectivo',
+                    company: formData.company || (isMiles ? 'bar_miles' : 'ayres'),
                     hire_date: formData.hire_date || null,
                     contract_type: formData.contract_type || null,
                     job_position: formData.job_position || null,
@@ -593,14 +625,16 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             return 0;
         });
 
-        const headers = ["Nombre", "DNI", "Rol", "Tipo", "Sector", "Clasificacion", "Puntos"];
+        const headers = ["Nombre", "Empresa", "DNI", "Rol", "Tipo", "Sector", "Clasificacion", "Puntos"];
         const rows = sorted.map(emp => {
             const roleName = roles.find(r => r.id === emp.role)?.name || emp.role;
             const sectorName = sectors.find(s => s.id === emp.sector_id)?.name || emp.sector_id || 'General';
             const scoreData = scoringData[emp.id];
+            const companyName = isMilesEmployee(emp, sectors) ? 'Bar Miles' : 'Panadería (Ayres)';
             
             return [
                 emp.full_name,
+                companyName,
                 emp.dni || '-',
                 roleName,
                 getEmploymentTypeLabel(emp.employment_type),
@@ -730,6 +764,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     </div>
                     <div className="relative w-full sm:w-auto">
                         <select
+                            value={selectedCompany}
+                            onChange={(e) => setSelectedCompany(e.target.value)}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+                            style={{ minWidth: '190px' }}
+                        >
+                            <option value="all">Todas las Empresas</option>
+                            <option value="ayres">🥖 Panadería (Ayres)</option>
+                            <option value="bar_miles">🍸 Bar Miles</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <select
                             value={selectedEmploymentType}
                             onChange={(e) => setSelectedEmploymentType(e.target.value)}
                             className="w-full sm:w-auto bg-slate-50 border border-slate-100 pr-10 pl-6 py-3 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
@@ -802,12 +851,21 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                             </div>
                                             <div className="min-w-0">
                                                 <span className="block font-bold text-slate-700">{emp.full_name}</span>
-                                                {emp.deleted_at && (
-                                                    <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-wider">
-                                                        <Archive className="w-3 h-3" />
-                                                        Archivado
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                                        isMilesEmployee(emp, sectors)
+                                                            ? 'bg-[#FAF0E6] text-[#8C6D4F] border border-[#E5DDD2]'
+                                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    }`}>
+                                                        {isMilesEmployee(emp, sectors) ? '🍸 Bar Miles' : '🥖 Panadería'}
                                                     </span>
-                                                )}
+                                                    {emp.deleted_at && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                                            <Archive className="w-3 h-3" />
+                                                            Archivado
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -1095,16 +1153,29 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     </div>
                                 </div>
 
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Empresa / Negocio</label>
+                                        <select
+                                            value={formData.company || (isMiles ? 'bar_miles' : 'ayres')}
+                                            onChange={e => setFormData({ ...formData, company: e.target.value as 'ayres' | 'bar_miles' })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm text-slate-700"
+                                        >
+                                            <option value="ayres">🥖 Panadería (Ayres)</option>
+                                            <option value="bar_miles">🍸 Bar Miles</option>
+                                        </select>
+                                    </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tipo de Personal</label>
-                                    <select
-                                        value={formData.employment_type || 'efectivo'}
-                                        onChange={e => setFormData({ ...formData, employment_type: e.target.value as 'efectivo' | 'jornalero' })}
-                                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
-                                    >
-                                        <option value="efectivo">Efectivo</option>
-                                        <option value="jornalero">Jornalero</option>
-                                    </select>
+                                        <select
+                                            value={formData.employment_type || 'efectivo'}
+                                            onChange={e => setFormData({ ...formData, employment_type: e.target.value as 'efectivo' | 'jornalero' })}
+                                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                                        >
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="jornalero">Jornalero</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
