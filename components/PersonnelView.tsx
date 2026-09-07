@@ -27,6 +27,7 @@ import { roleService } from '../services/roleService';
 import { attendanceService } from '../services/attendanceService';
 import { Role } from '../types';
 import EmployeeFileModal from './EmployeeFileModal';
+import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO } from '../utils/companyTheme';
 
 interface PersonnelViewProps {
     employees: Profile[];
@@ -35,6 +36,7 @@ interface PersonnelViewProps {
 }
 
 const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, currentUser }) => {
+    const isMiles = isBarMiles();
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showCardModal, setShowCardModal] = useState<Profile | null>(null);
@@ -395,9 +397,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
     };
 
-    const getQRBase64 = async (token: string): Promise<string> => {
+    const getQRBase64 = async (token: string, isEmpMiles?: boolean): Promise<string> => {
         try {
-            const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${token}&bgcolor=ffffff&color=2D6A4F`;
+            const targetIsMiles = isEmpMiles !== undefined ? isEmpMiles : isMiles;
+            const qrColor = targetIsMiles ? '1C1917' : '2D6A4F';
+            const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${token}&bgcolor=ffffff&color=${qrColor}`;
             const response = await fetch(url);
             const blob = await response.blob();
             return new Promise((resolve, reject) => {
@@ -433,7 +437,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             container.style.top = '0';
             container.style.left = '0';
             container.style.width = '500px';
-            container.style.height = '315px';
+            container.style.height = '350px';
             container.style.zIndex = '-1000';
             container.style.opacity = '0';
             container.style.pointerEvents = 'none';
@@ -444,14 +448,15 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
             for (let i = 0; i < cardDownloadEmployees.length; i++) {
                 const emp = cardDownloadEmployees[i];
+                const isEmpMiles = isMilesEmployee(emp, sectors);
                 setDownloadProgress({ current: i + 1, total: cardDownloadEmployees.length });
 
                 try {
-                    // 1. Fetch QR as Base64
-                    const qrBase64 = await getQRBase64(emp.qr_token || '');
+                    // 1. Fetch QR as Base64 with appropriate company color
+                    const qrBase64 = await getQRBase64(emp.qr_token || '', isEmpMiles);
                     
                     // 2. Render badge
-                    container.innerHTML = getBadgeTemplate(emp, qrBase64).trim();
+                    container.innerHTML = getBadgeTemplate(emp, qrBase64, isEmpMiles).trim();
                     
                     // Small delay to ensure DOM is updated
                     await new Promise(r => setTimeout(r, 100));
@@ -463,7 +468,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                     const dataUrl = await toPng(badgeElement, {
                         quality: 0.8,
                         pixelRatio: 1.5,
-                        backgroundColor: '#ffffff',
+                        backgroundColor: isEmpMiles ? '#FAF8F5' : '#ffffff',
                         skipFonts: true // Sometimes fonts cause timeout/crash
                     });
                     
@@ -505,9 +510,46 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         }
     };
 
-    const getBadgeTemplate = (emp: Profile, qrBase64: string) => {
+    const getBadgeTemplate = (emp: Profile, qrBase64: string, isEmpMiles?: boolean) => {
         const len = emp.full_name.length;
-        const nameFontSize = len > 28 ? '1.1rem' : len > 22 ? '1.4rem' : len > 16 ? '1.7rem' : '2.1rem';
+        const nameFontSize = len > 28 ? '1.15rem' : len > 22 ? '1.35rem' : len > 16 ? '1.65rem' : '1.95rem';
+        const targetIsMiles = isEmpMiles !== undefined ? isEmpMiles : isMilesEmployee(emp, sectors);
+
+        if (targetIsMiles) {
+            return `<div style="width: 500px; height: 350px; background: #FAF8F5; border: 1px solid #E5DDD2; border-radius: 0.75rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif; box-sizing: border-box;">
+                <div style="position: absolute; inset: 10px; border: 1px solid rgba(184, 158, 132, 0.35); border-radius: 0.5rem; pointer-events: none; z-index: 1;"></div>
+                
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 145px; padding: 1.2rem 2rem 0 2rem; text-align: center; z-index: 10;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <img src="${BAR_MILES_LOGO}" alt="Miles Bar" style="width: 36px; height: 36px; border-radius: 50%; object-fit: contain;" />
+                        <div style="text-align: left;">
+                            <span style="display: block; font-size: 0.75rem; font-weight: 900; color: #1C1917; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1;">MILES BAR</span>
+                            <span style="display: block; font-size: 0.55rem; font-weight: 700; color: #A08266; letter-spacing: 0.28em; text-transform: uppercase; margin-top: 3px;">STAFF</span>
+                        </div>
+                    </div>
+                    <h2 style="font-size: ${nameFontSize}; font-weight: 900; color: #1C1917; text-transform: uppercase; margin: 4px 0 0 0; line-height: 1.1; letter-spacing: -0.01em;">
+                        ${emp.full_name}
+                    </h2>
+                    <p style="font-size: 0.68rem; font-weight: 700; color: #A08266; letter-spacing: 0.22em; text-transform: uppercase; margin: 6px 0 0 0;">
+                        Credencial de Acceso
+                    </p>
+                </div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; z-index: 10; padding-bottom: 12px;">
+                    <div style="background: #B89E84; padding: 7px; border-radius: 14px; box-shadow: 0 4px 12px rgba(184, 158, 132, 0.35);">
+                        <div style="background: white; padding: 4px; border-radius: 8px;">
+                            ${qrBase64 ? `<img src="${qrBase64}" style="width: 110px; height: 110px; display: block;" />` : `<div style="width: 110px; height: 110px; background: #f1f5f9;"></div>`}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; z-index: 5; display: flex;">
+                    <div style="flex: 1; background: #B89E84;"></div>
+                    <div style="width: 60px; background: #C87556;"></div>
+                    <div style="flex: 1; background: #1C1917;"></div>
+                </div>
+            </div>`;
+        }
 
         return `<div style="width: 500px; height: 350px; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: sans-serif; box-sizing: border-box;">
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 130px; padding: 0 2rem; text-align: center; margin-bottom: 1.5rem;">
@@ -591,10 +633,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         const node = document.getElementById('printable-badge');
         if (node && showCardModal) {
             try {
+                const isCardMiles = isMilesEmployee(showCardModal, sectors);
                 const dataUrl = await toPng(node, {
                     quality: 0.95,
                     pixelRatio: 2,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: isCardMiles ? '#FAF8F5' : '#ffffff'
                 });
                 const link = document.createElement('a');
                 link.download = `credencial-${showCardModal.full_name.replace(/\s+/g, '-')}.png`;
@@ -1158,88 +1201,177 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             )}
 
             {/* ID Card / Carnet Modal */}
-            {showCardModal && (
-                <div
-                    className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-pointer"
-                    onClick={() => setShowCardModal(null)}
-                >
+            {showCardModal && (() => {
+                const isCardMiles = isMilesEmployee(showCardModal, sectors);
+                return (
                     <div
-                        className="bg-transparent w-full max-w-2xl flex flex-col items-center cursor-default"
-                        onClick={e => e.stopPropagation()}
+                        className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-pointer"
+                        onClick={() => setShowCardModal(null)}
                     >
-                        {/* ID Card Wrapper coincidente con la referencia */}
                         <div
-                            id="printable-badge"
-                            className="bg-white border border-slate-200 overflow-hidden relative flex flex-col"
-                            style={{ width: '500px', height: '330px', borderRadius: '0.5rem', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)' }}
+                            className="bg-transparent w-full max-w-2xl flex flex-col items-center cursor-default"
+                            onClick={e => e.stopPropagation()}
                         >
-                            <div
-                                style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1rem' }}
-                            >
-                                <h2
-                                    className="font-black text-slate-800 uppercase"
+                            {/* ID Card Wrapper */}
+                            {isCardMiles ? (
+                                <div
+                                    id="printable-badge"
+                                    className="overflow-hidden relative flex flex-col"
                                     style={{
-                                        fontSize: showCardModal.full_name.length > 28 ? '1.2rem'
-                                                : showCardModal.full_name.length > 22 ? '1.5rem'
-                                                : showCardModal.full_name.length > 16 ? '1.8rem'
-                                                : '2.2rem',
-                                        lineHeight: 1,
-                                        margin: 0
+                                        width: '500px',
+                                        height: '330px',
+                                        borderRadius: '0.75rem',
+                                        background: '#FAF8F5',
+                                        border: '1px solid #E5DDD2',
+                                        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
+                                        boxSizing: 'border-box'
                                     }}
                                 >
-                                    {showCardModal.full_name}
-                                </h2>
-                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', opacity: 0.8, margin: '10px 0 0 0' }}>
-                                    Credencial de Acceso
-                                </p>
-                            </div>
+                                    {/* Marco decorativo interior */}
+                                    <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(184, 158, 132, 0.35)', borderRadius: '0.5rem', pointerEvents: 'none', zIndex: 1 }} />
 
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
-                                <div className="bg-[#52B788] p-3 rounded-2xl shadow-sm">
-                                    <div className="bg-white p-0.5 rounded-sm">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=1B4332`}
-                                            alt="QR Access Code"
-                                            className="w-24 h-24 object-contain"
-                                        />
+                                    <div
+                                        style={{
+                                            height: '135px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '1rem 2rem 0 2rem',
+                                            textAlign: 'center',
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                            <img
+                                                src={BAR_MILES_LOGO}
+                                                alt="Miles Bar"
+                                                className="logo-image"
+                                                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))' }}
+                                            />
+                                            <div style={{ textAlign: 'left' }}>
+                                                <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 900, color: '#1C1917', letterSpacing: '0.22em', textTransform: 'uppercase', lineHeight: 1 }}>
+                                                    MILES BAR
+                                                </span>
+                                                <span style={{ display: 'block', fontSize: '0.55rem', fontWeight: 700, color: '#A08266', letterSpacing: '0.28em', textTransform: 'uppercase', marginTop: '3px' }}>
+                                                    STAFF
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <h2
+                                            className="font-black uppercase"
+                                            style={{
+                                                color: '#1C1917',
+                                                fontSize: showCardModal.full_name.length > 28 ? '1.15rem'
+                                                        : showCardModal.full_name.length > 22 ? '1.35rem'
+                                                        : showCardModal.full_name.length > 16 ? '1.65rem'
+                                                        : '1.95rem',
+                                                lineHeight: 1.1,
+                                                margin: '4px 0 0 0',
+                                                letterSpacing: '-0.01em'
+                                            }}
+                                        >
+                                            {showCardModal.full_name}
+                                        </h2>
+                                        <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#A08266', letterSpacing: '0.22em', textTransform: 'uppercase', margin: '5px 0 0 0' }}>
+                                            Credencial de Acceso
+                                        </p>
+                                    </div>
+
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, paddingBottom: '12px' }}>
+                                        <div style={{ background: '#B89E84', padding: '7px', borderRadius: '14px', boxShadow: '0 4px 12px rgba(184, 158, 132, 0.3)' }}>
+                                            <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px' }}>
+                                                <img
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=1C1917`}
+                                                    alt="QR Access Code"
+                                                    className="qr-image w-24 h-24 object-contain"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '8px', zIndex: 5, display: 'flex' }}>
+                                        <div style={{ flex: 1, background: '#B89E84' }} />
+                                        <div style={{ width: '60px', background: '#C87556' }} />
+                                        <div style={{ flex: 1, background: '#1C1917' }} />
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div
+                                    id="printable-badge"
+                                    className="bg-white border border-slate-200 overflow-hidden relative flex flex-col"
+                                    style={{ width: '500px', height: '330px', borderRadius: '0.5rem', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)' }}
+                                >
+                                    <div
+                                        style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', textAlign: 'center', marginBottom: '1rem' }}
+                                    >
+                                        <h2
+                                            className="font-black text-slate-800 uppercase"
+                                            style={{
+                                                fontSize: showCardModal.full_name.length > 28 ? '1.2rem'
+                                                        : showCardModal.full_name.length > 22 ? '1.5rem'
+                                                        : showCardModal.full_name.length > 16 ? '1.8rem'
+                                                        : '2.2rem',
+                                                lineHeight: 1,
+                                                margin: 0
+                                            }}
+                                        >
+                                            {showCardModal.full_name}
+                                        </h2>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#52B788', letterSpacing: '0.3em', textTransform: 'uppercase', opacity: 0.8, margin: '10px 0 0 0' }}>
+                                            Credencial de Acceso
+                                        </p>
+                                    </div>
 
-                            <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0, lineHeight: 0 }}>
-                                <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
-                                    <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3" />
-                                    <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6" />
-                                    <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1" />
-                                </svg>
-                            </div>
-                        </div>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 10 }}>
+                                        <div className="bg-[#52B788] p-3 rounded-2xl shadow-sm">
+                                            <div className="bg-white p-0.5 rounded-sm">
+                                                <img
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showCardModal.qr_token}&bgcolor=ffffff&color=1B4332`}
+                                                    alt="QR Access Code"
+                                                    className="qr-image w-24 h-24 object-contain"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
 
-                        <div className="mt-8 flex items-center space-x-4 print:hidden">
-                            <button
-                                onClick={() => setShowCardModal(null)}
-                                className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold backdrop-blur-sm transition-colors"
-                            >
-                                Cerrar
-                            </button>
-                            <button
-                                onClick={handlePrint}
-                                className="px-6 py-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-white font-bold backdrop-blur-sm transition-colors flex items-center space-x-2"
-                            >
-                                <Printer className="w-5 h-5" />
-                                <span>Imprimir</span>
-                            </button>
-                            <button
-                                onClick={handleDownload}
-                                className="px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/30 transition-all flex items-center space-x-2"
-                            >
-                                <Download className="w-5 h-5" />
-                                <span>Descargar PNG</span>
-                            </button>
+                                    <div className="absolute bottom-0 left-0 w-full h-12 overflow-hidden pointer-events-none" style={{ zIndex: 0, lineHeight: 0 }}>
+                                        <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="w-full h-full">
+                                            <path d="M0,150 L500,150 L500,100 C400,130 100,80 0,120 Z" fill="#52B788" opacity="0.3" />
+                                            <path d="M0,150 L500,150 L500,110 C350,140 150,90 0,130 Z" fill="#2D6A4F" opacity="0.6" />
+                                            <path d="M0,150 L500,150 L500,120 C300,150 200,100 0,140 Z" fill="#1B4332" opacity="1" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-8 flex items-center space-x-4 print:hidden">
+                                <button
+                                    onClick={() => setShowCardModal(null)}
+                                    className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold backdrop-blur-sm transition-colors"
+                                >
+                                    Cerrar
+                                </button>
+                                <button
+                                    onClick={handlePrint}
+                                    className="px-6 py-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-white font-bold backdrop-blur-sm transition-colors flex items-center space-x-2"
+                                >
+                                    <Printer className="w-5 h-5" />
+                                    <span>Imprimir</span>
+                                </button>
+                                <button
+                                    onClick={handleDownload}
+                                    className={`px-8 py-3 rounded-xl ${isCardMiles ? 'bg-[#A08266] hover:bg-[#8C7055] shadow-[#A08266]/30' : 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/30'} text-white font-bold shadow-lg transition-all flex items-center space-x-2`}
+                                >
+                                    <Download className="w-5 h-5" />
+                                    <span>Descargar PNG</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Default Schedule Modal */}
             {showScheduleModal && (
@@ -1411,8 +1543,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
           }
           /* Asegurar que el marco sólido se imprima */
           #printable-badge {
-            background: white !important;
-            border: 1px solid #e2e8f0 !important;
+            background: ${(showCardModal ? isMilesEmployee(showCardModal, sectors) : isMiles) ? '#FAF8F5' : 'white'} !important;
+            border: 1px solid ${(showCardModal ? isMilesEmployee(showCardModal, sectors) : isMiles) ? '#E5DDD2' : '#e2e8f0'} !important;
           }
           /* Adjust font sizes for actual print size */
           #printable-badge h2 {
@@ -1421,9 +1553,13 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
           #printable-badge p {
             font-size: 8pt !important;
           }
-          #printable-badge img {
+          #printable-badge img.qr-image {
             width: 25mm !important;
             height: 25mm !important;
+          }
+          #printable-badge img.logo-image {
+            width: 10mm !important;
+            height: 10mm !important;
           }
         }
       `}</style>

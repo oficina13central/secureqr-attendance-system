@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 
 const TERMINAL_SESSION_STORAGE_KEY = 'secureqr_terminal_session';
+export const CACHED_TERMINAL_PROFILE_KEY = 'secureqr_cached_terminal_profile';
 
 export const authService = {
     async signIn(email: string, password: string) {
@@ -14,6 +15,7 @@ export const authService = {
 
     async signOut() {
         localStorage.removeItem(TERMINAL_SESSION_STORAGE_KEY);
+        localStorage.removeItem(CACHED_TERMINAL_PROFILE_KEY);
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     },
@@ -158,17 +160,46 @@ export const authService = {
         return supabase.auth.onAuthStateChange(callback);
     },
 
-    async getUserProfile(userId: string) {
+    getCachedTerminalProfile() {
         try {
-            // Intentar buscar el perfil real con un timeout corto
+            const cached = localStorage.getItem(CACHED_TERMINAL_PROFILE_KEY);
+            return cached ? JSON.parse(cached) : null;
+        } catch {
+            return null;
+        }
+    },
+
+    async getUserProfile(userId: string) {
+        const getCachedTerminal = () => {
+            const cached = this.getCachedTerminalProfile();
+            if (cached && (cached.id === userId || cached.role === 'terminal')) {
+                return cached;
+            }
+            return null;
+        };
+
+        try {
+            // Timeout prudente de 6 segundos para no fallar ante microcortes o latencia
             const profilePromise = supabase.from('profiles').select('*').eq('id', userId).single();
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 6000));
 
             const { data: profile } = await (Promise.race([profilePromise, timeoutPromise]) as any);
 
             if (profile) {
-                return await this.enrichProfile(profile);
+                const enriched = await this.enrichProfile(profile);
+                if (enriched?.role === 'terminal') {
+                    try {
+                        localStorage.setItem(CACHED_TERMINAL_PROFILE_KEY, JSON.stringify(enriched));
+                    } catch (e) {
+                        console.warn('Error guardando perfil terminal en cache:', e);
+                    }
+                }
+                return enriched;
             }
+
+            // Si no vino perfil de red pero tenemos el de terminal cacheado, preservarlo
+            const cachedTerminal = getCachedTerminal();
+            if (cachedTerminal) return cachedTerminal;
 
             // Perfil Restringido: Para usuarios que fallaron en la migración o no están aprobados
             const { data: authData } = await supabase.auth.getUser();
@@ -183,8 +214,15 @@ export const authService = {
                 roles: { id: 'empleado', name: 'Pendiente', permissions: [] }
             };
         } catch (err) {
-            console.error('Bypassing connectivity error:', err);
-            // Fallback ante desconexión masiva
+            console.warn('Fallo de conexion al obtener perfil:', err);
+            // Fallback ante desconexion o timeout: si es terminal, no degradar la sesion
+            const cachedTerminal = getCachedTerminal();
+            if (cachedTerminal) {
+                console.log('Restaurando perfil de terminal desde cache local');
+                return cachedTerminal;
+            }
+
+            // Fallback ante desconexión masiva para usuarios comunes
             return {
                 id: userId,
                 full_name: 'Usuario Restringido',

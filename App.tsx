@@ -184,15 +184,37 @@ const App: React.FC = () => {
     const storedTerminalSession = getStoredTerminalSession();
     setTerminalSessionSnapshot(storedTerminalSession);
 
+    // Si este dispositivo tiene guardada una sesión de terminal:
+    // activamos la vista terminal de inmediato con el perfil cacheado
+    if (storedTerminalSession) {
+      setMainView('terminal');
+      const cached = authService.getCachedTerminalProfile();
+      if (cached) {
+        setCurrentUser(cached);
+      } else {
+        setCurrentUser({
+          id: storedTerminalSession.userId,
+          full_name: storedTerminalSession.fullName || 'Terminal de Acceso',
+          email: storedTerminalSession.email || 'terminal@local',
+          role: 'terminal',
+          is_approved: true,
+          is_suspended: false,
+          deleted_at: null,
+          roles: { id: 'terminal', name: 'Terminal de Acceso', permissions: ['SCAN_QR'] }
+        });
+      }
+    }
+
     try {
       const result = await authService.getSessionStatus();
       setSession(result.session);
       if (result.session) {
         setRecoveringTerminalSession(false);
         fetchProfile(result.session.user.id);
-      } else if ((result.status === 'recovering' || !navigator.onLine) && storedTerminalSession) {
+      } else if (storedTerminalSession) {
+        // En terminal autónoma: no bloquear con recovery screen
         setMainView('terminal');
-        setRecoveringTerminalSession(true);
+        setRecoveringTerminalSession(false);
         setLoadingAuth(false);
       } else {
         setRecoveringTerminalSession(false);
@@ -202,7 +224,7 @@ const App: React.FC = () => {
       console.error("Initial session check failed:", err);
       if (storedTerminalSession) {
         setMainView('terminal');
-        setRecoveringTerminalSession(true);
+        setRecoveringTerminalSession(false);
       }
       setLoadingAuth(false);
     }
@@ -227,7 +249,9 @@ const App: React.FC = () => {
         if (storedTerminalSession) {
           setTerminalSessionSnapshot(storedTerminalSession);
           setMainView('terminal');
-          setRecoveringTerminalSession(true);
+          setRecoveringTerminalSession(false);
+          const cached = authService.getCachedTerminalProfile();
+          if (cached) setCurrentUser(cached);
         } else {
           setCurrentUser(null);
           setRecoveringTerminalSession(false);
@@ -271,7 +295,7 @@ const App: React.FC = () => {
         setTerminalSessionSnapshot(getStoredTerminalSession());
         setRecoveringTerminalSession(false);
         setMainView('terminal');
-      } else {
+      } else if (profile && ['superusuario', 'administrador', 'encargado', 'empleado'].includes(profile.role)) {
         clearStoredTerminalSession();
         setTerminalSessionSnapshot(null);
       }
@@ -457,6 +481,20 @@ const App: React.FC = () => {
             <p className="text-slate-500 font-bold text-sm animate-pulse">Cargando sistema...</p>
           </div>
         </div>
+        <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
+      </>
+    );
+  }
+
+  // Si es una terminal guardada y no hay sesión activa de Supabase (offline o token expirado),
+  // permitir que siga operando y escaneando de manera autónoma sin bloquear la pantalla:
+  if (!session && (terminalSessionSnapshot || currentUser?.role === 'terminal')) {
+    return (
+      <>
+        <TerminalView 
+          onExit={() => authService.signOut()} 
+          role="terminal" 
+        />
         <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
       </>
     );

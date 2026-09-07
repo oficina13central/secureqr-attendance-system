@@ -583,6 +583,14 @@ export const attendanceService = {
     },
 
     async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out', effectiveNow: Date = new Date(), queueOnNetworkError = true): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
+        // Optimización offline inmediata: si no hay conexión a internet, encolar directo sin demoras de red
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            if (!queueOnNetworkError) return { type: 'queued', record: null, reason: 'queued_offline' };
+            console.warn('Sin conexión detectada — guardando fichada de inmediato en cola offline.');
+            offlineService.queueScan(employeeId, employeeName, enforcedMode);
+            return { type: 'queued', record: null, reason: 'queued_offline' };
+        }
+
         try {
             const resolvedId = await this.resolveEmployeeId(employeeId, employeeName);
             if (!resolvedId) return { type: 'error', record: null, reason: 'user_not_found' };
