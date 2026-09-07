@@ -29,25 +29,11 @@ export const personnelService = {
     },
 
     async create(profile: Omit<Profile, 'id'>): Promise<Profile | null> {
-        let { data, error } = await supabase
+        const { data, error } = await supabase
             .from('profiles')
             .insert([{ ...profile, is_approved: false }])
             .select()
             .single();
-
-        if (error && (error.code === '42703' || error.message?.includes('company'))) {
-            const { company, ...rest } = profile;
-            const retry = await supabase
-                .from('profiles')
-                .insert([{ ...rest, is_approved: false }])
-                .select()
-                .single();
-            if (retry.error) {
-                console.error('Error creating profile on retry:', retry.error);
-                throw new Error(`[${retry.error.code}] ${retry.error.message}`);
-            }
-            return retry.data ? { ...retry.data, company } : null;
-        }
 
         if (error) {
             console.error('Error creating profile:', error);
@@ -57,27 +43,12 @@ export const personnelService = {
     },
 
     async update(id: string, profile: Partial<Profile>): Promise<Profile | null> {
-        let { data, error } = await supabase
+        const { data, error } = await supabase
             .from('profiles')
             .update(profile)
             .eq('id', id)
             .select()
             .single();
-
-        if (error && (error.code === '42703' || error.message?.includes('company'))) {
-            const { company, ...rest } = profile;
-            const retry = await supabase
-                .from('profiles')
-                .update(rest)
-                .eq('id', id)
-                .select()
-                .single();
-            if (retry.error) {
-                console.error('Error updating profile on retry:', retry.error);
-                throw new Error(`[${retry.error.code}] ${retry.error.message}`);
-            }
-            return retry.data ? { ...retry.data, company } : null;
-        }
 
         if (error) {
             console.error('Error updating profile:', error.message, '| Code:', error.code, '| Details:', error.details, '| Hint:', error.hint);
