@@ -29,9 +29,9 @@ const ManualView: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-10 space-y-12 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 print:p-0 print:m-0 print:bg-white print:text-black">
-      {/* Header section */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 print:hidden">
+    <div id="manual-root" className="p-4 md:p-10 space-y-12 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 print:p-0 print:m-0 print:max-w-none print:space-y-6 print:bg-white print:text-slate-900">
+      {/* Header section (web only) */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 no-print print:hidden">
         <div className="space-y-2">
           <div className="flex items-center space-x-3 text-emerald-700">
             <BookOpen className="w-6 h-6" />
@@ -55,15 +55,19 @@ const ManualView: React.FC = () => {
         </div>
       </header>
 
-      {/* Print-only Header */}
-      <div className="hidden print:block mb-8 text-center border-b-2 border-slate-950 pb-6">
-        <h1 className="text-3xl font-black uppercase tracking-tight">Manual Operativo Oficial • SecureQR</h1>
-        <p className="text-lg font-bold mt-1 text-slate-800">Sistema Integral de Control de Asistencia, Cronogramas y Legajos</p>
-        <p className="text-xs mt-1 text-slate-500 italic">Documentación técnica generada el {new Date().toLocaleDateString('es-AR')}</p>
+      {/* Print-only Editorial Header */}
+      <div className="hidden print:block mb-6 text-center border-b-2 border-slate-900 pb-5">
+        <div className="flex items-center justify-center space-x-2 text-emerald-800 mb-1">
+          <ShieldCheck className="w-6 h-6" />
+          <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-700">SecureQR • Plataforma Institucional</span>
+        </div>
+        <h1 className="text-2xl font-black uppercase tracking-tight text-slate-950">Manual Operativo Oficial de Usuario</h1>
+        <p className="text-sm font-bold mt-0.5 text-slate-700">Sistema Integral de Control de Asistencia, Cronogramas y Legajos</p>
+        <p className="text-[10px] mt-1 text-slate-500 italic">Documentación técnica institucional • Impreso el {new Date().toLocaleDateString('es-AR')}</p>
       </div>
 
-      {/* Quick Navigation Card */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden">
+      {/* Quick Navigation Card (web only) */}
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 no-print print:hidden">
         {[
           { id: 'sec-1', label: '1. Introducción y Sistema', icon: Building2 },
           { id: 'sec-2', label: '2. Acceso y Roles', icon: ShieldCheck },
@@ -93,7 +97,7 @@ const ManualView: React.FC = () => {
       </div>
 
       {/* SECTION 1: INTRODUCCION Y ARQUITECTURA */}
-      <section id="sec-1" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-1" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">1</div>
           <div>
@@ -141,7 +145,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 2: ACCESO Y ROLES */}
-      <section id="sec-2" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-2" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">2</div>
           <div>
@@ -151,7 +155,7 @@ const ManualView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4 break-inside-avoid">
             <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
               Circuito de Aprobación de Usuarios
@@ -164,20 +168,20 @@ const ManualView: React.FC = () => {
             </ol>
           </div>
 
-          <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400">Jerarquía de Roles</h3>
+          <div className="bg-slate-900 text-white print:bg-slate-50 print:text-slate-900 print:border print:border-slate-200 print:shadow-none p-6 rounded-[2rem] shadow-xl space-y-4 break-inside-avoid">
+            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 print:text-emerald-800">Jerarquía de Roles</h3>
             <div className="space-y-2.5 text-xs">
-              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                <span className="font-black text-emerald-300 uppercase">Superusuario:</span> Control irrestricto de configuración, base de datos y auditoría.
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 print:bg-white print:border-slate-200 print:text-slate-800">
+                <span className="font-black text-emerald-300 print:text-emerald-800 uppercase">Superusuario:</span> Control irrestricto de configuración, base de datos y auditoría.
               </div>
-              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                <span className="font-black text-emerald-300 uppercase">Administrador:</span> Personal, cronogramas, auditoría de asistencia, recalculo y liquidación.
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 print:bg-white print:border-slate-200 print:text-slate-800">
+                <span className="font-black text-emerald-300 print:text-emerald-800 uppercase">Administrador:</span> Personal, cronogramas, auditoría de asistencia, recalculo y liquidación.
               </div>
-              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                <span className="font-black text-amber-300 uppercase">Encargado:</span> Supervisión de sus sectores asignados, carga horaria y justificaciones.
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 print:bg-white print:border-slate-200 print:text-slate-800">
+                <span className="font-black text-amber-300 print:text-amber-800 uppercase">Encargado:</span> Supervisión de sus sectores asignados, carga horaria y justificaciones.
               </div>
-              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                <span className="font-black text-blue-300 uppercase">Empleado:</span> Consulta exclusiva de su credencial QR y sus horarios.
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 print:bg-white print:border-slate-200 print:text-slate-800">
+                <span className="font-black text-blue-300 print:text-blue-800 uppercase">Empleado:</span> Consulta exclusiva de su credencial QR y sus horarios.
               </div>
             </div>
           </div>
@@ -185,7 +189,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 3: MODO TERMINAL */}
-      <section id="sec-3" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-3" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">3</div>
           <div>
@@ -194,7 +198,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6 break-inside-avoid">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="space-y-4">
               <h3 className="text-lg font-black text-slate-800">Funcionalidades Principales</h3>
@@ -221,7 +225,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 4: PERSONAL Y CARNETS */}
-      <section id="sec-4" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-4" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">4</div>
           <div>
@@ -230,7 +234,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6 break-inside-avoid">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
               <h4 className="font-black text-xs uppercase text-slate-700">1. Tipo de Personal</h4>
@@ -255,7 +259,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 5: SCORING DE ASISTENCIA */}
-      <section id="sec-5" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-5" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">5</div>
           <div>
@@ -264,21 +268,21 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6 break-inside-avoid">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-5 bg-slate-900 text-white rounded-2xl space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">Escala de Clases</h4>
+            <div className="p-5 bg-slate-900 text-white print:bg-slate-50 print:text-slate-900 print:border print:border-slate-200 print:shadow-none rounded-2xl space-y-3 break-inside-avoid">
+              <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400 print:text-emerald-800">Escala de Clases</h4>
               <div className="space-y-1.5 text-xs font-bold">
-                <p className="text-purple-300">Clase 0 (990-999): Altamente Puntual</p>
-                <p className="text-emerald-300">Clase 1 (950-989): Excelente</p>
-                <p className="text-amber-300">Clase 2 (750-949): Estable</p>
-                <p className="text-orange-300">Clase 3 (500-749): Regular</p>
-                <p className="text-rose-400">Clase 4 (250-499): Alerta</p>
-                <p className="text-slate-400">Clase 5 (0-249): Crónica</p>
+                <p className="text-purple-300 print:text-purple-800">Clase 0 (990-999): Altamente Puntual</p>
+                <p className="text-emerald-300 print:text-emerald-800">Clase 1 (950-989): Excelente</p>
+                <p className="text-amber-300 print:text-amber-800">Clase 2 (750-949): Estable</p>
+                <p className="text-orange-300 print:text-orange-800">Clase 3 (500-749): Regular</p>
+                <p className="text-rose-400 print:text-rose-800">Clase 4 (250-499): Alerta</p>
+                <p className="text-slate-400 print:text-slate-600">Clase 5 (0-249): Crónica</p>
               </div>
             </div>
 
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 break-inside-avoid">
               <h4 className="text-xs font-black uppercase tracking-widest text-slate-700">Descuentos por Infracción</h4>
               <div className="space-y-2 text-xs text-slate-600 font-medium">
                 <p><strong>Llegada Tarde:</strong> -20 pts + 1 pt por minuto tarde</p>
@@ -288,7 +292,7 @@ const ManualView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
+            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3 break-inside-avoid">
               <h4 className="text-xs font-black uppercase tracking-widest text-emerald-800">Antigüedad (Ventana 90 Días)</h4>
               <div className="space-y-2 text-xs text-emerald-950 font-medium">
                 <p><strong>Últimos 30 días:</strong> 100% del impacto</p>
@@ -302,7 +306,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 6: HORARIOS Y FRANCOS */}
-      <section id="sec-6" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-6" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">6</div>
           <div>
@@ -312,7 +316,7 @@ const ManualView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4 break-inside-avoid">
             <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
               <Clock className="w-5 h-5 text-emerald-600" />
               Tipos de Turnos Admitidos
@@ -325,7 +329,7 @@ const ManualView: React.FC = () => {
             </ul>
           </div>
 
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4 break-inside-avoid">
             <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-600" />
               Regla de Francos Compensatorios
@@ -340,7 +344,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 7: AUDITORÍA Y LIQUIDACIÓN */}
-      <section id="sec-7" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-7" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">7</div>
           <div>
@@ -349,7 +353,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-6 break-inside-avoid">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
               <h4 className="font-black text-sm text-slate-800 flex items-center gap-2">
@@ -378,7 +382,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 8: LEGAJOS DIGITALES */}
-      <section id="sec-8" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-8" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">8</div>
           <div>
@@ -387,7 +391,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4 break-inside-avoid">
           <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed">
             Cada colaborador cuenta con un <strong>Legajo Digital Centralizado</strong> que reúne:
           </p>
@@ -409,7 +413,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 9: SOLICITUDES RRHH */}
-      <section id="sec-9" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-9" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">9</div>
           <div>
@@ -418,7 +422,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4 break-inside-avoid">
           <p className="text-xs md:text-sm text-slate-600 font-medium">
             Flujo formal para la carga y resolución de permisos:
           </p>
@@ -436,7 +440,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 10: FRAUDE Y AUDITORIA */}
-      <section id="sec-10" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-10" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">10</div>
           <div>
@@ -445,7 +449,7 @@ const ManualView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-4 break-inside-avoid">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <h4 className="font-black text-xs uppercase text-slate-700 flex items-center gap-2">
@@ -470,7 +474,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION 11: PWA Y TROUBLESHOOTING */}
-      <section id="sec-11" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-11" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-emerald-800 rounded-2xl flex items-center justify-center text-white shadow-lg font-black text-lg">11</div>
           <div>
@@ -480,18 +484,18 @@ const ManualView: React.FC = () => {
         </div>
 
         {/* Troubleshooting Table */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-6 md:p-10 text-white shadow-2xl space-y-6">
-          <h3 className="text-lg font-black tracking-tight text-emerald-400">Guía de Resolución de Incidencias</h3>
+        <div className="bg-slate-900 rounded-[2.5rem] p-6 md:p-10 text-white print:bg-white print:text-slate-900 print:border print:border-slate-200 print:shadow-none print:p-5 shadow-2xl space-y-4 break-inside-avoid">
+          <h3 className="text-lg font-black tracking-tight text-emerald-400 print:text-emerald-800">Guía de Resolución de Incidencias</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-bold">
               <thead>
-                <tr className="text-emerald-400 border-b border-white/10 uppercase tracking-widest text-[10px]">
-                  <th className="pb-3">Problema detectado</th>
-                  <th className="pb-3">Causa probable</th>
-                  <th className="pb-3">Procedimiento de solución</th>
+                <tr className="text-emerald-400 print:text-slate-800 border-b border-white/10 print:border-slate-300 uppercase tracking-widest text-[10px]">
+                  <th className="pb-3 print:pb-2">Problema detectado</th>
+                  <th className="pb-3 print:pb-2">Causa probable</th>
+                  <th className="pb-3 print:pb-2">Procedimiento de solución</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-white/5 print:divide-slate-200">
                 {[
                   { p: "Cámara no activa", c: "Permisos denegados en el navegador", s: "Clic en el candado de la barra de direcciones y habilitar Cámara." },
                   { p: "Cámara incorrecta", c: "Dispositivo con múltiples lentes", s: "Use el botón de cambio de cámara en la pantalla de escaneo." },
@@ -500,10 +504,10 @@ const ManualView: React.FC = () => {
                   { p: "Acceso por PIN bloqueado", c: "Protección de modo terminal", s: "Ingresar el PIN maestro de seguridad de administrador." },
                   { p: "Fichadas en ámbar", c: "Corte de conexión a internet", s: "La terminal sigue operando offline y sincronizará sola al volver la red." },
                 ].map((row, i) => (
-                  <tr key={i} className="hover:bg-white/5 transition-colors">
-                    <td className="py-3.5 pr-4 text-white">{row.p}</td>
-                    <td className="py-3.5 pr-4 text-slate-400 italic font-medium">{row.c}</td>
-                    <td className="py-3.5 text-emerald-300">{row.s}</td>
+                  <tr key={i} className="hover:bg-white/5 print:hover:bg-transparent transition-colors">
+                    <td className="py-3.5 pr-4 text-white print:text-slate-900 print:py-2">{row.p}</td>
+                    <td className="py-3.5 pr-4 text-slate-400 print:text-slate-600 italic font-medium print:py-2">{row.c}</td>
+                    <td className="py-3.5 text-emerald-300 print:text-emerald-800 print:py-2">{row.s}</td>
                   </tr>
                 ))}
               </tbody>
@@ -513,7 +517,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* SECTION FAQ */}
-      <section id="sec-faq" className="space-y-6 scroll-mt-24 break-inside-avoid">
+      <section id="sec-faq" className="space-y-6 scroll-mt-24 print:space-y-3">
         <div className="text-center space-y-2">
           <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center justify-center gap-3">
             <HelpCircle className="w-7 h-7 text-emerald-700" />
@@ -541,7 +545,7 @@ const ManualView: React.FC = () => {
               a: "Sí. Toda modificación horaria queda registrada con nombre del supervisor, fecha exacta y motivo en el módulo de Auditoría del Sistema." 
             }
           ].map((item, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-2 hover:border-emerald-200 transition-colors">
+            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-2 hover:border-emerald-200 transition-colors break-inside-avoid">
               <h4 className="font-black text-sm text-slate-800">{item.q}</h4>
               <p className="text-slate-600 font-medium text-xs leading-relaxed italic">"{item.a}"</p>
             </div>
@@ -550,7 +554,7 @@ const ManualView: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="text-center pt-8 pb-16 space-y-3 print:pt-4 border-t border-slate-100">
+      <footer className="text-center pt-8 pb-16 space-y-3 print:pt-4 print:pb-4 border-t border-slate-200 print:border-slate-300 break-inside-avoid">
         <div className="flex items-center justify-center space-x-2 text-emerald-800">
            <ShieldCheck className="w-5 h-5" />
            <span className="font-black tracking-tight text-sm">SECUREQR • SISTEMA DE ASISTENCIAS</span>
@@ -564,16 +568,25 @@ const ManualView: React.FC = () => {
       {/* Print styles */}
       <style>{`
         @media print {
-          html, body { 
-            height: auto !important; 
-            overflow: visible !important; 
-            margin: 0 !important; 
+          @page {
+            size: portrait;
+            margin: 12mm 10mm;
+          }
+
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
             padding: 0 !important;
-            background: white !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
           }
-          aside, nav, button, .print\\:hidden { 
-            display: none !important; 
+
+          aside, nav, button, .no-print, .print-hidden {
+            display: none !important;
           }
+
           main, .min-h-screen, .flex, .overflow-auto, .overflow-hidden {
             display: block !important;
             overflow: visible !important;
@@ -582,27 +595,46 @@ const ManualView: React.FC = () => {
             position: static !important;
             min-height: 0 !important;
           }
-          h1, h2, h3, h4 { 
-            color: black !important; 
-            page-break-after: avoid; 
+
+          h1, h2, h3, h4 {
+            color: #0f172a !important;
+            page-break-after: avoid;
+            break-after: avoid;
           }
-          p, span, td, div { 
-            color: #222 !important; 
+
+          p, span, td, div {
+            color: #1e293b;
           }
-          .break-inside-avoid { 
-            page-break-inside: avoid; 
+
+          section {
+            margin-bottom: 1.25rem !important;
+            page-break-inside: auto !important;
+            break-inside: auto !important;
           }
-          section { 
-            margin-bottom: 2rem !important;
-            page-break-inside: avoid; 
+
+          .break-inside-avoid,
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
-          .bg-slate-900, .bg-emerald-800 {
+
+          .bg-slate-900 {
             background-color: #f8fafc !important;
-            color: black !important;
+            color: #0f172a !important;
             border: 1px solid #cbd5e1 !important;
           }
+
+          .bg-slate-900 * {
+            color: #0f172a !important;
+          }
+
           .shadow-sm, .shadow-md, .shadow-xl, .shadow-2xl {
             box-shadow: none !important;
+          }
+
+          .rounded-\\[2\\.5rem\\],
+          .rounded-\\[2rem\\] {
+            border-radius: 12px !important;
           }
         }
       `}</style>

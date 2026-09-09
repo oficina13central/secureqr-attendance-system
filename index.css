@@ -39,3 +39,42 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* Global Print Styles */
+@media print {
+  /* Hide application chrome and non-printable elements */
+  aside,
+  nav,
+  .no-print,
+  .print-hidden,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  html, body, #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main,
+  .min-h-screen,
+  .max-h-screen,
+  .overflow-hidden,
+  .overflow-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    position: static !important;
+    display: block !important;
+  }
+}

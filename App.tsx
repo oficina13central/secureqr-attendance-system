@@ -82,7 +82,7 @@ const FloatingAppActions: React.FC<{
   canInstall: boolean;
   onInstall: () => void;
 }> = ({ canInstall, onInstall }) => (
-  <div className="fixed right-4 bottom-4 z-[90] flex flex-col gap-2">
+  <div className="fixed right-4 bottom-4 z-[90] flex flex-col gap-2 no-print print:hidden">
     {canInstall && (
       <button
         type="button"
@@ -603,7 +603,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50 relative">
       {/* Mobile Header overlay for toggle */}
       {mainView === 'admin' && currentUser?.role !== 'terminal' && (
-        <div className={`fixed top-4 z-[60] transition-all duration-500 ease-in-out ${isSidebarOpen ? 'left-[216px]' : 'left-4'}`}>
+        <div className={`fixed top-4 z-[60] transition-all duration-500 ease-in-out no-print print:hidden ${isSidebarOpen ? 'left-[216px]' : 'left-4'}`}>
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="flex items-center justify-center w-10 h-10 bg-white/90 backdrop-blur-md text-slate-800 hover:text-indigo-600 rounded-full shadow-xl border border-slate-200/50 transition-all hover:scale-105 active:scale-95 focus:outline-none group"
@@ -621,14 +621,14 @@ const App: React.FC = () => {
       {/* Mobile Backdrop Overlay */}
       {mainView === 'admin' && isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-300"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-300 no-print print:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar Navigation */}
       {mainView === 'admin' && currentUser?.role !== 'terminal' && (
-        <aside className={`bg-slate-900 text-white flex flex-col z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full max-h-screen ${
+        <aside className={`bg-slate-900 text-white flex flex-col z-40 shadow-2xl transition-all duration-300 fixed md:relative h-full max-h-screen no-print print:hidden ${
           isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-0 md:p-0 md:opacity-0 overflow-hidden'
         }`}>
           {/* Sidebar Header */}
