@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { CompensatoryRestLog, Holiday, Profile } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
+import { resolveDefaultScheduleForDate } from './scheduleService';
 
 const hasDatePassed = (date: string): boolean => date < getLocalDateString();
 
@@ -666,7 +667,7 @@ export const compensatoryRestService = {
       for (const employee of employees) {
         for (const date of evaluationDates) {
           const explicitShift = scheduleMap.get(`${employee.id}_${date}`);
-          const base = employee.default_schedule?.[new Date(`${date}T12:00:00`).getDay().toString()];
+          const base = resolveDefaultScheduleForDate(employee.default_schedule, date);
           const effectiveShift: CompRestShift | null = explicitShift
             ? { ...explicitShift, date, segments: explicitShift.segments || [] }
             : base

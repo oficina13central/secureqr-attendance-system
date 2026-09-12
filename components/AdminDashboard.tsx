@@ -36,7 +36,7 @@ import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
 import { supabase } from '../services/supabaseClient';
-import { scheduleService } from '../services/scheduleService';
+import { scheduleService, resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { hrRequestService } from '../services/hrRequestService';
 
@@ -376,19 +376,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       }
     }
     
-    // 3. Fallback: Horario base (plantilla) del perfil encontrado
+    // 3. Fallback: Horario base (plantilla) del perfil encontrado con resolución histórica
     if (emp && emp.default_schedule) {
-      const [year, month, day] = dateKey.split('-').map(Number);
-      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-        const dayOfWeek = new Date(year, month - 1, day).getDay().toString();
-        const defShift = emp.default_schedule[dayOfWeek];
-        if (defShift) {
-          if (defShift.type === 'off') return 'Descanso';
-          if (defShift.type === 'vacation') return 'Vacaciones';
-          if (defShift.type === 'medical') return 'Licencia Médica';
-          if (defShift.segments?.[0]) {
-            return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
-          }
+      const defShift = resolveDefaultScheduleForDate(emp.default_schedule, dateKey);
+      if (defShift) {
+        if (defShift.type === 'off') return 'Descanso';
+        if (defShift.type === 'vacation') return 'Vacaciones';
+        if (defShift.type === 'medical') return 'Licencia Médica';
+        if (defShift.segments?.[0]) {
+          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
         }
       }
     }
@@ -423,10 +419,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       let shift = scheduleMap.get(`${empId}_${today}`);
       
       if (!shift && emp.default_schedule) {
-        const metadata = emp.default_schedule.metadata;
-        if (!metadata?.valid_from || today >= metadata.valid_from) {
-          shift = emp.default_schedule[todayNum];
-        }
+        shift = resolveDefaultScheduleForDate(emp.default_schedule, today);
       }
 
       if (shift) {
@@ -526,12 +519,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       let shift = scheduleMap.get(`${empId}_${dateKey}`);
       
       if (!shift && emp.default_schedule) {
-        const [y, mm, dd] = dateKey.split('-').map(Number);
-        if (!isNaN(y) && !isNaN(mm) && !isNaN(dd)) {
-            const dayOfWeek = new Date(y, mm - 1, dd).getDay().toString();
-            const defShift = emp.default_schedule[dayOfWeek];
-            if (defShift) shift = defShift;
-        }
+        shift = resolveDefaultScheduleForDate(emp.default_schedule, dateKey);
       }
       
       if (shift) {
@@ -570,8 +558,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
           shiftEndMinutes = eh * 60 + em;
         }
       } else if (emp?.default_schedule) {
-        const dow = now.getDay().toString();
-        const base = emp.default_schedule[dow];
+        const base = resolveDefaultScheduleForDate(emp.default_schedule, now);
         if (base?.segments && base.segments.length > 0) {
           const lastSegment = base.segments[base.segments.length - 1];
           if (lastSegment?.end) {
@@ -584,7 +571,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       if (shiftEndMinutes >= 0) {
         // Handle nocturnal shifts: if end < start (e.g. 06:00 < 22:00), 
         // the shift ends the next day, so they're still working
-        const shiftStart = shift?.segments?.[0]?.start || emp?.default_schedule?.[now.getDay().toString()]?.segments?.[0]?.start;
+        const base = resolveDefaultScheduleForDate(emp?.default_schedule, now);
+        const shiftStart = shift?.segments?.[0]?.start || base?.segments?.[0]?.start;
         if (shiftStart) {
           const [sh, sm] = shiftStart.split(':').map(Number);
           const startMinutes = sh * 60 + sm;

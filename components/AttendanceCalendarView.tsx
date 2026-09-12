@@ -13,7 +13,7 @@ import {
   UserX
 } from 'lucide-react';
 import { Profile, AttendanceRecord } from '../types';
-import { scheduleService, ShiftData } from '../services/scheduleService';
+import { scheduleService, ShiftData, resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { attendanceService } from '../services/attendanceService';
 import { sectorService } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
@@ -325,13 +325,9 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                     // Resolve shift: first check overrides, then fallback to default_schedule
                     let shift = shifts[shiftKey];
                     if (!shift && emp.default_schedule) {
-                      const dateObj = new Date(dateKey + 'T12:00:00');
-                      if (!isNaN(dateObj.getTime())) {
-                        const dow = dateObj.getDay().toString();
-                        const base = emp.default_schedule[dow];
-                        if (base) {
-                          shift = base as any;
-                        }
+                      const base = resolveDefaultScheduleForDate(emp.default_schedule, dateKey);
+                      if (base) {
+                        shift = base as any;
                       }
                     }
 

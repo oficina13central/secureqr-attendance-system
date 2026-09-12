@@ -25,6 +25,7 @@ import { compensatoryRestService } from '../services/compensatoryRestService';
 import { attendanceService } from '../services/attendanceService';
 import { auditService } from '../services/auditService';
 import { supabase } from '../services/supabaseClient';
+import { resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { Profile, CompensatoryRestLog, AttendanceRecord, EmployeeDocument } from '../types';
 
 interface EmployeeFileModalProps {
@@ -243,8 +244,7 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       const explicitShift = allSchedules.find(s => s.date === recordDate);
       let shift = explicitShift;
       if (!shift && employee?.default_schedule) {
-        const d = new Date(`${recordDate}T12:00:00`);
-        const base = employee.default_schedule[d.getDay().toString()];
+        const base = resolveDefaultScheduleForDate(employee.default_schedule, recordDate);
         if (base) shift = { type: base.type, segments: base.segments } as any;
       }
 

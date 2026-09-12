@@ -25,6 +25,8 @@ import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { roleService } from '../services/roleService';
 import { attendanceService } from '../services/attendanceService';
+import { buildUpdatedDefaultSchedule } from '../services/scheduleService';
+import { getLocalDateString } from '../utils/dateUtils';
 import { Role } from '../types';
 import EmployeeFileModal from './EmployeeFileModal';
 import { isBarMiles, isMilesEmployee, BAR_MILES_LOGO, VILLECCO_LOGO } from '../utils/companyTheme';
@@ -53,6 +55,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
     const [showScheduleModal, setShowScheduleModal] = useState<Profile | null>(null);
     const [scheduleForm, setScheduleForm] = useState<Record<string, any>>({});
+    const [scheduleValidFrom, setScheduleValidFrom] = useState<string>(() => getLocalDateString());
     const [selectedFileEmployeeId, setSelectedFileEmployeeId] = useState<string | null>(null);
     const [archivedEmployees, setArchivedEmployees] = useState<Profile[]>([]);
     const [selectedStatus, setSelectedStatus] = useState<'active' | 'archived' | 'all'>('active');
@@ -219,6 +222,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             '0': { type: 'off', segments: [] }
         };
         setScheduleForm(defaultSched);
+        setScheduleValidFrom(getLocalDateString());
         setShowScheduleModal(employee);
     };
 
@@ -227,23 +231,34 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         setError(null);
         setSuccess(false);
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const updatedSchedule = { 
-                ...scheduleForm, 
-                metadata: { valid_from: today, updated_at: new Date().toISOString() } 
-            };
+            const effectiveDate = scheduleValidFrom || getLocalDateString();
+            
+            // Extraer solo los días 0 a 6 del formulario
+            const newDaysConfig: Record<string, any> = {};
+            ['0', '1', '2', '3', '4', '5', '6'].forEach(k => {
+                newDaysConfig[k] = scheduleForm[k] || { type: 'off', segments: [] };
+            });
+
+            // Archivar horario previo en el historial de forma segura
+            const updatedSchedule = buildUpdatedDefaultSchedule(
+                showScheduleModal.default_schedule,
+                newDaysConfig,
+                effectiveDate
+            );
+
             const result = await personnelService.update(showScheduleModal.id, { default_schedule: updatedSchedule });
             if (result) {
                 setEmployees(employees.map(emp => emp.id === showScheduleModal.id ? result : emp));
                 setSuccess(true);
                 
+                const prevValidFrom = showScheduleModal.default_schedule?.metadata?.valid_from;
                 await auditService.logAction({
                     manager_name: currentUser.full_name,
                     employee_name: showScheduleModal.full_name,
                     action: 'Actualización Horario Base',
-                    old_value: 'N/A',
-                    new_value: 'Plantilla Modificada',
-                    reason: 'Actualización de plantilla semanal'
+                    old_value: prevValidFrom ? `Vigente desde: ${prevValidFrom}` : 'Plantilla Inicial',
+                    new_value: `Vigente desde: ${effectiveDate} (Historial previo preservado)`,
+                    reason: 'Actualización de plantilla semanal con resguardo histórico'
                 });
 
                 setTimeout(() => {
@@ -1443,6 +1458,23 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                     Este es el horario estándar que se asignará automáticamente todos los días. 
                                     Si una semana tiene un turno diferente, modifica directamente el Cronograma Semanal y la excepción sobreescribirá esta plantilla.
                                 </p>
+                            </div>
+
+                            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <label className="text-xs font-black text-slate-700 block uppercase tracking-wider">
+                                        Aplicar cambios a partir del:
+                                    </label>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        El cronograma anterior a esta fecha mantendrá intacto el horario previo del empleado.
+                                    </p>
+                                </div>
+                                <input 
+                                    type="date" 
+                                    value={scheduleValidFrom}
+                                    onChange={e => setScheduleValidFrom(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                />
                             </div>
                             
                             <div className="space-y-4">

@@ -3,6 +3,7 @@ import { AttendanceRecord, Profile } from '../types';
 import { settingsService } from './settingsService';
 import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
+import { resolveDefaultScheduleForDate } from './scheduleService';
 import { offlineService } from './offlineService';
 import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, getSegmentAssignmentsForCheckIns, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
@@ -157,12 +158,9 @@ export const attendanceService = {
         if (!activeSchedule) {
             const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
             if (profile?.default_schedule) {
-                const metadata = profile.default_schedule.metadata;
-                if (!metadata?.valid_from || date >= metadata.valid_from) {
-                    const base = profile.default_schedule[now.getDay().toString()];
-                    if (base) {
-                        activeSchedule = { type: base.type, segments: base.segments };
-                    }
+                const base = resolveDefaultScheduleForDate(profile.default_schedule, date);
+                if (base) {
+                    activeSchedule = { type: base.type, segments: base.segments };
                 }
             }
         }
@@ -376,11 +374,8 @@ export const attendanceService = {
 
                 let activeSchedule = schedule;
                 if (!activeSchedule && emp.default_schedule) {
-                    const metadata = emp.default_schedule.metadata;
-                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
-                        const base = emp.default_schedule[checkDate.getDay().toString()];
-                        if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
-                    }
+                    const base = resolveDefaultScheduleForDate(emp.default_schedule, dateStr);
+                    if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                 }
 
                 if (!activeSchedule || activeSchedule.type === 'off') continue;
@@ -502,11 +497,8 @@ export const attendanceService = {
 
                 let activeSchedule = schedule;
                 if (!activeSchedule && emp.default_schedule) {
-                    const metadata = emp.default_schedule.metadata;
-                    if (!metadata?.valid_from || dateStr >= metadata.valid_from) {
-                        const base = emp.default_schedule[current.getDay().toString()];
-                        if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
-                    }
+                    const base = resolveDefaultScheduleForDate(emp.default_schedule, dateStr);
+                    if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                 }
 
                 if (!activeSchedule || activeSchedule.type === 'off') continue;
@@ -626,7 +618,7 @@ export const attendanceService = {
                     let activeSchedule = scheduleData;
                     if (!activeSchedule) {
                         const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', resolvedId).maybeSingle();
-                        const base = profile?.default_schedule?.[now.getDay().toString()];
+                        const base = profile?.default_schedule ? resolveDefaultScheduleForDate(profile.default_schedule, now) : null;
                         if (base) activeSchedule = { type: base.type, segments: base.segments };
                     }
 
@@ -767,9 +759,7 @@ export const attendanceService = {
                 });
                 
                 if (!activeSchedule && defaultSchedule) {
-                    const dateObj = new Date(`${recordDateStr}T12:00:00`);
-                    const dow = dateObj.getDay().toString();
-                    const base = defaultSchedule[dow];
+                    const base = resolveDefaultScheduleForDate(defaultSchedule, recordDateStr);
                     if (base) {
                         activeSchedule = {
                             type: base.type,

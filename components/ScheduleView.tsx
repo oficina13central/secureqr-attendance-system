@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { AttendanceRecord, Profile } from '../types';
-import { scheduleService, ShiftData, ShiftType, ShiftSegment } from '../services/scheduleService';
+import { scheduleService, ShiftData, ShiftType, ShiftSegment, resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
@@ -364,7 +364,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     let activeShift = explicitShift;
     if (!activeShift && emp.default_schedule) {
-      const base = emp.default_schedule[date.getDay().toString()];
+      const base = resolveDefaultScheduleForDate(emp.default_schedule, date);
       if (base) activeShift = { type: base.type, segments: base.segments } as any;
     }
 
@@ -519,7 +519,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         const explicit = extendedShiftsMap.get(`${emp.id}_${dateKey}`);
         if (explicit) return explicit;
         if (emp.default_schedule) {
-          const base = emp.default_schedule[date.getDay().toString()];
+          const base = resolveDefaultScheduleForDate(emp.default_schedule, date);
           if (base) return { type: base.type, segments: base.segments } as any;
         }
         return undefined;

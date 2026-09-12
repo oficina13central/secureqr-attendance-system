@@ -25,7 +25,7 @@ import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
-import { scheduleService } from '../services/scheduleService';
+import { scheduleService, resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 import AttendanceCalendarView from './AttendanceCalendarView';
 
@@ -321,12 +321,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
         // 2. Search in Default Template
         if (!shift && emp.default_schedule) {
-            const dateObj = new Date(dateStr + 'T12:00:00');
-            if (!isNaN(dateObj.getTime())) {
-                const dow = dateObj.getDay().toString();
-                const base = emp.default_schedule[dow];
-                if (base) shift = base;
-            }
+            const base = resolveDefaultScheduleForDate(emp.default_schedule, dateStr);
+            if (base) shift = base;
         }
 
         return shift;
@@ -1040,8 +1036,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                 if (!shift) {
                                                     const emp = employees.find(e => e.id === data.id);
                                                     if (emp && emp.default_schedule) {
-                                                        const todayDow = new Date().getDay().toString();
-                                                        shift = emp.default_schedule[todayDow];
+                                                        shift = resolveDefaultScheduleForDate(emp.default_schedule, new Date());
                                                     }
                                                 }
 
