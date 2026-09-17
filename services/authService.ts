@@ -54,7 +54,12 @@ export const authService = {
 
         const newUserId = authData.user.id;
 
-        // 2. Verificar si ya existe un perfil de "Personal" (creado por admin) 
+        // NOTA: El perfil es creado automáticamente por el trigger `on_auth_user_created`
+        // en Supabase al momento del INSERT en auth.users. El código a continuación
+        // actúa como RESPALDO por si el trigger no existiera o fallara (ej: usuario
+        // ya existente que se re-registra con un perfil previo cargado por admin).
+
+        // 2. Verificar si ya existe un perfil de "Personal" (creado por admin o por trigger) 
         // Primero buscamos por DNI (vinculación inequívoca)
         let { data: existingProfile } = await supabase
             .from('profiles')
@@ -73,6 +78,8 @@ export const authService = {
         }
 
         if (existingProfile && existingProfile.id !== newUserId) {
+            // Caso: existía un perfil "huérfano" cargado por el admin antes del registro.
+            // Necesitamos migrar ese perfil al nuevo ID de Auth.
             console.log(`Perfil preexistente [${existingProfile.full_name}] encontrado por ${existingProfile.dni === dni ? 'DNI' : 'Email'}. Iniciando migración...`);
             const oldId = existingProfile.id;
 
@@ -85,7 +92,7 @@ export const authService = {
 
                 // Paso 2: Crear nuevo perfil vinculado a Auth
                 // UNIFICACIÓN: Mantenemos el nombre oficial del admin, el sector y el rol.
-                // Automáticamente aprobado porque ya era un empleado cargado por admin.
+                // Automáticamente pendiente porque debe ser autorizado manualmente.
                 const { error: createError } = await supabase.from('profiles').insert([{
                     id: newUserId,
                     full_name: existingProfile.full_name, // Mantenemos nombre del admin
@@ -114,7 +121,9 @@ export const authService = {
                 console.error("Error crítico durante la migración:", migrationError);
             }
         } else if (!existingProfile) {
-            // Crear perfil nuevo DESCONOCIDO -> Requiere aprobación
+            // El trigger debería haber creado el perfil, pero si falló (plan gratuito, 
+            // red interrumpida, etc.) lo intentamos desde el cliente como respaldo.
+            console.warn("Perfil no encontrado tras registro. El trigger pudo haber fallado. Intentando crear perfil desde el cliente...");
             const { error: createError } = await supabase.from('profiles').insert([{
                 id: newUserId,
                 full_name: fullName,
@@ -124,8 +133,14 @@ export const authService = {
                 is_approved: false, // PENDIENTE DE APROBACIÓN
                 qr_token: `SECURE_USER:${fullName.replace(/\s+/g, '_')}_${newUserId}`
             }]);
-            if (createError) console.error("Error creando perfil inicial:", createError);
+            if (createError) {
+                console.error("⚠️ ERROR CRÍTICO: No se pudo crear el perfil del usuario.", createError);
+                console.error("El usuario existe en Auth pero NO en la tabla profiles. UID:", newUserId);
+                console.error("Causa probable: RLS bloqueó el INSERT porque el email aún no está confirmado.");
+                console.error("SOLUCIÓN: Ejecutar supabase_auto_profile_trigger.sql en el SQL Editor de Supabase.");
+            }
         }
+        // Si existingProfile.id === newUserId: el trigger ya lo creó correctamente, nada que hacer.
 
         return authData;
     },

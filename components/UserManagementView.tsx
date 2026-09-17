@@ -285,6 +285,32 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
     }
   };
 
+  const handleToggleAccountType = async (user: Profile) => {
+    const isCurrentlyEmployee = user.is_employee !== false;
+    const newType = !isCurrentlyEmployee;
+    const label = newType ? 'Personal (Empleado)' : 'Usuario de Sistema';
+    if (!window.confirm(`¿Cambiar el tipo de cuenta de "${user.full_name}" a ${label}?`)) return;
+
+    setActionLoading(user.id);
+    try {
+      await userManagementService.toggleUserAccountType(user.id, newType);
+      await auditService.logAction({
+        manager_name: currentUser.full_name,
+        employee_name: user.full_name,
+        action: 'Cambio de Tipo de Cuenta',
+        old_value: isCurrentlyEmployee ? 'Personal (Empleado)' : 'Usuario Sistema',
+        new_value: label,
+        reason: 'Cambio manual por administrador'
+      });
+      showFeedback(`Tipo de cuenta actualizado a: ${label}`, 'success');
+      loadData();
+    } catch (err) {
+      showFeedback('Error al cambiar tipo de cuenta', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -552,6 +578,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                                     title="Resetear Contraseña"
                                   >
                                     <Key className="w-4 h-4" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleToggleAccountType(user)}
+                                    className={`p-2.5 rounded-xl transition-all ${user.is_employee === false ? 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500'}`}
+                                    title={user.is_employee === false ? 'Cambiar a Personal (Empleado)' : 'Cambiar a Usuario de Sistema'}
+                                  >
+                                    <Settings className="w-4 h-4" />
                                   </button>
 
                                   <button 
