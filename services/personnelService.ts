@@ -6,7 +6,7 @@ export const personnelService = {
         let query = supabase
             .from('profiles')
             .select('*')
-            .or('is_employee.eq.true,is_employee.is.null')
+            .neq('is_employee', false)   // excluye usuarios de sistema (is_employee=false)
             .order('full_name', { ascending: true });
 
         if (!includeArchived) {
@@ -18,10 +18,12 @@ export const personnelService = {
         if (error) {
             console.error('Error fetching profiles:', error);
             if (error.code === '42703') {
+                // Retry sin filtro de columna nueva (compatibilidad), pero filtramos en memoria
                 let retryQuery = supabase.from('profiles').select('*').order('full_name', { ascending: true });
                 if (!includeArchived) retryQuery = retryQuery.is('deleted_at', null);
                 const retry = await retryQuery;
-                return retry.data || [];
+                // Filtrar usuarios de sistema en memoria como fallback
+                return (retry.data || []).filter((p: any) => p.is_employee !== false);
             }
             return [];
         }
