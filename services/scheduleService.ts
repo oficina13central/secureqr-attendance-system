@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
 export interface ShiftSegment {
     start: string;
@@ -106,9 +106,13 @@ export function resolveDefaultScheduleForDate(
         if (matched) return { type: matched.type, segments: matched.segments || [] };
     }
 
-    // 3. Fallback para datos preexistentes que no tenían historial registrado
-    const base = defaultSchedule[dow];
-    if (base) return { type: base.type, segments: base.segments || [] };
+    // 3. Fallback solo para horarios legacy sin valid_from definido.
+    // Si valid_from está definido y la fecha es anterior a él, el horario no existía aún → retornar null.
+    // Esto evita que se generen ausencias automáticas para períodos previos a la asignación del horario.
+    if (!currentValidFrom) {
+        const base = defaultSchedule[dow];
+        if (base) return { type: base.type, segments: base.segments || [] };
+    }
     return null;
 }
 
