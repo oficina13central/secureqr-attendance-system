@@ -144,7 +144,7 @@ export const attendanceService = {
     async recordCheckIn(employeeId: string, employeeName: string, effectiveNow: Date = new Date()): Promise<AttendanceRecord | null> {
         const now = effectiveNow;
         const nowIso = now.toISOString();
-        const date = getLocalDateString(now);
+        let date = getLocalDateString(now);
 
         const { data: scheduleData } = await supabase
             .from('schedules')
@@ -154,9 +154,11 @@ export const attendanceService = {
             .single();
 
         let activeSchedule = scheduleData;
+        let profile: { default_schedule?: any } | null = null;
         
         if (!activeSchedule) {
-            const { data: profile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
+            const { data: fetchedProfile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
+            profile = fetchedProfile;
             if (profile?.default_schedule) {
                 const base = resolveDefaultScheduleForDate(profile.default_schedule, date);
                 if (base) {
@@ -166,8 +168,72 @@ export const attendanceService = {
         }
 
         // Infer split status if type is missing but there are multiple segments
-        const scheduleType = activeSchedule?.type || 
+        let scheduleType = activeSchedule?.type || 
                            ((activeSchedule?.segments?.length || 0) > 1 ? 'split' : 'continuous');
+
+        // ── VENTANA DE PRE-FICHADA NOCTURNA ──────────────────────────────────────
+        // Si el día actual es descanso (o sin horario) y son las 23:00 o más,
+        // verificar si el día siguiente tiene un turno que arranca cerca de medianoche
+        // (primeros 30 minutos, ej. 00:00-08:00). De ser así, registrar contra esa fecha.
+        const MIDNIGHT_SHIFT_PRE_WINDOW_MINUTES = 30; // minutos desde 00:00 que se considera "turno de medianoche"
+        const PRE_CHECKIN_HOUR = 23; // a partir de qué hora del día de descanso se activa la ventana
+        if (
+            (scheduleType === 'off' || !activeSchedule) &&
+            now.getHours() >= PRE_CHECKIN_HOUR
+        ) {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowDateStr = getLocalDateString(tomorrow);
+
+            // Buscar horario especial para mañana primero
+            const { data: tomorrowScheduleData } = await supabase
+                .from('schedules')
+                .select('type, segments')
+                .eq('employee_id', employeeId)
+                .eq('date', tomorrowDateStr)
+                .single();
+
+            let tomorrowSchedule = tomorrowScheduleData;
+
+            if (!tomorrowSchedule) {
+                // Si no tenemos el perfil aún, buscarlo
+                if (!profile) {
+                    const { data: fetchedProfile } = await supabase.from('profiles').select('default_schedule').eq('id', employeeId).maybeSingle();
+                    profile = fetchedProfile;
+                }
+                if (profile?.default_schedule) {
+                    const base = resolveDefaultScheduleForDate(profile.default_schedule, tomorrowDateStr);
+                    if (base) {
+                        tomorrowSchedule = { type: base.type, segments: base.segments };
+                    }
+                }
+            }
+
+            const tomorrowType = tomorrowSchedule?.type ||
+                ((tomorrowSchedule?.segments?.length || 0) > 1 ? 'split' : 'continuous');
+
+            // Verificar si el primer segmento de mañana arranca en los primeros N minutos del día
+            const firstSegmentStart = tomorrowSchedule?.segments?.[0]?.start;
+            if (
+                tomorrowSchedule &&
+                tomorrowType !== 'off' &&
+                tomorrowType !== 'vacation' &&
+                tomorrowType !== 'medical' &&
+                tomorrowType !== 'compensatory' &&
+                tomorrowType !== 'suspension' &&
+                firstSegmentStart
+            ) {
+                const [h, m] = firstSegmentStart.split(':').map(Number);
+                const segStartMinutes = h * 60 + m;
+                if (segStartMinutes <= MIDNIGHT_SHIFT_PRE_WINDOW_MINUTES) {
+                    // ¡Redirigir! La fichada corresponde al turno del día siguiente
+                    date = tomorrowDateStr;
+                    activeSchedule = tomorrowSchedule;
+                    scheduleType = tomorrowType;
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
 
         if (scheduleType === 'off') throw new Error('off_day');
         if (scheduleType === 'compensatory') throw new Error('compensatory_rest');
@@ -218,7 +284,29 @@ export const attendanceService = {
                 .eq('id', placeholderRecord.id)
                 .select()
                 .single();
-            if (error) return null;
+            if (error) {
+                // El UPDATE del placeholder falló (RLS, constraint, etc.)
+                // Intentamos un INSERT nuevo como fallback
+                console.warn('Update of placeholder failed, attempting INSERT fallback:', error.message);
+                const { data: insertData, error: insertError } = await supabase
+                    .from('attendance_records')
+                    .insert([{
+                        id: crypto.randomUUID(),
+                        employee_id: employeeId,
+                        employee_name: employeeName,
+                        date: date,
+                        check_in: nowIso,
+                        status: status,
+                        minutes_late: minutesLate
+                    }])
+                    .select()
+                    .single();
+                if (insertError) {
+                    console.error('INSERT fallback also failed:', insertError.message);
+                    return null;
+                }
+                return insertData;
+            }
             return data;
         } else {
             const { data, error } = await supabase
@@ -234,7 +322,10 @@ export const attendanceService = {
                 }])
                 .select()
                 .single();
-            if (error) return null;
+            if (error) {
+                console.error('Error inserting check-in record:', error.message);
+                return null;
+            }
             return data;
         }
     },
@@ -378,7 +469,18 @@ export const attendanceService = {
                     if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                 }
 
-                if (!activeSchedule || activeSchedule.type === 'off') continue;
+                if (!activeSchedule || activeSchedule.type === 'off') {
+                    // Sin horario asignado: limpiar ausencias automáticas huérfanas que pudieran existir
+                    const orphanedAutoAbsences = existingEmpRecords.filter(r =>
+                        !r.check_in &&
+                        r.status === 'ausente' &&
+                        isAutomaticAbsenceReason(r.manual_reason)
+                    );
+                    for (const orphan of orphanedAutoAbsences) {
+                        await supabase.from('attendance_records').delete().eq('id', orphan.id);
+                    }
+                    continue;
+                }
 
                 const visualDueCount = getDueRecordCount(
                     activeSchedule,
@@ -501,7 +603,18 @@ export const attendanceService = {
                     if (base) activeSchedule = { type: base.type, segments: base.segments } as any;
                 }
 
-                if (!activeSchedule || activeSchedule.type === 'off') continue;
+                if (!activeSchedule || activeSchedule.type === 'off') {
+                    // Sin horario asignado: limpiar ausencias automáticas huérfanas que pudieran existir
+                    const orphanedAutoAbsences = existingEmpRecords.filter(r =>
+                        !r.check_in &&
+                        r.status === 'ausente' &&
+                        isAutomaticAbsenceReason(r.manual_reason)
+                    );
+                    for (const orphan of orphanedAutoAbsences) {
+                        await supabase.from('attendance_records').delete().eq('id', orphan.id);
+                    }
+                    continue;
+                }
 
                 const closedSegmentCount = getClosedSegmentCount(
                     activeSchedule,

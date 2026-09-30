@@ -528,9 +528,11 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                     if (shift.type === 'suspension') return { ...r, status: 'suspendido' };
                     if (shift.type === 'vacation') return { ...r, status: 'vacaciones' };
                     if (shift.type === 'medical') return { ...r, status: 'licencia_medica' };
+                    return r;
                 }
-                return r;
-            });
+                // Sin horario asignado: descartar esta ausencia huérfana (no debe contar)
+                return null;
+            }).filter(Boolean) as AttendanceRecord[];
 
             monthRecords = removeDuplicateAbsencesCoveredByCheckIns(emp, monthRecords);
 
