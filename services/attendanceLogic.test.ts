@@ -343,6 +343,21 @@ const cases: Array<{ name: string; run: () => void }> = [
                 false
             );
         }
+    },
+    {
+        // Regresión: turno 00:00-08:00, empleado ficha a las 23:50 del día anterior.
+        // classifyCheckIn debe calcular un diff negativo pequeño (−10 min) y reportar 'en_horario'.
+        // La lógica de corrección (diff < -600 → +1440) convierte -10 en 1430, pero como
+        // el fichaje es ANTES de la hora programada, diffInMinutes queda negativo y minutesLate = 0.
+        name: 'midnight shift (00:00): pre-checkin at 23:50 classified as en_horario',
+        run: () => {
+            // checkIn a las 23:50, scheduled start 00:00
+            // diffInMinutes = 23*60+50 - 0 = 1430; > 600 → 1430 - 1440 = -10 → minutesLate = 0
+            assert.deepEqual(
+                classifyCheckIn('2026-09-28T23:50:00', '00:00', rules),
+                { status: 'en_horario', minutesLate: 0 }
+            );
+        }
     }
 ];
 

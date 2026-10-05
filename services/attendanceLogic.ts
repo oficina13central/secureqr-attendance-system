@@ -51,7 +51,8 @@ export const classifyCheckIn = (
     const scheduledMinutes = getMinutesFromTimeString(segmentStart);
 
     let diffInMinutes = checkInMinutes - scheduledMinutes;
-    if (diffInMinutes < -600) diffInMinutes += 1440;
+    if (diffInMinutes < -720) diffInMinutes += 1440;
+    if (diffInMinutes > 720) diffInMinutes -= 1440;
 
     const minutesLate = diffInMinutes > 0 ? diffInMinutes : 0;
     if (minutesLate > rules.llego_tarde) {
