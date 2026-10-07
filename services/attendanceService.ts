@@ -3,7 +3,7 @@ import { AttendanceRecord, Profile } from '../types';
 import { settingsService } from './settingsService';
 import { auditService } from './auditService';
 import { getLocalDateString } from '../utils/dateUtils';
-import { resolveDefaultScheduleForDate } from './scheduleService';
+import { resolveDefaultScheduleForDate, scheduleService, pickScheduleRow } from './scheduleService';
 import { offlineService } from './offlineService';
 import { classifyCheckIn, getClosedSegmentCount, getDueRecordCount, getSegmentAssignmentsForCheckIns, resolveRecalculatedRecord, shouldAllowSplitSecondCheckIn } from './attendanceLogic';
 
@@ -146,12 +146,7 @@ export const attendanceService = {
         const nowIso = now.toISOString();
         let date = getLocalDateString(now);
 
-        const { data: scheduleData } = await supabase
-            .from('schedules')
-            .select('type, segments')
-            .eq('employee_id', employeeId)
-            .eq('date', date)
-            .single();
+        const scheduleData: any = await scheduleService.getForEmployeeDate(employeeId, date);
 
         let activeSchedule = scheduleData;
         let profile: { default_schedule?: any } | null = null;
@@ -186,12 +181,7 @@ export const attendanceService = {
             const tomorrowDateStr = getLocalDateString(tomorrow);
 
             // Buscar horario especial para mañana primero
-            const { data: tomorrowScheduleData } = await supabase
-                .from('schedules')
-                .select('type, segments')
-                .eq('employee_id', employeeId)
-                .eq('date', tomorrowDateStr)
-                .single();
+            const tomorrowScheduleData: any = await scheduleService.getForEmployeeDate(employeeId, tomorrowDateStr);
 
             let tomorrowSchedule = tomorrowScheduleData;
 
@@ -456,12 +446,7 @@ export const attendanceService = {
 
                 let existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
 
-                const { data: schedule } = await supabase
-                    .from('schedules')
-                    .select('type, segments, date')
-                    .eq('employee_id', emp.id)
-                    .eq('date', dateStr)
-                    .maybeSingle();
+                const schedule: any = await scheduleService.getForEmployeeDate(emp.id, dateStr);
 
                 let activeSchedule = schedule;
                 if (!activeSchedule && emp.default_schedule) {
@@ -534,6 +519,13 @@ export const attendanceService = {
                     r.status === 'ausente' &&
                     isAutomaticAbsenceReason(r.manual_reason)
                 ).length;
+                // GUARD: Si el empleado ya tiene al menos tantas marcaciones reales como segmentos tiene
+                // el horario activo, no generar ausencia automatica. Esto previene falsos ausentes cuando
+                // existe un schedule especial con horario distinto al que el empleado uso para marcar
+                // (ej: schedule.start=16:00 pero marco a las 06:00 con su horario habitual).
+                const expectedSegments = Math.max(1, (activeSchedule.segments || []).length);
+                if (realEntriesCount >= expectedSegments) continue;
+
                 const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
 
                 for (let j = 0; j < missingClosedAbsences; j++) {
@@ -590,12 +582,7 @@ export const attendanceService = {
                 const empNameNormalized = emp.full_name.toLowerCase().trim();
                 let existingEmpRecords = recordsByEmployeeKey.get(empIdNormalized) || recordsByEmployeeKey.get(empNameNormalized) || [];
 
-                const { data: schedule } = await supabase
-                    .from('schedules')
-                    .select('type, segments, date')
-                    .eq('employee_id', emp.id)
-                    .eq('date', dateStr)
-                    .maybeSingle();
+                const schedule: any = await scheduleService.getForEmployeeDate(emp.id, dateStr);
 
                 let activeSchedule = schedule;
                 if (!activeSchedule && emp.default_schedule) {
@@ -633,11 +620,38 @@ export const attendanceService = {
                     continue;
                 }
 
+                // Eliminar ausencias automáticas que ya están cubiertas por una fichada real o que exceden
+                // la cantidad de segmentos del horario vigente (ej. quedaron de un horario anterior).
+                const rangeCheckInAssignments = getSegmentAssignmentsForCheckIns(existingEmpRecords, activeSchedule);
+                const rangeCoveredIndexes = new Set(rangeCheckInAssignments.values());
+                const rangePendingIndexes = (activeSchedule.segments || [])
+                    .map((_: any, index: number) => index)
+                    .filter((index: number) => !rangeCoveredIndexes.has(index));
+                let rangeAbsenceCursor = 0;
+                for (const record of existingEmpRecords.filter(r =>
+                    !r.check_in && r.status === 'ausente' && isAutomaticAbsenceReason(r.manual_reason)
+                )) {
+                    const assignedSegmentIndex = rangePendingIndexes[rangeAbsenceCursor++] ?? (activeSchedule.segments?.length || 0);
+                    const isDuplicateForRealCheckIn = rangeCoveredIndexes.has(assignedSegmentIndex);
+                    const isExtraAutoAbsence = assignedSegmentIndex >= (activeSchedule.segments?.length || 1);
+                    if (isDuplicateForRealCheckIn || isExtraAutoAbsence) {
+                        await supabase.from('attendance_records').delete().eq('id', record.id);
+                        existingEmpRecords = existingEmpRecords.filter(r => r.id !== record.id);
+                    }
+                }
+
                 const realEntriesCount = existingEmpRecords.filter(r => !!r.check_in).length;
                 const existingAutoAbsences = existingEmpRecords.filter(r => 
                     !r.check_in && r.status === 'ausente' && isAutomaticAbsenceReason(r.manual_reason)
                 ).length;
                 
+                // GUARD: Si el empleado ya tiene al menos tantas marcaciones reales como segmentos tiene
+                // el horario activo, no generar ausencia automatica. Esto previene falsos ausentes cuando
+                // existe un schedule especial con horario distinto al que el empleado uso para marcar
+                // (ej: schedule.start=16:00 pero marco a las 06:00 con su horario habitual).
+                const expectedSegments = Math.max(1, (activeSchedule.segments || []).length);
+                if (realEntriesCount >= expectedSegments) continue;
+
                 const missingClosedAbsences = Math.max(0, closedSegmentCount - realEntriesCount - existingAutoAbsences);
                 
                 for (let j = 0; j < missingClosedAbsences; j++) {
@@ -721,12 +735,7 @@ export const attendanceService = {
             if (enforcedMode === 'in') {
                 if (openRecord) {
                     // Validamos la segunda entrada usando el horario real del segundo segmento.
-                    const { data: scheduleData } = await supabase
-                        .from('schedules')
-                        .select('type, segments')
-                        .eq('employee_id', resolvedId)
-                        .eq('date', today)
-                        .maybeSingle();
+                    const scheduleData: any = await scheduleService.getForEmployeeDate(resolvedId, today);
                     
                     let activeSchedule = scheduleData;
                     if (!activeSchedule) {
@@ -837,7 +846,7 @@ export const attendanceService = {
             // Fetch schedules for the period
             const { data: schedules, error: schedError } = await supabase
                 .from('schedules')
-                .select('date, type, segments, employee_id')
+                .select('id, date, type, segments, employee_id')
                 .eq('employee_id', employeeId)
                 .gte('date', startDate)
                 .lte('date', endDate);
@@ -861,15 +870,7 @@ export const attendanceService = {
                 );
 
                 // Buscar el schedule para este día (estrategia multi-llave)
-                let activeSchedule = schedules?.find(s => {
-                    const sId = (s.employee_id || '').toLowerCase().trim();
-                    const sDate = (s.date || '').split('T')[0];
-                    return sDate === recordDateStr && (
-                        sId === empIdNormalized || 
-                        sId === empNameNormalized || 
-                        sId === empDniNormalized
-                    );
-                });
+                let activeSchedule: any = pickScheduleRow(schedules as any[], employeeId, recordDateStr, [profile.full_name, profile.dni]);
                 
                 if (!activeSchedule && defaultSchedule) {
                     const base = resolveDefaultScheduleForDate(defaultSchedule, recordDateStr);

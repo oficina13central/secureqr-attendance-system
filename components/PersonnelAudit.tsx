@@ -25,7 +25,7 @@ import { attendanceService } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
-import { scheduleService, resolveDefaultScheduleForDate } from '../services/scheduleService';
+import { scheduleService, resolveDefaultScheduleForDate, pickScheduleRow } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 import AttendanceCalendarView from './AttendanceCalendarView';
 
@@ -304,20 +304,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     };
     // ── HELPER: GET ROBUST SHIFT ──
     const getRobustShift = (emp: Profile, dateStr: string) => {
-        const empIdLow = emp.id.toLowerCase().trim();
-        const empNameLow = (emp.full_name || '').toLowerCase().trim();
-        const empDniLow = (emp.dni || '').trim();
-
-        // 1. Search in Overrides (schedules array)
-        let shift = schedules.find(s => {
-            const sId = (s.employee_id || '').toLowerCase().trim();
-            const sDate = (s.date || '').substring(0, 10);
-            return sDate === dateStr && (
-                sId === empIdLow || 
-                sId === empNameLow || 
-                sId === empDniLow
-            );
-        });
+        // 1. Search in Overrides (schedules array) con la misma prioridad que el Cronograma
+        let shift: any = pickScheduleRow(schedules, emp.id, dateStr, [emp.full_name, emp.dni]);
 
         // 2. Search in Default Template
         if (!shift && emp.default_schedule) {
@@ -1021,19 +1009,9 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                         <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-tight">
                                             {(() => {
                                                 const todayStr = getLocalDateString();
-                                                const empIdNormalized = data.id.toLowerCase().trim();
-                                                const empNameNormalized = data.name.toLowerCase().trim();
-                                                const empDniNormalized = (employees.find(e => e.id === data.id)?.dni || '').trim();
+                                                const empDni = employees.find(e => e.id === data.id)?.dni;
 
-                                                let shift = schedules.find(s => {
-                                                    const sId = (s.employee_id || '').toLowerCase().trim();
-                                                    const sDate = (s.date || '').split('T')[0];
-                                                    return sDate === todayStr && (
-                                                        sId === empIdNormalized || 
-                                                        sId === empNameNormalized || 
-                                                        sId === empDniNormalized
-                                                    );
-                                                });
+                                                let shift: any = pickScheduleRow(schedules, data.id, todayStr, [data.name, empDni]);
 
                                                 if (!shift) {
                                                     const emp = employees.find(e => e.id === data.id);

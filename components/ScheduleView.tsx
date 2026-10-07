@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { AttendanceRecord, Profile } from '../types';
-import { scheduleService, ShiftData, ShiftType, ShiftSegment, resolveDefaultScheduleForDate } from '../services/scheduleService';
+import { scheduleService, ShiftData, ShiftType, ShiftSegment, resolveDefaultScheduleForDate, getCanonicalScheduleId } from '../services/scheduleService';
 import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
@@ -134,7 +134,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const endDate = formatDate(addDays(currentWeekStart, 6));
       const data = await scheduleService.getByWeek(startDate, endDate);
       const shiftMap = data.reduce((acc, shift) => {
-        acc[shift.id] = shift;
+        if (!shift.employee_id || !shift.date) return acc;
+        const key = getCanonicalScheduleId(shift.employee_id, shift.date);
+        // Si hay varias filas para el mismo empleado+fecha, la de id canónico tiene prioridad
+        if (!acc[key] || shift.id === key) acc[key] = shift;
         return acc;
       }, {} as Record<string, ShiftData>);
       setShifts(shiftMap);
@@ -382,7 +385,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'vacation') return 'Vacaciones';
     if (activeShift.type === 'medical') return 'Licencia Medica';
     if (activeShift.type === 'continuous') {
-      return `${activeShift.segments?.[0]?.start || ''}-${activeShift.segments?.[0]?.end || ''}`;
+      const segs = activeShift.segments || [];
+      if (segs.length <= 1) {
+        return `${segs[0]?.start || ''}-${segs[0]?.end || ''}`;
+      }
+      // Turno continuo con más de 1 segmento: mostrar todos
+      return segs.map((s: any) => `${s.start}-${s.end}`).join(' / ');
     }
     if (activeShift.type === 'split' || activeShift.type === 'double') {
       return (activeShift.segments || []).map((s: any) => `${s.start}-${s.end}`).join(' / ');

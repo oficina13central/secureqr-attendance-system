@@ -110,7 +110,22 @@ export const authService = {
 
                 // Paso 3: Reasignar registros de asistencia y cronogramas
                 await supabase.from('attendance_records').update({ employee_id: newUserId }).eq('employee_id', oldId);
-                await supabase.from('schedules').update({ employee_id: newUserId }).eq('employee_id', oldId);
+                // Los schedules usan id canónico `${employee_id}_${date}`: hay que regenerar el id,
+                // si solo se cambia employee_id quedan filas "fantasma" invisibles en el Cronograma.
+                const { data: oldSchedules } = await supabase.from('schedules').select('*').eq('employee_id', oldId);
+                if (oldSchedules && oldSchedules.length > 0) {
+                    const migrated = oldSchedules.map((s: any) => ({
+                        ...s,
+                        id: `${newUserId}_${String(s.date).substring(0, 10)}`,
+                        employee_id: newUserId
+                    }));
+                    const { error: schedUpsertError } = await supabase.from('schedules').upsert(migrated);
+                    if (!schedUpsertError) {
+                        await supabase.from('schedules').delete().eq('employee_id', oldId);
+                    } else {
+                        console.error('Error migrando cronogramas:', schedUpsertError);
+                    }
+                }
 
                 // Paso 4: Eliminar perfil viejo
                 await supabase.from('profiles').delete().eq('id', oldId);

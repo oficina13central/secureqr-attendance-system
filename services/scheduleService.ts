@@ -176,7 +176,54 @@ export function buildUpdatedDefaultSchedule(
     return result;
 }
 
+/** Id canónico de una fila de `schedules`: `${employee_id}_${YYYY-MM-DD}` */
+export const getCanonicalScheduleId = (employeeId: string, date: string) =>
+    `${employeeId}_${(date || '').substring(0, 10)}`;
+
+/**
+ * Elige UNA fila de schedules para un empleado+fecha de forma consistente en toda la app.
+ * Prioridad: 1) id canónico, 2) employee_id == UUID, 3) alias legacy (nombre/DNI).
+ * Esto garantiza que el Cronograma, la Auditoría y la generación de ausencias vean el mismo horario.
+ */
+export function pickScheduleRow<T extends { id?: string; employee_id?: string; date?: string }>(
+    rows: T[] | null | undefined,
+    employeeId: string,
+    date: string,
+    aliases: (string | null | undefined)[] = []
+): T | undefined {
+    if (!rows || rows.length === 0) return undefined;
+    const dateStr = (date || '').substring(0, 10);
+    const idLow = (employeeId || '').toLowerCase().trim();
+    const canonicalLow = getCanonicalScheduleId(idLow, dateStr);
+    const sameDay = rows.filter(r => (r.date || '').substring(0, 10) === dateStr);
+
+    const byCanonical = sameDay.find(r => (r.id || '').toLowerCase().trim() === canonicalLow);
+    if (byCanonical) return byCanonical;
+
+    const byId = sameDay.find(r => (r.employee_id || '').toLowerCase().trim() === idLow);
+    if (byId) return byId;
+
+    const aliasSet = new Set(aliases.map(a => (a || '').toLowerCase().trim()).filter(Boolean));
+    if (aliasSet.size === 0) return undefined;
+    return sameDay.find(r => aliasSet.has((r.employee_id || '').toLowerCase().trim()));
+}
+
 export const scheduleService = {
+    /** Obtiene el horario especial (override) de un empleado para una fecha, tolerando filas duplicadas. */
+    async getForEmployeeDate(employeeId: string, date: string): Promise<{ type: ShiftType; segments: ShiftSegment[] } | null> {
+        const { data, error } = await supabase
+            .from('schedules')
+            .select('id, employee_id, date, type, segments')
+            .eq('employee_id', employeeId)
+            .eq('date', date);
+        if (error) {
+            console.error('Error fetching schedule for employee/date:', error);
+            return null;
+        }
+        const row = pickScheduleRow(data as any[], employeeId, date);
+        return row ? { type: row.type, segments: row.segments || [] } : null;
+    },
+
     async getByWeek(startDate: string, endDate: string): Promise<ShiftData[]> {
         const { data, error } = await supabase
             .from('schedules')
@@ -242,6 +289,18 @@ export const scheduleService = {
 
         if (!data || data.length !== shiftsToSave.length) {
             throw new Error('No se pudo confirmar el guardado del cronograma.');
+        }
+
+        // Limpiar filas "fantasma" del mismo empleado+fecha con id distinto (ej. tras migración de perfil)
+        for (const s of shiftsToSave) {
+            if (!s.employee_id || !s.date || !s.id) continue;
+            const { error: cleanupError } = await supabase
+                .from('schedules')
+                .delete()
+                .eq('employee_id', s.employee_id)
+                .eq('date', s.date.substring(0, 10))
+                .neq('id', s.id);
+            if (cleanupError) console.warn('No se pudieron limpiar horarios duplicados:', cleanupError);
         }
 
         return Array.isArray(shifts) ? data : data[0];

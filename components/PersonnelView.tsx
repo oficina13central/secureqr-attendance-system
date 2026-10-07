@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import {
     Users,
@@ -1491,10 +1491,23 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                 value={dState.type}
                                                 onChange={e => {
                                                     const newType = e.target.value;
-                                                    let newSegs = dState.segments;
-                                                    if (newType === 'continuous' && (!newSegs || newSegs.length === 0)) newSegs = [{ start: '08:00', end: '16:00' }];
-                                                    if (newType === 'split' && (!newSegs || newSegs.length < 2)) newSegs = [{ start: '08:00', end: '12:00' }, { start: '16:00', end: '20:00' }];
-                                                    if (newType === 'off') newSegs = [];
+                                                    // FIX: Siempre asignar segmentos limpios segun el nuevo tipo para evitar
+                                                    // que segmentos de split (16:00) queden guardados en un turno corrido.
+                                                    let newSegs: { start: string; end: string }[];
+                                                    if (newType === 'continuous') {
+                                                        // Corrido: exactamente 1 segmento. Preservar hora si ya habia una.
+                                                        const prevStart = dState.segments?.[0]?.start || '08:00';
+                                                        const prevEnd = dState.segments?.[0]?.end || '16:00';
+                                                        newSegs = [{ start: prevStart, end: prevEnd }];
+                                                    } else if (newType === 'split') {
+                                                        // Cortado: exactamente 2 segmentos.
+                                                        newSegs = [
+                                                            { start: dState.segments?.[0]?.start || '08:00', end: dState.segments?.[0]?.end || '12:00' },
+                                                            { start: dState.segments?.[1]?.start || '16:00', end: dState.segments?.[1]?.end || '20:00' }
+                                                        ];
+                                                    } else {
+                                                        newSegs = [];
+                                                    }
                                                     setScheduleForm({ ...scheduleForm, [day.k]: { type: newType, segments: newSegs } });
                                                 }}
                                                 className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 outline-none w-36 focus:ring-2 focus:ring-indigo-500"
