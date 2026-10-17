@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState } from 'react';
 import {
     Users,
@@ -25,7 +25,7 @@ import { auditService } from '../services/auditService';
 import { sectorService, Sector } from '../services/sectorService';
 import { roleService } from '../services/roleService';
 import { attendanceService } from '../services/attendanceService';
-import { buildUpdatedDefaultSchedule } from '../services/scheduleService';
+import { buildUpdatedDefaultSchedule, sanitizeScheduleDayConfig, scheduleService } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
 import { Role } from '../types';
 import EmployeeFileModal from './EmployeeFileModal';
@@ -212,7 +212,7 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
     };
 
     const openScheduleModal = (employee: Profile) => {
-        const defaultSched = employee.default_schedule || {
+        const rawSched = employee.default_schedule || {
             '1': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
             '2': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
             '3': { type: 'continuous', segments: [{ start: '08:00', end: '16:00' }] },
@@ -221,7 +221,11 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
             '6': { type: 'off', segments: [] },
             '0': { type: 'off', segments: [] }
         };
-        setScheduleForm(defaultSched);
+        const cleanSched: Record<string, any> = {};
+        ['0', '1', '2', '3', '4', '5', '6'].forEach(k => {
+            cleanSched[k] = sanitizeScheduleDayConfig(rawSched[k]);
+        });
+        setScheduleForm(cleanSched);
         setScheduleValidFrom(getLocalDateString());
         setShowScheduleModal(employee);
     };
@@ -233,10 +237,10 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
         try {
             const effectiveDate = scheduleValidFrom || getLocalDateString();
             
-            // Extraer solo los días 0 a 6 del formulario
+            // Extraer y sanitizar solo los días 0 a 6 del formulario
             const newDaysConfig: Record<string, any> = {};
             ['0', '1', '2', '3', '4', '5', '6'].forEach(k => {
-                newDaysConfig[k] = scheduleForm[k] || { type: 'off', segments: [] };
+                newDaysConfig[k] = sanitizeScheduleDayConfig(scheduleForm[k]);
             });
 
             // Archivar horario previo en el historial de forma segura
@@ -248,7 +252,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
             const result = await personnelService.update(showScheduleModal.id, { default_schedule: updatedSchedule });
             if (result) {
-                setEmployees(employees.map(emp => emp.id === showScheduleModal.id ? result : emp));
+                // Limpiar turnos ordinarios en `schedules` a partir de la fecha de vigencia
+                // para que el Cronograma Semanal refleje inmediatamente el nuevo Horario Habitual
+                await scheduleService.clearWorkShiftOverridesFromDate(showScheduleModal.id, effectiveDate);
+
+                setEmployees(prev => prev.map(emp => emp.id === showScheduleModal.id ? result : emp));
+                setShowScheduleModal(result);
                 setSuccess(true);
                 
                 const prevValidFrom = showScheduleModal.default_schedule?.metadata?.valid_from;
@@ -1524,10 +1533,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                             type="time" 
                                                             value={dState.segments[0]?.start || '08:00'} 
                                                             onChange={e => {
-                                                                const s = [...(dState.segments || [{start:'08:00',end:'16:00'}])];
-                                                                if (!s[0]) s[0] = {start:'08:00', end:'16:00'};
-                                                                s[0].start = e.target.value;
-                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: s } });
+                                                                const prevEnd = dState.segments?.[0]?.end || '16:00';
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: [{ start: e.target.value, end: prevEnd }] } });
                                                             }}
                                                             className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
                                                         />
@@ -1536,10 +1543,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                             type="time" 
                                                             value={dState.segments[0]?.end || '16:00'} 
                                                             onChange={e => {
-                                                                const s = [...(dState.segments || [{start:'08:00',end:'16:00'}])];
-                                                                if (!s[0]) s[0] = {start:'08:00', end:'16:00'};
-                                                                s[0].end = e.target.value;
-                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: s } });
+                                                                const prevStart = dState.segments?.[0]?.start || '08:00';
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: [{ start: prevStart, end: e.target.value }] } });
                                                             }}
                                                             className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
                                                         />
@@ -1549,24 +1554,28 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                     <div className="flex gap-4 items-center">
                                                         <div className="flex gap-1 items-center bg-white p-1 rounded-lg border border-slate-200">
                                                             <input type="time" value={dState.segments[0]?.start || '08:00'} onChange={e => {
-                                                                const s=[...(dState.segments||[])]; if(!s[0]) s[0]={start:'08:00',end:'12:00'}; s[0].start=e.target.value;
-                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                                const s0 = { start: e.target.value, end: dState.segments?.[0]?.end || '12:00' };
+                                                                const s1 = { start: dState.segments?.[1]?.start || '16:00', end: dState.segments?.[1]?.end || '20:00' };
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:[s0, s1]}});
                                                             }} className="w-20 text-xs font-bold px-1" />
                                                             <span className="text-slate-400">-</span>
                                                             <input type="time" value={dState.segments[0]?.end || '12:00'} onChange={e => {
-                                                                const s=[...(dState.segments||[])]; if(!s[0]) s[0]={start:'08:00',end:'12:00'}; s[0].end=e.target.value;
-                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                                const s0 = { start: dState.segments?.[0]?.start || '08:00', end: e.target.value };
+                                                                const s1 = { start: dState.segments?.[1]?.start || '16:00', end: dState.segments?.[1]?.end || '20:00' };
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:[s0, s1]}});
                                                             }} className="w-20 text-xs font-bold px-1" />
                                                         </div>
                                                         <div className="flex gap-1 items-center bg-white p-1 rounded-lg border border-slate-200">
                                                             <input type="time" value={dState.segments[1]?.start || '16:00'} onChange={e => {
-                                                                const s=[...(dState.segments||[])]; if(!s[1]) s[1]={start:'16:00',end:'20:00'}; s[1].start=e.target.value;
-                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                                const s0 = { start: dState.segments?.[0]?.start || '08:00', end: dState.segments?.[0]?.end || '12:00' };
+                                                                const s1 = { start: e.target.value, end: dState.segments?.[1]?.end || '20:00' };
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:[s0, s1]}});
                                                             }} className="w-20 text-xs font-bold px-1" />
                                                             <span className="text-slate-400">-</span>
                                                             <input type="time" value={dState.segments[1]?.end || '20:00'} onChange={e => {
-                                                                const s=[...(dState.segments||[])]; if(!s[1]) s[1]={start:'16:00',end:'20:00'}; s[1].end=e.target.value;
-                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:s}});
+                                                                const s0 = { start: dState.segments?.[0]?.start || '08:00', end: dState.segments?.[0]?.end || '12:00' };
+                                                                const s1 = { start: dState.segments?.[1]?.start || '16:00', end: e.target.value };
+                                                                setScheduleForm({...scheduleForm, [day.k]: {type:'split', segments:[s0, s1]}});
                                                             }} className="w-20 text-xs font-bold px-1" />
                                                         </div>
                                                     </div>

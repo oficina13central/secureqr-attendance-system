@@ -123,10 +123,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       setHolidayMap(map);
     };
 
+    const refreshEmployees = async () => {
+      if (!setEmployees) return;
+      const updatedEmployees = await personnelService.getAll();
+      setEmployees(updatedEmployees);
+    };
+
     fetchSectors();
     checkMasterConfig();
     fetchHolidays();
-  }, []);
+    refreshEmployees();
+  }, [setEmployees]);
 
   useEffect(() => {
     const fetchShifts = async () => {
@@ -292,13 +299,17 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     setSelectedTarget({ empId: emp.id, date: date, empName: emp.full_name });
 
-    if (existingShift) {
+    const activeForModal = existingShift || getActiveShift(emp, date);
+
+    if (activeForModal) {
       setEditForm({
-        type: existingShift.type,
-        s1Start: existingShift.segments[0]?.start || '',
-        s1End: existingShift.segments[0]?.end || '',
-        s2Start: existingShift.segments[1]?.start || '',
-        s2End: existingShift.segments[1]?.end || ''
+        type: activeForModal.type,
+        s1Start: activeForModal.segments?.[0]?.start || '08:00',
+        s1End: activeForModal.segments?.[0]?.end || '16:00',
+        s2Start: activeForModal.segments?.[1]?.start || '',
+        s2End: activeForModal.segments?.[1]?.end || '',
+        startDate: dateKey,
+        endDate: dateKey
       });
     } else {
       setEditForm({
@@ -386,11 +397,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'medical') return 'Licencia Medica';
     if (activeShift.type === 'continuous') {
       const segs = activeShift.segments || [];
-      if (segs.length <= 1) {
-        return `${segs[0]?.start || ''}-${segs[0]?.end || ''}`;
-      }
-      // Turno continuo con más de 1 segmento: mostrar todos
-      return segs.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+      return `${segs[0]?.start || ''}-${segs[0]?.end || ''}`;
     }
     if (activeShift.type === 'split' || activeShift.type === 'double') {
       return (activeShift.segments || []).map((s: any) => `${s.start}-${s.end}`).join(' / ');

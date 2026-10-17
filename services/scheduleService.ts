@@ -62,6 +62,49 @@ export function normalizeDateAndDow(date: Date | string): { dateStr: string; dow
 }
 
 /**
+ * Normaliza la configuración de un día para garantizar que los segmentos coincidan con el tipo de turno.
+ * Evita que turnos 'continuous' conserven un segundo segmento residual (ej. 16:00-20:00) de un turno 'split' previo.
+ */
+export function sanitizeScheduleDayConfig(dayConfig: any): ScheduleDayConfig {
+    if (!dayConfig || typeof dayConfig !== 'object') {
+        return { type: 'off', segments: [] };
+    }
+    const type: ShiftType = dayConfig.type || 'off';
+    const rawSegments: ShiftSegment[] = Array.isArray(dayConfig.segments) ? dayConfig.segments : [];
+
+    if (type === 'continuous') {
+        const first = rawSegments[0] || { start: '08:00', end: '16:00' };
+        return {
+            type: 'continuous',
+            segments: [{ start: first.start || '08:00', end: first.end || '16:00' }]
+        };
+    }
+
+    if (type === 'split' || type === 'double') {
+        const first = rawSegments[0] || { start: '08:00', end: '12:00' };
+        const second = rawSegments[1] || { start: '16:00', end: '20:00' };
+        return {
+            type,
+            segments: [
+                { start: first.start || '08:00', end: first.end || '12:00' },
+                { start: second.start || '16:00', end: second.end || '20:00' }
+            ]
+        };
+    }
+
+    return {
+        type,
+        segments: []
+    };
+}
+
+function sanitizeShiftRow<T extends { type?: ShiftType; segments?: ShiftSegment[] }>(row: T): T {
+    if (!row) return row;
+    const clean = sanitizeScheduleDayConfig({ type: row.type, segments: row.segments });
+    return { ...row, type: clean.type, segments: clean.segments };
+}
+
+/**
  * Resuelve el horario base (habitual) que le correspondía al empleado para una fecha dada,
  * respetando el historial de cambios y fechas de vigencia.
  */
@@ -77,7 +120,7 @@ export function resolveDefaultScheduleForDate(
     // 1. Si no tiene fecha de vigencia o la fecha consultada es >= a la vigencia actual
     if (!currentValidFrom || dateStr >= currentValidFrom) {
         const base = defaultSchedule[dow];
-        if (base) return { type: base.type, segments: base.segments || [] };
+        if (base) return sanitizeScheduleDayConfig(base);
         return null;
     }
 
@@ -95,7 +138,7 @@ export function resolveDefaultScheduleForDate(
         // Tomar la más cercana / reciente según valid_until
         exactMatches.sort((b, a) => (a.valid_until || '').localeCompare(b.valid_until || ''));
         const matched = exactMatches[0].schedule?.[dow];
-        if (matched) return { type: matched.type, segments: matched.segments || [] };
+        if (matched) return sanitizeScheduleDayConfig(matched);
     }
 
     // Si no hubo coincidencia exacta en rango pero hay historial, buscar el bloque histórico que abarque
@@ -103,7 +146,7 @@ export function resolveDefaultScheduleForDate(
         const sorted = [...history].sort((a, b) => (a.valid_until || '').localeCompare(b.valid_until || ''));
         const candidate = sorted.find(h => !h.valid_until || h.valid_until >= dateStr) || sorted[0];
         const matched = candidate?.schedule?.[dow];
-        if (matched) return { type: matched.type, segments: matched.segments || [] };
+        if (matched) return sanitizeScheduleDayConfig(matched);
     }
 
     // 3. Fallback solo para horarios legacy sin valid_from definido.
@@ -111,7 +154,7 @@ export function resolveDefaultScheduleForDate(
     // Esto evita que se generen ausencias automáticas para períodos previos a la asignación del horario.
     if (!currentValidFrom) {
         const base = defaultSchedule[dow];
-        if (base) return { type: base.type, segments: base.segments || [] };
+        if (base) return sanitizeScheduleDayConfig(base);
     }
     return null;
 }
@@ -132,19 +175,35 @@ export function buildUpdatedDefaultSchedule(
     const prevDay = String(prevDate.getDate()).padStart(2, '0');
     const validUntilStr = `${prevYear}-${prevMonth}-${prevDay}`;
 
-    const existingHistory: ScheduleHistoryEntry[] = Array.isArray(currentSchedule?.history)
+    const rawHistory: ScheduleHistoryEntry[] = Array.isArray(currentSchedule?.history)
         ? [...currentSchedule.history]
         : [];
 
-    // Extraer días del horario previo si existía
+    // Limpiar entradas de historial que queden superpuestas por la nueva fecha de vigencia
+    // y sanitizar los días de cada entrada histórica
+    const existingHistory: ScheduleHistoryEntry[] = rawHistory
+        .filter(h => !h.valid_from || h.valid_from < newValidFrom)
+        .map(h => {
+            const cleanSched: Record<string, ScheduleDayConfig> = {};
+            ['0', '1', '2', '3', '4', '5', '6'].forEach(day => {
+                if (h.schedule?.[day]) {
+                    cleanSched[day] = sanitizeScheduleDayConfig(h.schedule[day]);
+                }
+            });
+            const cappedUntil = (!h.valid_until || h.valid_until >= newValidFrom) ? validUntilStr : h.valid_until;
+            return {
+                ...h,
+                valid_until: cappedUntil,
+                schedule: cleanSched
+            };
+        });
+
+    // Extraer días del horario previo si existía (sanitizados)
     const prevDays: Record<string, ScheduleDayConfig> = {};
     let hasPrevDays = false;
     ['0', '1', '2', '3', '4', '5', '6'].forEach(day => {
         if (currentSchedule?.[day]) {
-            prevDays[day] = {
-                type: currentSchedule[day].type,
-                segments: currentSchedule[day].segments || []
-            };
+            prevDays[day] = sanitizeScheduleDayConfig(currentSchedule[day]);
             hasPrevDays = true;
         }
     });
@@ -164,8 +223,14 @@ export function buildUpdatedDefaultSchedule(
     // Ordenar historial por valid_until ascendente
     existingHistory.sort((a, b) => (a.valid_until || '').localeCompare(b.valid_until || ''));
 
+    // Sanitizar nueva configuración de días 0..6
+    const cleanNewDaysConfig: Record<string, ScheduleDayConfig> = {};
+    ['0', '1', '2', '3', '4', '5', '6'].forEach(day => {
+        cleanNewDaysConfig[day] = sanitizeScheduleDayConfig(newDaysConfig[day]);
+    });
+
     const result: DefaultScheduleData = {
-        ...newDaysConfig,
+        ...cleanNewDaysConfig,
         metadata: {
             valid_from: newValidFrom,
             updated_at: new Date().toISOString()
@@ -198,14 +263,15 @@ export function pickScheduleRow<T extends { id?: string; employee_id?: string; d
     const sameDay = rows.filter(r => (r.date || '').substring(0, 10) === dateStr);
 
     const byCanonical = sameDay.find(r => (r.id || '').toLowerCase().trim() === canonicalLow);
-    if (byCanonical) return byCanonical;
+    if (byCanonical) return sanitizeShiftRow(byCanonical as any) as T;
 
     const byId = sameDay.find(r => (r.employee_id || '').toLowerCase().trim() === idLow);
-    if (byId) return byId;
+    if (byId) return sanitizeShiftRow(byId as any) as T;
 
     const aliasSet = new Set(aliases.map(a => (a || '').toLowerCase().trim()).filter(Boolean));
     if (aliasSet.size === 0) return undefined;
-    return sameDay.find(r => aliasSet.has((r.employee_id || '').toLowerCase().trim()));
+    const byAlias = sameDay.find(r => aliasSet.has((r.employee_id || '').toLowerCase().trim()));
+    return byAlias ? (sanitizeShiftRow(byAlias as any) as T) : undefined;
 }
 
 export const scheduleService = {
@@ -221,7 +287,7 @@ export const scheduleService = {
             return null;
         }
         const row = pickScheduleRow(data as any[], employeeId, date);
-        return row ? { type: row.type, segments: row.segments || [] } : null;
+        return row ? sanitizeScheduleDayConfig({ type: row.type, segments: row.segments || [] }) : null;
     },
 
     async getByWeek(startDate: string, endDate: string): Promise<ShiftData[]> {
@@ -235,7 +301,7 @@ export const scheduleService = {
             console.error('Error fetching schedules:', error);
             return [];
         }
-        return data || [];
+        return (data || []).map(row => sanitizeShiftRow(row));
     },
 
     async getAllSchedulesInRange(startDate: string, endDate?: string): Promise<ShiftData[]> {
@@ -263,7 +329,7 @@ export const scheduleService = {
             }
 
             if (data && data.length > 0) {
-                allSchedules = [...allSchedules, ...data];
+                allSchedules = [...allSchedules, ...data.map(row => sanitizeShiftRow(row))];
                 page++;
                 if (data.length < limit) {
                     hasMore = false;
@@ -276,7 +342,8 @@ export const scheduleService = {
     },
 
     async save(shifts: ShiftData | ShiftData[]): Promise<(ShiftData | null)[] | ShiftData | null> {
-        const shiftsToSave = Array.isArray(shifts) ? shifts : [shifts];
+        const rawList = Array.isArray(shifts) ? shifts : [shifts];
+        const shiftsToSave = rawList.map(s => sanitizeShiftRow(s));
         const { data, error } = await supabase
             .from('schedules')
             .upsert(shiftsToSave)
@@ -303,6 +370,25 @@ export const scheduleService = {
             if (cleanupError) console.warn('No se pudieron limpiar horarios duplicados:', cleanupError);
         }
 
-        return Array.isArray(shifts) ? data : data[0];
+        const sanitizedData = data.map(row => sanitizeShiftRow(row));
+        return Array.isArray(shifts) ? sanitizedData : sanitizedData[0];
+    },
+
+    /**
+     * Limpia las excepciones de turnos ordinarios ('continuous', 'split', 'double', 'off') en `schedules`
+     * a partir de `fromDate` (inclusive) para que el nuevo Horario Habitual se refleje en el Cronograma,
+     * preservando licencias/novedades especiales ('vacation', 'medical', 'compensatory', 'suspension').
+     */
+    async clearWorkShiftOverridesFromDate(employeeId: string, fromDate: string): Promise<void> {
+        if (!employeeId || !fromDate) return;
+        const { error } = await supabase
+            .from('schedules')
+            .delete()
+            .eq('employee_id', employeeId)
+            .gte('date', fromDate.substring(0, 10))
+            .in('type', ['continuous', 'split', 'double', 'off']);
+        if (error) {
+            console.warn('Error limpiando overrides de turnos previos desde la fecha de vigencia:', error);
+        }
     }
 };
