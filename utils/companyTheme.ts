@@ -9,15 +9,16 @@ export const VILLECCO_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagA
 
 export const isBarMiles = (): boolean => {
   const customTheme = (import.meta.env.VITE_COMPANY_THEME || import.meta.env.VITE_APP_CLIENT || import.meta.env.VITE_APP_NAME || '').toLowerCase();
-  if (customTheme === 'bar_miles' || customTheme === 'miles' || customTheme.includes('bar')) return true;
+  if (customTheme === 'bar_miles' || customTheme === 'miles') return true;
   if (customTheme === 'villecco' || customTheme === 'ayres' || customTheme.includes('panaderia') || customTheme.includes('villecco')) return false;
 
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').toLowerCase();
   if (supabaseUrl.includes('sgtsslarkrtacgaadoxt')) return true;
+  if (supabaseUrl.includes('ekysokfscwgmsthxqluc')) return false;
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
-    if (host.includes('miles') || host.includes('barmiles') || host.includes('bar')) return true;
+    if (host.includes('miles') || host.includes('barmiles')) return true;
   }
 
   return false;
@@ -39,72 +40,11 @@ export interface SectorThemeCheck {
   name: string;
 }
 
-const KNOWN_BAR_MILES_DNIS = new Set([
-  '39356158', '40697509', '38364969', '28965845', '25542399',
-  '32853360', '38589782', '38489782', '36584606', '41446534',
-  '42122073', '38742112', '36994221', '25857435', '36041627',
-  '39140977', '39731647', '45665387', '37916910', '20530641',
-  '32493380', '44376552', '46400649', '45962618', '45960076',
-  '45275372', '33168277', '45332857', '45730775'
-]);
-
 export const isMilesEmployee = (
-  emp?: EmployeeThemeCheck | null,
-  sectors?: SectorThemeCheck[]
+  _emp?: EmployeeThemeCheck | null,
+  _sectors?: SectorThemeCheck[]
 ): boolean => {
-  if (!emp) return isBarMiles();
-
-  // 1. Si la app completa está configurada o corriendo como Bar Miles
-  if (isBarMiles()) return true;
-
-  // 2. Verificación por DNI registrado del personal del bar
-  if (emp.dni && KNOWN_BAR_MILES_DNIS.has(emp.dni.trim())) {
-    return true;
-  }
-
-  // 3. Verificación por Email corporativo del bar (@bar.local, etc.)
-  const email = (emp.email || '').toLowerCase();
-  if (
-    email.includes('@bar.') ||
-    email.includes('bar.local') ||
-    email.includes('miles') ||
-    email.includes('barmiles')
-  ) {
-    return true;
-  }
-
-  // 4. Verificación por Sector
-  if (emp.sector_id) {
-    const secId = emp.sector_id.toLowerCase();
-    if (secId.includes('bar') || secId.includes('miles')) return true;
-
-    if (sectors && sectors.length > 0) {
-      const foundSector = sectors.find(s => s.id === emp.sector_id);
-      if (foundSector) {
-        const secName = foundSector.name.toLowerCase();
-        if (secName.includes('bar') || secName.includes('miles')) return true;
-      }
-    }
-  }
-
-  // 5. Verificación por Cargo / Categoría
-  const position = (emp.job_position || '').toLowerCase();
-  const category = (emp.job_category || '').toLowerCase();
-  if (
-    position.includes('bar') ||
-    position.includes('miles') ||
-    category.includes('bar') ||
-    category.includes('miles')
-  ) {
-    return true;
-  }
-
-  // 6. Verificación por QR token
-  const qr = (emp.qr_token || '').toLowerCase();
-  if (qr.includes('bar') || qr.includes('miles')) {
-    return true;
-  }
-
-  return false;
+  // Bar Miles y Panadería Villecco son dos aplicaciones separadas (distinto proyecto Supabase / deploy).
+  // Nunca se debe inferir "Miles" por el nombre del sector (ej. "Bar Aconquija" es de la Panadería).
+  return isBarMiles();
 };
-
