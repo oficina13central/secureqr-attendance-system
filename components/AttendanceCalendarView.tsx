@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Profile, AttendanceRecord } from '../types';
 import { scheduleService, ShiftData, resolveDefaultScheduleForDate } from '../services/scheduleService';
-import { attendanceService } from '../services/attendanceService';
+import { attendanceService, parseTerminalMetadata } from '../services/attendanceService';
 import { sectorService } from '../services/sectorService';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -392,10 +392,31 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                 </div>
               </div>
 
-              {selectedRecord.record.manual_reason && (
+              {(() => {
+                const meta = parseTerminalMetadata(selectedRecord.record);
+                return (meta.terminalName || meta.method) ? (
+                  <div className="bg-slate-50 rounded-2xl p-4 space-y-2 border border-slate-100">
+                    {meta.terminalName && (
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Terminal</span>
+                        <span className="text-slate-800 font-black uppercase">{meta.terminalName}</span>
+                      </div>
+                    )}
+                    {meta.method && (
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Método</span>
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${meta.method === 'QR' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {meta.method}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+              {parseTerminalMetadata(selectedRecord.record).cleanReason && (
                   <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                       <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Nota / Observación</p>
-                      <p className="text-sm text-indigo-700 font-medium italic">"{selectedRecord.record.manual_reason}"</p>
+                      <p className="text-sm text-indigo-700 font-medium italic">"{parseTerminalMetadata(selectedRecord.record).cleanReason}"</p>
                   </div>
               )}
 

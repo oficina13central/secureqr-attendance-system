@@ -27,6 +27,64 @@ const getJustifiedStatusForSchedule = (type?: string | null): JustifiedAbsenceSt
 
 const normalizeIdentity = (value?: string | null) => (value || '').trim().toLowerCase();
 
+export interface CheckInMeta {
+    terminalName?: string;
+    method?: 'qr' | 'dni';
+}
+
+const TERMINAL_META_REGEX = /^\[TERMINAL:\s*([^|\]]*?)\s*\|\s*METODO:\s*(QR|DNI)\s*\]\s*(.*)$/i;
+
+export const formatTerminalMetadata = (
+    terminalName?: string | null,
+    method?: 'qr' | 'dni' | 'QR' | 'DNI' | null,
+    existingReason?: string | null
+): string | undefined => {
+    const parsedExisting = existingReason ? TERMINAL_META_REGEX.exec(existingReason.trim()) : null;
+    const finalTerminal = (terminalName || parsedExisting?.[1] || '').trim();
+    const rawMethod = (method || parsedExisting?.[2] || '').toString().trim().toUpperCase();
+    const finalMethod = rawMethod === 'DNI' ? 'DNI' : rawMethod === 'QR' ? 'QR' : '';
+    const cleanReason = (parsedExisting ? parsedExisting[3] : (existingReason || '')).trim();
+
+    if (!finalTerminal && !finalMethod) {
+        return cleanReason || undefined;
+    }
+
+    const prefix = `[TERMINAL: ${finalTerminal || 'TERMINAL'} | METODO: ${finalMethod || 'QR'}]`;
+    return cleanReason ? `${prefix} ${cleanReason}` : prefix;
+};
+
+export const parseTerminalMetadata = (record?: Partial<AttendanceRecord> | null): {
+    terminalName: string | null;
+    method: 'QR' | 'DNI' | null;
+    cleanReason: string | null;
+} => {
+    if (!record) return { terminalName: null, method: null, cleanReason: null };
+
+    const rawReason = (record.manual_reason || '').trim();
+    const match = TERMINAL_META_REGEX.exec(rawReason);
+
+    const directMethod = record.check_in_method
+        ? (record.check_in_method.toUpperCase() === 'DNI' ? 'DNI' : 'QR')
+        : null;
+
+    if (match) {
+        const term = match[1]?.trim() || record.terminal_name || null;
+        const meth = (match[2]?.toUpperCase() === 'DNI' ? 'DNI' : 'QR') as 'QR' | 'DNI';
+        const rest = match[3]?.trim() || null;
+        return {
+            terminalName: term,
+            method: directMethod || meth,
+            cleanReason: rest
+        };
+    }
+
+    return {
+        terminalName: record.terminal_name || null,
+        method: directMethod,
+        cleanReason: rawReason || null
+    };
+};
+
 export const attendanceService = {
     async getByDate(date: string): Promise<AttendanceRecord[]> {
         const { data, error } = await supabase
@@ -141,7 +199,7 @@ export const attendanceService = {
         return stats;
     },
 
-    async recordCheckIn(employeeId: string, employeeName: string, effectiveNow: Date = new Date()): Promise<AttendanceRecord | null> {
+    async recordCheckIn(employeeId: string, employeeName: string, effectiveNow: Date = new Date(), meta?: CheckInMeta): Promise<AttendanceRecord | null> {
         const now = effectiveNow;
         const nowIso = now.toISOString();
         let date = getLocalDateString(now);
@@ -269,7 +327,8 @@ export const attendanceService = {
                     employee_name: employeeName,
                     check_in: nowIso,
                     status: status,
-                    minutes_late: minutesLate
+                    minutes_late: minutesLate,
+                    ...(formatTerminalMetadata(meta?.terminalName, meta?.method) ? { manual_reason: formatTerminalMetadata(meta?.terminalName, meta?.method) } : {})
                 })
                 .eq('id', placeholderRecord.id)
                 .select()
@@ -287,7 +346,8 @@ export const attendanceService = {
                         date: date,
                         check_in: nowIso,
                         status: status,
-                        minutes_late: minutesLate
+                        minutes_late: minutesLate,
+                    ...(formatTerminalMetadata(meta?.terminalName, meta?.method) ? { manual_reason: formatTerminalMetadata(meta?.terminalName, meta?.method) } : {})
                     }])
                     .select()
                     .single();
@@ -308,7 +368,8 @@ export const attendanceService = {
                     date: date,
                     check_in: nowIso,
                     status: status,
-                    minutes_late: minutesLate
+                    minutes_late: minutesLate,
+                    ...(formatTerminalMetadata(meta?.terminalName, meta?.method) ? { manual_reason: formatTerminalMetadata(meta?.terminalName, meta?.method) } : {})
                 }])
                 .select()
                 .single();
@@ -687,7 +748,10 @@ export const attendanceService = {
                 // Pasamos el modo guardado (in/out) para reproducir la intención original del operador
                 const scanTime = new Date(scan.timestamp);
                 const effectiveTime = Number.isNaN(scanTime.getTime()) ? new Date() : scanTime;
-                const result = await this.processScan(scan.employeeId, scan.employeeName, scan.mode, effectiveTime, false);
+                const result = await this.processScan(scan.employeeId, scan.employeeName, scan.mode, effectiveTime, false, {
+                    terminalName: scan.terminalName,
+                    method: scan.method
+                });
                 if (result.type === 'in' || result.type === 'out') {
                     offlineService.removeScan(scan.id);
                     successCount++;
@@ -701,12 +765,12 @@ export const attendanceService = {
         return { success: successCount, failed: failedCount };
     },
 
-    async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out', effectiveNow: Date = new Date(), queueOnNetworkError = true): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
+    async processScan(employeeId: string, employeeName: string, enforcedMode?: 'in' | 'out', effectiveNow: Date = new Date(), queueOnNetworkError = true, meta?: CheckInMeta): Promise<{ type: 'in' | 'out' | 'error' | 'queued', record: AttendanceRecord | null, reason?: string }> {
         // Optimización offline inmediata: si no hay conexión a internet, encolar directo sin demoras de red
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             if (!queueOnNetworkError) return { type: 'queued', record: null, reason: 'queued_offline' };
             console.warn('Sin conexión detectada — guardando fichada de inmediato en cola offline.');
-            offlineService.queueScan(employeeId, employeeName, enforcedMode);
+            offlineService.queueScan(employeeId, employeeName, enforcedMode, meta?.terminalName, meta?.method);
             return { type: 'queued', record: null, reason: 'queued_offline' };
         }
 
@@ -751,7 +815,7 @@ export const attendanceService = {
                         return { type: 'error', record: null, reason: 'already_checked_in' };
                     }
                 }
-                const result = await this.recordCheckIn(resolvedId, employeeName, now);
+                const result = await this.recordCheckIn(resolvedId, employeeName, now, meta);
                 if (result) return { type: 'in', record: result, reason: 'check_in_success' };
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
@@ -770,7 +834,7 @@ export const attendanceService = {
                 const result = await this.recordCheckOut(openRecord.id, now);
                 return { type: 'out', record: result, reason: 'check_out_success' };
             } else {
-                const result = await this.recordCheckIn(resolvedId, employeeName, now);
+                const result = await this.recordCheckIn(resolvedId, employeeName, now, meta);
                 if (result) return { type: 'in', record: result, reason: 'check_in_success' };
                 else return { type: 'error', record: null, reason: 'daily_limit_reached' };
             }
@@ -795,7 +859,7 @@ export const attendanceService = {
             if (isNetworkError) {
                 if (!queueOnNetworkError) return { type: 'queued', record: null, reason: 'queued_offline' };
                 console.warn('Sin conexión detectada — guardando fichada en cola offline.');
-                offlineService.queueScan(employeeId, employeeName, enforcedMode);
+                offlineService.queueScan(employeeId, employeeName, enforcedMode, meta?.terminalName, meta?.method);
                 return { type: 'queued', record: null, reason: 'queued_offline' };
             }
 

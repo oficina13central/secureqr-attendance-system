@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { AttendanceRecord, Profile } from '../types';
 import { supabase } from '../services/supabaseClient';
-import { attendanceService } from '../services/attendanceService';
+import { attendanceService, formatTerminalMetadata, parseTerminalMetadata } from '../services/attendanceService';
 import { personnelService } from '../services/personnelService';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { sectorService, Sector } from '../services/sectorService';
@@ -404,7 +404,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                 // Si es real, solo ACTUALIZAMOS
                 success = await attendanceService.updateRecord(recordId, {
                     check_in: updatedCheckIn,
-                    manual_reason: 'Corrección administrativa'
+                    manual_reason: formatTerminalMetadata(undefined, undefined, record.manual_reason ? `${record.manual_reason.replace(/\s*Corrección administrativa/gi, '')} Corrección administrativa` : 'Corrección administrativa') || 'Corrección administrativa'
                 });
             }
 
@@ -744,11 +744,13 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
     const handleExportDetailedReport = () => {
         if (!selectedEmployeeData) return;
 
-        const headers = ["Fecha", "Horario", "Entrada", "Estado", "Retraso (min)"];
+        const headers = ["Fecha", "Horario", "Entrada", "Terminal", "Método", "Estado", "Retraso (min)"];
         const rows = selectedEmployeeData.detailedRecords.map(r => [
             r.date,
             r.assigned_time || '--:--',
             formatTime(r.check_in),
+            parseTerminalMetadata(r).terminalName || '-',
+            parseTerminalMetadata(r).method || (r.status === 'manual' ? 'Manual' : '-'),
             r.status === 'sin_presentismo' ? 'Perdió el Presentismo' : r.status.replace('_', ' '),
             r.minutes_late > 0 ? r.minutes_late : '-'
         ]);
@@ -1086,7 +1088,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
 
             {selectedEmployeeId && selectedEmployeeData && selectedEmployee && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                    <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">
                             <div>
                                 <h3 className="text-2xl font-black lowercase first-letter:uppercase">{selectedEmployeeData.name}</h3>
@@ -1126,6 +1128,8 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Horario</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
+                                        <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Terminal</th>
+                                        <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Método</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
                                         <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Retraso</th>
                                     </tr>
@@ -1133,7 +1137,7 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                 <tbody className="divide-y divide-slate-50">
                                     {selectedEmployeeData.detailedRecords.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="py-8 text-center text-slate-400 italic">No hay registros detallados para este mes.</td>
+                                            <td colSpan={7} className="py-8 text-center text-slate-400 italic">No hay registros detallados para este mes.</td>
                                         </tr>
                                     ) : selectedEmployeeData.detailedRecords.map((record) => (
                                         <tr key={record.id} className="hover:bg-slate-50 transition-colors group">
@@ -1197,6 +1201,45 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
                                                         )}
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td className="py-4">
+                                                {(() => {
+                                                    const meta = parseTerminalMetadata(record);
+                                                    return meta.terminalName ? (
+                                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">
+                                                            {meta.terminalName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-300 font-bold">—</span>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="py-4 text-center">
+                                                {(() => {
+                                                    const meta = parseTerminalMetadata(record);
+                                                    if (meta.method === 'QR') {
+                                                        return (
+                                                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                                                QR
+                                                            </span>
+                                                        );
+                                                    }
+                                                    if (meta.method === 'DNI') {
+                                                        return (
+                                                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200">
+                                                                DNI
+                                                            </span>
+                                                        );
+                                                    }
+                                                    if (record.status === 'manual') {
+                                                        return (
+                                                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-purple-50 text-purple-600 border border-purple-100">
+                                                                Manual
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return <span className="text-xs text-slate-300 font-bold">—</span>;
+                                                })()}
                                             </td>
                                             <td className="py-4 text-center">
                                                 <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${['en_horario', 'presente'].includes(record.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :

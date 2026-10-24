@@ -65,6 +65,8 @@ export interface AttendanceRecord {
   minutes_late: number;
   manual_reason?: string;
   assigned_time?: string;
+  terminal_name?: string;
+  check_in_method?: 'qr' | 'dni';
 }
 
 export interface AuditLog {

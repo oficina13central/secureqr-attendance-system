@@ -374,7 +374,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       if (employeeId && employeeId !== "PENDING") {
         console.log(`Procesando escaneo (${scanMode}): Nombre=${employeeName}, ID=${employeeId}`);
         try {
-          const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined);
+          const result = await attendanceService.processScan(employeeId, employeeName, scanMode || undefined, new Date(), true, {
+            terminalName,
+            method: 'qr'
+          });
 
           if (result.type === 'in' || result.type === 'out') {
             const successPresentation = getSuccessMessage(result.type, result.record?.status);
@@ -467,7 +470,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       
       const employeeName = data?.full_name || "Usuario";
       
-      const result = await attendanceService.processScan(manualDni.trim(), employeeName, scanMode || undefined);
+      const result = await attendanceService.processScan(manualDni.trim(), employeeName, scanMode || undefined, new Date(), true, {
+        terminalName,
+        method: 'dni'
+      });
 
       if (result.type === 'in' || result.type === 'out') {
         const successPresentation = getSuccessMessage(result.type, result.record?.status);
