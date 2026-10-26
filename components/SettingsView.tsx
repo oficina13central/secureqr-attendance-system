@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Clock, ShieldAlert, CheckCircle2, AlertCircle, Layers, Shield, CalendarDays } from 'lucide-react';
+import { Settings, Save, Clock, ShieldAlert, CheckCircle2, AlertCircle, Layers, Shield, CalendarDays, Monitor } from 'lucide-react';
 import { settingsService, AttendanceRules } from '../services/settingsService';
 import { auditService } from '../services/auditService';
 import RoleManager from './RoleManager';
 import HolidayManager from './HolidayManager';
 import SectorManager from './SectorManager';
+import TerminalManager from './TerminalManager';
 import { Profile } from '../types';
 
 interface SettingsViewProps {
     currentUser: Profile;
 }
 
-type TabType = 'rules' | 'sectors' | 'roles' | 'holidays';
+type TabType = 'rules' | 'terminals' | 'sectors' | 'roles' | 'holidays';
 
 const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState<TabType>('rules');
@@ -68,9 +69,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                     <p className="text-slate-500 font-medium">Gestión de reglas, sectores y permisos del sistema.</p>
                 </div>
 
-                <div className="flex p-1 bg-slate-100 rounded-2xl self-start lg:self-center">
+                <div className="flex flex-wrap p-1 bg-slate-100 rounded-2xl self-start lg:self-center gap-1">
                     {[
                         { id: 'rules', label: 'Reglas', icon: Settings, permission: 'MANAGE_RULES' },
+                        { id: 'terminals', label: 'Terminales', icon: Monitor, permission: 'MANAGE_RULES' },
                         { id: 'sectors', label: 'Sectores', icon: Layers, permission: 'MANAGE_SECTORS' },
                         { id: 'roles', label: 'Roles', icon: Shield, permission: 'MANAGE_ROLES' },
                         { id: 'holidays', label: 'Feriados', icon: CalendarDays, permission: 'MANAGE_RULES' },
@@ -239,6 +241,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                     </div>
                 )}
 
+                {activeTab === 'terminals' && <div className="animate-in fade-in slide-in-from-bottom-2"><TerminalManager currentUser={currentUser} /></div>}
                 {activeTab === 'sectors' && <div className="animate-in fade-in slide-in-from-bottom-2"><SectorManager /></div>}
                 {activeTab === 'roles' && <div className="animate-in fade-in slide-in-from-bottom-2"><RoleManager /></div>}
                 {activeTab === 'holidays' && <div className="animate-in fade-in slide-in-from-bottom-2"><HolidayManager /></div>}

@@ -464,6 +464,8 @@ const App: React.FC = () => {
           <TerminalView 
             onExit={() => isAdminUser ? setMainView('admin') : authService.signOut()} 
             role={currentUser?.role}
+            currentUser={currentUser}
+            defaultTerminalName={terminalSessionSnapshot?.fullName}
           />
         </div>
       );
@@ -494,6 +496,8 @@ const App: React.FC = () => {
         <TerminalView 
           onExit={() => authService.signOut()} 
           role="terminal" 
+          currentUser={currentUser}
+          defaultTerminalName={terminalSessionSnapshot?.fullName}
         />
         <FloatingAppActions canInstall={!!installPrompt} onInstall={handleInstallApp} />
       </>
@@ -778,7 +782,7 @@ const App: React.FC = () => {
             } else {
               setMainView('admin');
             }
-          }} role={currentUser?.role} />
+          }} role={currentUser?.role} currentUser={currentUser} defaultTerminalName={terminalSessionSnapshot?.fullName} />
         )}
       </main>
       {/* Password Reset Modal */}

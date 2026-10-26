@@ -4,13 +4,33 @@ import jsQR from 'jsqr';
 import { attendanceService } from '../services/attendanceService';
 import { supabase } from '../services/supabaseClient';
 import { offlineService } from '../services/offlineService';
+import { settingsService } from '../services/settingsService';
+import { userManagementService } from '../services/userManagementService';
+import { CACHED_TERMINAL_PROFILE_KEY } from '../services/authService';
+import { Profile } from '../types';
 
 interface TerminalViewProps {
   onExit: () => void;
   role?: string;
+  currentUser?: Profile | null;
+  defaultTerminalName?: string;
 }
 
-const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
+const resolveInitialTerminalName = (currentUser?: Profile | null, defaultTerminalName?: string): string => {
+  if (currentUser?.role === 'terminal' && currentUser.full_name && currentUser.full_name.trim().toLowerCase() !== 'terminal de acceso') {
+    return currentUser.full_name.trim().toUpperCase();
+  }
+  if (defaultTerminalName && defaultTerminalName.trim().toLowerCase() !== 'terminal de acceso') {
+    return defaultTerminalName.trim().toUpperCase();
+  }
+  const stored = localStorage.getItem('terminal_branch_name');
+  if (stored && stored.trim() && stored.trim().toUpperCase() !== 'PLANTA INDUSTRIAL NORTE') {
+    return stored.trim().toUpperCase();
+  }
+  return stored?.trim().toUpperCase() || 'TERMINAL PRINCIPAL';
+};
+
+const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, defaultTerminalName }) => {
   const [sessionActive, setSessionActive] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error' | 'duplicate' | 'wait'>('idle');
@@ -18,7 +38,9 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   const [scanType, setScanType] = useState<'in' | 'out' | null>(null);
   const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null);
   const [attendanceMsg, setAttendanceMsg] = useState<string>('');
-  const [terminalName, setTerminalName] = useState<string>(() => localStorage.getItem('terminal_branch_name') || 'PLANTA INDUSTRIAL NORTE');
+  const [terminalName, setTerminalName] = useState<string>(() => resolveInitialTerminalName(currentUser, defaultTerminalName));
+  const [availableTerminals, setAvailableTerminals] = useState<string[]>([]);
+  const [defaultFallbackName, setDefaultFallbackName] = useState<string>('TERMINAL PRINCIPAL');
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(terminalName);
   const [msgColor, setMsgColor] = useState<string>('text-emerald-300');
@@ -44,6 +66,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
   
   // Robust PIN protection
   const [showPinPad, setShowPinPad] = useState(false);
+  const [pinAction, setPinAction] = useState<'exit' | 'edit_name'>('exit');
   const [inputPin, setInputPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const TERMINAL_PIN = "0808";
@@ -233,8 +256,13 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       if (newPin.length === 4) {
         if (newPin === TERMINAL_PIN) {
           setShowPinPad(false);
-          setShowLogoutConfirm(true);
           setInputPin('');
+          if (pinAction === 'edit_name') {
+            setTempName(terminalName);
+            setIsEditingName(true);
+          } else {
+            setShowLogoutConfirm(true);
+          }
         } else {
           setPinError(true);
           setTimeout(() => setInputPin(''), 1000);
@@ -265,12 +293,72 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
 
-  const handleSaveName = () => {
-    const finalName = tempName.trim().toUpperCase() || 'PLANTA INDUSTRIAL NORTE';
+  const handleSaveName = async () => {
+    const finalName = tempName.trim().toUpperCase() || defaultFallbackName || 'TERMINAL PRINCIPAL';
     setTerminalName(finalName);
     localStorage.setItem('terminal_branch_name', finalName);
     setIsEditingName(false);
+
+    // Si es una cuenta de terminal, sincronizar también su nombre en Supabase y en caché local
+    if (currentUser?.role === 'terminal' && currentUser.id) {
+      try {
+        await userManagementService.updateUserName(currentUser.id, finalName);
+        const updatedProfile = { ...currentUser, full_name: finalName };
+        localStorage.setItem(CACHED_TERMINAL_PROFILE_KEY, JSON.stringify(updatedProfile));
+        const rawSession = localStorage.getItem('secureqr_terminal_session');
+        if (rawSession) {
+          const parsed = JSON.parse(rawSession);
+          localStorage.setItem('secureqr_terminal_session', JSON.stringify({ ...parsed, fullName: finalName }));
+        }
+      } catch (err) {
+        console.warn('No se pudo sincronizar el nombre de la terminal en la nube:', err);
+      }
+    }
   };
+
+  useEffect(() => {
+    let active = true;
+    const syncTerminalConfig = async () => {
+      try {
+        const rules = await settingsService.getRules();
+        if (!active) return;
+        const fallback = (rules.default_terminal_name || 'TERMINAL PRINCIPAL').trim().toUpperCase();
+        setDefaultFallbackName(fallback);
+        if (Array.isArray(rules.terminal_names)) {
+          setAvailableTerminals(rules.terminal_names);
+        }
+
+        // Si el usuario logueado es una cuenta de rol 'terminal', traer el nombre más reciente desde Supabase
+        if (currentUser?.role === 'terminal' && currentUser.id && navigator.onLine) {
+          const { data: freshProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+          if (active && freshProfile?.full_name && freshProfile.full_name.trim().toLowerCase() !== 'terminal de acceso') {
+            const remoteName = freshProfile.full_name.trim().toUpperCase();
+            setTerminalName(remoteName);
+            localStorage.setItem('terminal_branch_name', remoteName);
+            return;
+          }
+        }
+
+        // Si todavía tiene el placeholder viejo 'PLANTA INDUSTRIAL NORTE', reemplazarlo por el fallback configurado
+        const stored = localStorage.getItem('terminal_branch_name');
+        if (!stored || stored.trim().toUpperCase() === 'PLANTA INDUSTRIAL NORTE') {
+          const resolved = resolveInitialTerminalName(currentUser, defaultTerminalName);
+          const nextName = resolved === 'PLANTA INDUSTRIAL NORTE' || resolved === 'TERMINAL PRINCIPAL' ? fallback : resolved;
+          setTerminalName(nextName);
+          localStorage.setItem('terminal_branch_name', nextName);
+        }
+      } catch (err) {
+        console.warn('No se pudo cargar la configuración de terminales:', err);
+      }
+    };
+    syncTerminalConfig();
+    return () => { active = false; };
+  }, [currentUser?.id, currentUser?.role, currentUser?.full_name, defaultTerminalName]);
 
   const toggleCamera = () => {
     const nextMode = cameraMode === 'environment' ? 'user' : 'environment';
@@ -516,7 +604,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
       <div className="absolute top-4 left-4 md:top-8 md:left-8 flex items-center space-x-3 z-50">
         {!sessionActive && (
           <button
-            onClick={() => setShowPinPad(true)}
+            onClick={() => {
+              if (role === 'superusuario' || role === 'administrador') {
+                onExit();
+              } else {
+                setPinAction('exit');
+                setShowPinPad(true);
+              }
+            }}
             className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-md border border-white/5 active:scale-95"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -557,32 +652,60 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role }) => {
             className="text-4xl md:text-6xl font-black tracking-tighter text-indigo-400 select-none cursor-default"
           >LECTOR DE ACCESO</h1>
           {isEditingName ? (
-            <div className="flex items-center justify-center space-x-2 animate-in fade-in zoom-in duration-200">
-              <input 
-                autoFocus
-                value={tempName}
-                onChange={(e) => setTempName(e.target.value)}
-                onBlur={handleSaveName}
-                onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                className="bg-slate-800 text-white text-[10px] md:text-xs font-black uppercase text-center px-4 py-1 rounded-full border border-indigo-500/50 outline-none"
-              />
-              <button onClick={handleSaveName} className="text-emerald-400 p-1">
-                <CheckCircle2 className="w-4 h-4" />
-              </button>
+            <div className="flex flex-col items-center justify-center space-y-2 animate-in fade-in zoom-in duration-200">
+              {availableTerminals.length > 0 && (
+                <select
+                  value={availableTerminals.includes(tempName.trim().toUpperCase()) ? tempName.trim().toUpperCase() : ''}
+                  onChange={(e) => {
+                    if (e.target.value) setTempName(e.target.value);
+                  }}
+                  className="bg-slate-900 text-indigo-300 text-[10px] md:text-xs font-black uppercase text-center px-4 py-1.5 rounded-full border border-indigo-500/40 outline-none"
+                >
+                  <option value="">-- Elegir terminal del catálogo --</option>
+                  {availableTerminals.map((name, idx) => (
+                    <option key={idx} value={name}>{name}</option>
+                  ))}
+                </select>
+              )}
+              <div className="flex items-center justify-center space-x-2">
+                <input 
+                  autoFocus
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSaveName();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                  placeholder="NOMBRE DE TERMINAL"
+                  className="bg-slate-800 text-white text-[10px] md:text-xs font-black uppercase text-center px-4 py-1.5 rounded-full border border-indigo-500/50 outline-none"
+                />
+                <button onClick={() => void handleSaveName()} className="text-emerald-400 hover:text-emerald-300 p-1.5 bg-slate-900 rounded-full border border-emerald-500/30" title="Guardar nombre">
+                  <CheckCircle2 className="w-4 h-4" />
+                </button>
+                <button onClick={() => setIsEditingName(false)} className="text-slate-400 hover:text-white p-1.5 bg-slate-900 rounded-full border border-slate-700" title="Cancelar">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-center space-x-2">
-              <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">
+              <p className="text-slate-400 uppercase tracking-[0.4em] text-[10px] md:text-xs font-black">
                 {terminalName}
               </p>
               <button 
                 onClick={() => {
-                  setTempName(terminalName);
-                  setIsEditingName(true);
+                  if (role === 'superusuario' || role === 'administrador') {
+                    setTempName(terminalName);
+                    setIsEditingName(true);
+                  } else {
+                    setPinAction('edit_name');
+                    setShowPinPad(true);
+                  }
                 }} 
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600 hover:text-indigo-400"
+                title="Configurar nombre de esta terminal"
+                className="opacity-70 hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-indigo-400 rounded-full hover:bg-slate-900/80"
               >
-                <Settings className="w-3 h-3" />
+                <Settings className="w-3.5 h-3.5" />
               </button>
             </div>
           )}

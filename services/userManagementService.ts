@@ -139,6 +139,21 @@ export const userManagementService = {
     },
 
     /**
+     * Updates a user's or terminal's display name (full_name).
+     */
+    async updateUserName(userId: string, fullName: string): Promise<void> {
+        const cleanName = fullName.trim();
+        if (!cleanName) throw new Error('El nombre no puede estar vacío');
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ full_name: cleanName })
+            .eq('id', userId);
+
+        if (error) throw error;
+    },
+
+    /**
      * Toggles whether the user is tracked as an employee or a system account.
      */
     async toggleUserAccountType(userId: string, isEmployee: boolean): Promise<void> {

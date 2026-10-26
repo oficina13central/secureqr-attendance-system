@@ -1152,5 +1152,32 @@ export const attendanceService = {
         }
 
         return scoresMap;
+    },
+
+    async renameTerminalInRecords(oldTerminalName: string, newTerminalName: string): Promise<number> {
+        const cleanOld = oldTerminalName.trim();
+        const cleanNew = newTerminalName.trim().toUpperCase();
+        if (!cleanOld || !cleanNew) return 0;
+
+        const { data: records, error } = await supabase
+            .from('attendance_records')
+            .select('id, manual_reason')
+            .ilike('manual_reason', `%[TERMINAL:%${cleanOld}%|%`);
+
+        if (error || !records || records.length === 0) return 0;
+
+        let updatedCount = 0;
+        for (const rec of records) {
+            const parsed = parseTerminalMetadata(rec);
+            if (parsed.terminalName && parsed.terminalName.toLowerCase() === cleanOld.toLowerCase()) {
+                const newReason = formatTerminalMetadata(cleanNew, parsed.method, parsed.cleanReason);
+                const { error: upErr } = await supabase
+                    .from('attendance_records')
+                    .update({ manual_reason: newReason || null })
+                    .eq('id', rec.id);
+                if (!upErr) updatedCount++;
+            }
+        }
+        return updatedCount;
     }
 };

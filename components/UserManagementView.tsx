@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Shield, ShieldAlert, UserX, UserCheck, 
   Search, Filter, MoreVertical, Key, Trash2, RotateCcw,
-  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine, Settings
+  Clock, AlertCircle, CheckCircle2, Loader2, Ban, ScanLine, Settings, Edit2, Check, X
 } from 'lucide-react';
 import { userManagementService } from '../services/userManagementService';
 import { roleService } from '../services/roleService';
@@ -33,6 +33,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
   const [showSystemAccountModal, setShowSystemAccountModal] = useState(false);
   const [sysAcctForm, setSysAcctForm] = useState({ name: '', email: '', password: '', role: 'terminal' });
   const [sysAcctLoading, setSysAcctLoading] = useState(false);
+  const [editingNameUserId, setEditingNameUserId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
 
   useEffect(() => {
     loadData();
@@ -233,6 +235,34 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
       loadData();
     } catch (err) {
       showFeedback('Error al cambiar rol', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSaveUserName = async (user: Profile) => {
+    const cleanName = editingNameValue.trim();
+    if (!cleanName || cleanName === user.full_name) {
+      setEditingNameUserId(null);
+      return;
+    }
+    setActionLoading(user.id);
+    try {
+      const finalName = user.role === 'terminal' ? cleanName.toUpperCase() : cleanName;
+      await userManagementService.updateUserName(user.id, finalName);
+      await auditService.logAction({
+        manager_name: currentUser.full_name,
+        employee_name: finalName,
+        action: user.role === 'terminal' ? 'Renombrado de Terminal' : 'Cambio de Nombre de Usuario',
+        old_value: user.full_name,
+        new_value: finalName,
+        reason: 'Edición manual desde Gestión de Usuarios'
+      });
+      setEditingNameUserId(null);
+      showFeedback(`Nombre actualizado a "${finalName}"`, 'success');
+      loadData();
+    } catch (err) {
+      showFeedback('Error al actualizar el nombre', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -463,10 +493,52 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
                             ) : user.full_name?.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-black text-slate-800 flex items-center">
-                              {user.full_name}
-                              {user.id === currentUser.id && <span className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-lg">Tú</span>}
-                            </p>
+                            {editingNameUserId === user.id ? (
+                              <div className="flex items-center space-x-2 mb-1">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={editingNameValue}
+                                  onChange={(e) => setEditingNameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveUserName(user);
+                                    if (e.key === 'Escape') setEditingNameUserId(null);
+                                  }}
+                                  className="px-2.5 py-1 bg-white border border-indigo-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <button
+                                  onClick={() => handleSaveUserName(user)}
+                                  className="p-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                                  title="Guardar nombre"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingNameUserId(null)}
+                                  className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300"
+                                  title="Cancelar"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="font-black text-slate-800 flex items-center">
+                                {user.full_name}
+                                {user.id === currentUser.id && <span className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-lg">Tú</span>}
+                                {!user.deleted_at && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingNameUserId(user.id);
+                                      setEditingNameValue(user.full_name);
+                                    }}
+                                    className="ml-2 p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                    title="Editar nombre (ej: Nombre de Terminal)"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </p>
+                            )}
                             <p className="text-xs text-slate-400 font-bold">{user.email}</p>
                           </div>
                         </div>

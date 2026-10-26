@@ -7,6 +7,8 @@ export interface AttendanceRules {
     ausente_gracia: number;
     enable_compensatory_rest?: boolean;
     weekly_payroll_cutoff_time?: string;
+    terminal_names?: string[];
+    default_terminal_name?: string;
 }
 
 const defaultRules: AttendanceRules = {
@@ -15,7 +17,9 @@ const defaultRules: AttendanceRules = {
     max_mensual: 15,
     ausente_gracia: 120,
     enable_compensatory_rest: false,
-    weekly_payroll_cutoff_time: '19:00'
+    weekly_payroll_cutoff_time: '19:00',
+    terminal_names: [],
+    default_terminal_name: 'TERMINAL PRINCIPAL'
 };
 
 export const settingsService = {
@@ -35,7 +39,9 @@ export const settingsService = {
             ...data.value,
             ausente_gracia: data.value.ausente_gracia || defaultRules.ausente_gracia,
             enable_compensatory_rest: !!data.value.enable_compensatory_rest,
-            weekly_payroll_cutoff_time: data.value.weekly_payroll_cutoff_time || defaultRules.weekly_payroll_cutoff_time
+            weekly_payroll_cutoff_time: data.value.weekly_payroll_cutoff_time || defaultRules.weekly_payroll_cutoff_time,
+            terminal_names: Array.isArray(data.value.terminal_names) ? data.value.terminal_names : defaultRules.terminal_names,
+            default_terminal_name: data.value.default_terminal_name || defaultRules.default_terminal_name
         };
     },
 
