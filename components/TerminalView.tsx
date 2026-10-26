@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, RefreshCcw, CheckCircle2, XCircle, ArrowLeft, ScanLine, ShieldAlert, Keyboard, X, Settings, LogOut } from 'lucide-react';
 import jsQR from 'jsqr';
-import { attendanceService } from '../services/attendanceService';
+import { attendanceService, getStoredTerminalAccountName } from '../services/attendanceService';
 import { supabase } from '../services/supabaseClient';
 import { offlineService } from '../services/offlineService';
 import { settingsService } from '../services/settingsService';
@@ -16,18 +16,27 @@ interface TerminalViewProps {
   defaultTerminalName?: string;
 }
 
+const isGenericTerminalName = (name?: string | null): boolean => {
+  const clean = (name || '').trim().toUpperCase();
+  return !clean || clean === 'TERMINAL DE ACCESO' || clean === 'PLANTA INDUSTRIAL NORTE' || clean === 'TERMINAL PRINCIPAL' || clean === 'USUARIO PENDIENTE' || clean === 'USUARIO RESTRINGIDO';
+};
+
 const resolveInitialTerminalName = (currentUser?: Profile | null, defaultTerminalName?: string): string => {
-  if (currentUser?.role === 'terminal' && currentUser.full_name && currentUser.full_name.trim().toLowerCase() !== 'terminal de acceso') {
+  if (currentUser?.full_name && !isGenericTerminalName(currentUser.full_name)) {
     return currentUser.full_name.trim().toUpperCase();
   }
-  if (defaultTerminalName && defaultTerminalName.trim().toLowerCase() !== 'terminal de acceso') {
+  if (defaultTerminalName && !isGenericTerminalName(defaultTerminalName)) {
     return defaultTerminalName.trim().toUpperCase();
   }
+  const fromStoredAccount = getStoredTerminalAccountName();
+  if (fromStoredAccount) {
+    return fromStoredAccount;
+  }
   const stored = localStorage.getItem('terminal_branch_name');
-  if (stored && stored.trim() && stored.trim().toUpperCase() !== 'PLANTA INDUSTRIAL NORTE') {
+  if (stored && !isGenericTerminalName(stored)) {
     return stored.trim().toUpperCase();
   }
-  return stored?.trim().toUpperCase() || 'TERMINAL PRINCIPAL';
+  return 'TERMINAL PRINCIPAL';
 };
 
 const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, defaultTerminalName }) => {
@@ -318,39 +327,54 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, 
 
   useEffect(() => {
     let active = true;
+
+    // 1. Aplicación inmediata del nombre de la cuenta de terminal (ej: ACONQUIJA, CHAZARRETA, OPEN PLAZA, etc.)
+    const immediateAccountName = resolveInitialTerminalName(currentUser, defaultTerminalName);
+    if (immediateAccountName && !isGenericTerminalName(immediateAccountName)) {
+      setTerminalName(immediateAccountName);
+      localStorage.setItem('terminal_branch_name', immediateAccountName);
+    }
+
     const syncTerminalConfig = async () => {
       try {
+        // 2. Traer el nombre oficial más reciente del perfil en Supabase (por si el Superusuario lo renombró)
+        const targetUserId = currentUser?.id || (() => {
+          try {
+            return JSON.parse(localStorage.getItem('secureqr_terminal_session') || '{}')?.userId;
+          } catch {
+            return null;
+          }
+        })();
+
+        if (targetUserId && navigator.onLine) {
+          const { data: freshProfile } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('id', targetUserId)
+            .maybeSingle();
+
+          if (active && freshProfile?.full_name && !isGenericTerminalName(freshProfile.full_name)) {
+            const remoteName = freshProfile.full_name.trim().toUpperCase();
+            setTerminalName(remoteName);
+            localStorage.setItem('terminal_branch_name', remoteName);
+            try {
+              const rawSession = localStorage.getItem('secureqr_terminal_session');
+              if (rawSession) {
+                const parsed = JSON.parse(rawSession);
+                localStorage.setItem('secureqr_terminal_session', JSON.stringify({ ...parsed, fullName: remoteName }));
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         const rules = await settingsService.getRules();
         if (!active) return;
         const fallback = (rules.default_terminal_name || 'TERMINAL PRINCIPAL').trim().toUpperCase();
         setDefaultFallbackName(fallback);
         if (Array.isArray(rules.terminal_names)) {
           setAvailableTerminals(rules.terminal_names);
-        }
-
-        // Si el usuario logueado es una cuenta de rol 'terminal', traer el nombre más reciente desde Supabase
-        if (currentUser?.role === 'terminal' && currentUser.id && navigator.onLine) {
-          const { data: freshProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', currentUser.id)
-            .maybeSingle();
-
-          if (active && freshProfile?.full_name && freshProfile.full_name.trim().toLowerCase() !== 'terminal de acceso') {
-            const remoteName = freshProfile.full_name.trim().toUpperCase();
-            setTerminalName(remoteName);
-            localStorage.setItem('terminal_branch_name', remoteName);
-            return;
-          }
-        }
-
-        // Si todavía tiene el placeholder viejo 'PLANTA INDUSTRIAL NORTE', reemplazarlo por el fallback configurado
-        const stored = localStorage.getItem('terminal_branch_name');
-        if (!stored || stored.trim().toUpperCase() === 'PLANTA INDUSTRIAL NORTE') {
-          const resolved = resolveInitialTerminalName(currentUser, defaultTerminalName);
-          const nextName = resolved === 'PLANTA INDUSTRIAL NORTE' || resolved === 'TERMINAL PRINCIPAL' ? fallback : resolved;
-          setTerminalName(nextName);
-          localStorage.setItem('terminal_branch_name', nextName);
         }
       } catch (err) {
         console.warn('No se pudo cargar la configuración de terminales:', err);

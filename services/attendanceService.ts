@@ -34,13 +34,54 @@ export interface CheckInMeta {
 
 const TERMINAL_META_REGEX = /^\[TERMINAL:\s*([^|\]]*?)\s*\|\s*METODO:\s*(QR|DNI)\s*\]\s*(.*)$/i;
 
+const GENERIC_TERMINAL_NAMES = new Set([
+    '',
+    'TERMINAL',
+    'TERMINAL DE ACCESO',
+    'TERMINAL PRINCIPAL',
+    'PLANTA INDUSTRIAL NORTE',
+    'USUARIO PENDIENTE',
+    'USUARIO RESTRINGIDO'
+]);
+
+export const getStoredTerminalAccountName = (): string | null => {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+    try {
+        const rawCached = localStorage.getItem('secureqr_cached_terminal_profile');
+        if (rawCached) {
+            const parsed = JSON.parse(rawCached);
+            const candidate = (parsed?.full_name || '').trim().toUpperCase();
+            if (candidate && !GENERIC_TERMINAL_NAMES.has(candidate)) {
+                return candidate;
+            }
+        }
+    } catch {
+        // ignore
+    }
+    try {
+        const rawSession = localStorage.getItem('secureqr_terminal_session');
+        if (rawSession) {
+            const parsed = JSON.parse(rawSession);
+            const candidate = (parsed?.fullName || '').trim().toUpperCase();
+            if (candidate && !GENERIC_TERMINAL_NAMES.has(candidate)) {
+                return candidate;
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return null;
+};
+
 export const formatTerminalMetadata = (
     terminalName?: string | null,
     method?: 'qr' | 'dni' | 'QR' | 'DNI' | null,
     existingReason?: string | null
 ): string | undefined => {
     const parsedExisting = existingReason ? TERMINAL_META_REGEX.exec(existingReason.trim()) : null;
-    const finalTerminal = (terminalName || parsedExisting?.[1] || '').trim();
+    const rawProvided = (terminalName || parsedExisting?.[1] || '').trim().toUpperCase();
+    const storedAccountName = getStoredTerminalAccountName();
+    const finalTerminal = (!GENERIC_TERMINAL_NAMES.has(rawProvided) ? rawProvided : (storedAccountName || rawProvided)).trim();
     const rawMethod = (method || parsedExisting?.[2] || '').toString().trim().toUpperCase();
     const finalMethod = rawMethod === 'DNI' ? 'DNI' : rawMethod === 'QR' ? 'QR' : '';
     const cleanReason = (parsedExisting ? parsedExisting[3] : (existingReason || '')).trim();
