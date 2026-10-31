@@ -401,7 +401,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
     if (activeShift.type === 'half_compensatory') {
       const segs = activeShift.segments || [];
-      return `M. Descanso ${segs[0]?.start || ''}-${segs[0]?.end || ''}`.trim();
+      return `M. Franco C. ${segs[0]?.start || ''}-${segs[0]?.end || ''}`.trim();
     }
     if (activeShift.type === 'continuous') {
       const segs = activeShift.segments || [];
@@ -964,7 +964,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 
                   editForm.type === 'medical' ? 'Licencia Médica' : 
                   editForm.type === 'compensatory' ? 'Asignación Franco Comp.' :
-                  editForm.type === 'half_compensatory' ? 'Asignación Medio Descanso' :
+                  editForm.type === 'half_compensatory' ? 'Asignación Medio Franco Comp.' :
                   editForm.type === 'half' ? 'Asignación Medio Turno' :
                   editForm.type === 'suspension' ? 'Suspensión de Personal' : 'Cambio de Turno',
           old_value: 'N/A',
@@ -1452,7 +1452,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       : t === 'double' ? 'Doble'
                       : t === 'off' ? 'Descanso'
                       : t === 'compensatory' ? 'Franco C.'
-                      : t === 'half_compensatory' ? 'Medio Desc.'
+                      : t === 'half_compensatory' ? 'M. Franco C.'
                       : t === 'suspension' ? 'Suspendido'
                       : t === 'vacation' ? 'Vacaciones'
                       : 'Licencia Med.'}
@@ -1483,7 +1483,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                   )}
                   {editForm.type === 'half_compensatory' && (
                     <p className="text-[11px] font-medium text-pink-700 bg-pink-50 border border-pink-100 rounded-xl p-3">
-                      <strong>Medio Descanso:</strong> Descuenta <strong>-0.5</strong> franco compensatorio y asigna este horario de medio turno para que el empleado pueda marcar su ingreso y salida con código QR.
+                      <strong>Medio Franco Compensatorio:</strong> Descuenta <strong>-0.5</strong> franco compensatorio y asigna este horario de medio turno para que el empleado pueda marcar su ingreso y salida con código QR.
                     </p>
                   )}
                 </div>

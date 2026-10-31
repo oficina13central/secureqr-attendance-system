@@ -87,7 +87,11 @@ const getEffectiveLedgerAmount = (row: { amount?: number | string | null; type?:
   }
 
   const normalizedReason = normalizeSearchText(reasonStr);
-  if (normalizedReason.includes('medio descanso') || normalizedReason.includes('medio turno')) {
+  if (
+    normalizedReason.includes('medio franco') ||
+    normalizedReason.includes('medio descanso') ||
+    normalizedReason.includes('medio turno')
+  ) {
     if (row.type === 'usage' || row.type === 'payment') return -0.5;
     if (row.type === 'credit' || row.type === 'adjustment') return 0.5;
   }
@@ -143,6 +147,7 @@ const isCompensatoryUsageCancellation = (row: { type?: string | null; reason?: s
   if (row.type !== 'adjustment') return false;
   const normalizedReason = normalizeSearchText(row.reason);
   return normalizedReason.includes('cancelacion de franco compensatorio') ||
+    normalizedReason.includes('cancelacion de medio franco compensatorio') ||
     normalizedReason.includes('cancelacion de medio descanso');
 };
 
@@ -150,6 +155,7 @@ const isCompensatoryUsage = (row: { type?: string | null; reason?: string | null
   if (row.type !== 'usage') return false;
   const normalizedReason = normalizeSearchText(row.reason);
   return normalizedReason.includes('uso de franco compensatorio') ||
+    normalizedReason.includes('uso de medio franco compensatorio') ||
     normalizedReason.includes('uso de medio descanso');
 };
 
@@ -269,7 +275,8 @@ const calculateEffectiveBalanceFromRows = (
       const currentCreatedAt = current?.created_at || '';
       if (!current || rowCreatedAt >= currentCreatedAt) {
         const rawAmount = getEffectiveLedgerAmount(row);
-        const absAmount = Math.abs(rawAmount) || (normalizeSearchText(row.reason).includes('medio descanso') ? 0.5 : 1);
+        const normReason = normalizeSearchText(row.reason);
+        const absAmount = Math.abs(rawAmount) || ((normReason.includes('medio franco') || normReason.includes('medio descanso')) ? 0.5 : 1);
         usageStateByDate.set(usageDate, {
           used: isCompensatoryUsage(row),
           amount: -absAmount,
@@ -450,7 +457,8 @@ const getCompensatoryUsageStateForDate = async (
   for (const row of data || []) {
     if (getCompensatoryUsageDateFromReason(row.reason) !== date) continue;
     const rawAmount = getEffectiveLedgerAmount(row);
-    const absAmount = Math.abs(rawAmount) || (normalizeSearchText(row.reason).includes('medio descanso') ? 0.5 : 1);
+    const normReason = normalizeSearchText(row.reason);
+    const absAmount = Math.abs(rawAmount) || ((normReason.includes('medio franco') || normReason.includes('medio descanso')) ? 0.5 : 1);
     if (isCompensatoryUsage(row)) return { status: 'used', amount: absAmount };
     if (isCompensatoryUsageCancellation(row)) return { status: 'cancelled', amount: absAmount };
   }
@@ -636,7 +644,7 @@ export const compensatoryRestService = {
       amount: -normalizedDeduction,
       type: 'usage',
       reason: isHalf
-        ? `Uso de medio descanso (franco compensatorio) el día ${date}`
+        ? `Uso de medio franco compensatorio el día ${date}`
         : `Uso de franco compensatorio el día ${date}`,
       manager_name: managerName
     });
@@ -660,7 +668,7 @@ export const compensatoryRestService = {
       amount: restoreAmount,
       type: 'adjustment',
       reason: isHalf
-        ? `Cancelación de medio descanso (franco compensatorio) del día ${date}`
+        ? `Cancelación de medio franco compensatorio del día ${date}`
         : `Cancelación de franco compensatorio del día ${date}`,
       manager_name: managerName
     });

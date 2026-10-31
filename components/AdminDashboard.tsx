@@ -375,7 +375,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       if (shift.segments?.[0]) {
         const hours = shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
         if (shift.type === 'half') return `M. Turno (${hours})`;
-        if (shift.type === 'half_compensatory') return `M. Descanso (${hours})`;
+        if (shift.type === 'half_compensatory') return `M. Franco C. (${hours})`;
         return hours;
       }
     }
