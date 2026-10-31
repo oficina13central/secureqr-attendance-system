@@ -1427,37 +1427,99 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6 text-slate-400" /></button>
             </div>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-1.5 bg-slate-100/80 rounded-2xl">
-                {(['continuous', 'half', 'split', 'double', 'off', 'compensatory', 'half_compensatory', 'suspension', 'vacation', 'medical'] as const)
-                  .filter(t => t !== 'medical' || currentUser.role !== 'encargado')
-                  .map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setEditForm(prev => {
-                      const nextEnd = (t === 'half' || t === 'half_compensatory') && prev.s1Start === '08:00' && (prev.s1End === '16:00' || prev.s1End === '17:00')
-                        ? '12:00'
-                        : prev.s1End;
-                      return { ...prev, type: t, s1End: nextEnd };
-                    })}
-                    className={`py-3 px-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-normal antialiased transition-all ${
-                      editForm.type === t 
-                        ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
-                    }`}
-                  >
-                    {t === 'continuous' ? 'Corrido'
-                      : t === 'half' ? 'Medio Turno'
-                      : t === 'split' ? 'Cortado'
-                      : t === 'double' ? 'Doble'
-                      : t === 'off' ? 'Descanso'
-                      : t === 'compensatory' ? 'Franco C.'
-                      : t === 'half_compensatory' ? 'M. Franco C.'
-                      : t === 'suspension' ? 'Suspendido'
-                      : t === 'vacation' ? 'Vacaciones'
-                      : 'Licencia Med.'}
-                  </button>
-                ))}
+            <div className="space-y-5">
+              {/* Bloque 1: Turnos Laborales */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Turnos Laborales</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
+                  {([
+                    { type: 'continuous', label: 'Corrido', active: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20', inactive: 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-100' },
+                    { type: 'half', label: 'Medio Turno', badge: '½', active: 'bg-teal-600 text-white shadow-md shadow-teal-500/20', inactive: 'text-teal-700 bg-teal-50/70 hover:bg-teal-100/80 border border-teal-100' },
+                    { type: 'split', label: 'Cortado', active: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20', inactive: 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-100' },
+                    { type: 'double', label: 'Doble', active: 'bg-violet-600 text-white shadow-md shadow-violet-500/20', inactive: 'text-violet-700 bg-violet-50/70 hover:bg-violet-100/80 border border-violet-100' }
+                  ] as const).map(item => (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => setEditForm(prev => {
+                        const nextEnd = item.type === 'half' && prev.s1Start === '08:00' && (prev.s1End === '16:00' || prev.s1End === '17:00')
+                          ? '12:00'
+                          : prev.s1End;
+                        return { ...prev, type: item.type, s1End: nextEnd };
+                      })}
+                      className={`py-2.5 px-2 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex items-center justify-center gap-1 ${
+                        editForm.type === item.type ? item.active : item.inactive
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      {'badge' in item && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black ${
+                          editForm.type === item.type ? 'bg-white/20 text-white' : 'bg-teal-200/70 text-teal-800'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bloque 2: Descansos y Francos Compensatorios */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Descanso Semanal y Francos Compensatorios</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
+                  {([
+                    { type: 'off', label: 'Descanso', sub: 'Semanal', active: 'bg-amber-500 text-white shadow-md shadow-amber-500/20', inactive: 'text-amber-700 bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/70', pillActive: 'bg-white/20 text-white', pillInactive: 'bg-amber-200/60 text-amber-800' },
+                    { type: 'compensatory', label: 'Franco C.', sub: '-1 Franco', active: 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-500/20', inactive: 'text-fuchsia-700 bg-fuchsia-50/80 hover:bg-fuchsia-100/80 border border-fuchsia-200/70', pillActive: 'bg-white/20 text-white', pillInactive: 'bg-fuchsia-200/60 text-fuchsia-800' },
+                    { type: 'half_compensatory', label: 'M. Franco C.', sub: '-0.5 + Horario', active: 'bg-pink-600 text-white shadow-md shadow-pink-500/20', inactive: 'text-pink-700 bg-pink-50/80 hover:bg-pink-100/80 border border-pink-200/70', pillActive: 'bg-white/20 text-white', pillInactive: 'bg-pink-200/60 text-pink-800' }
+                  ] as const).map(item => (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => setEditForm(prev => {
+                        const nextEnd = item.type === 'half_compensatory' && prev.s1Start === '08:00' && (prev.s1End === '16:00' || prev.s1End === '17:00')
+                          ? '12:00'
+                          : prev.s1End;
+                        return { ...prev, type: item.type, s1End: nextEnd };
+                      })}
+                      className={`py-2.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex flex-col items-center justify-center gap-0.5 ${
+                        editForm.type === item.type ? item.active : item.inactive
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold tracking-tight ${
+                        editForm.type === item.type ? item.pillActive : item.pillInactive
+                      }`}>
+                        {item.sub}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bloque 3: Licencias y Sanciones */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Licencias y Sanciones</span>
+                <div className={`grid grid-cols-2 ${currentUser.role !== 'encargado' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2 p-1.5 bg-slate-100/80 rounded-2xl`}>
+                  {([
+                    { type: 'vacation', label: 'Vacaciones', active: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20', inactive: 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-100' },
+                    { type: 'medical', label: 'Licencia Méd.', active: 'bg-rose-600 text-white shadow-md shadow-rose-500/20', inactive: 'text-rose-700 bg-rose-50/70 hover:bg-rose-100/80 border border-rose-100' },
+                    { type: 'suspension', label: 'Suspendido', active: 'bg-red-600 text-white shadow-md shadow-red-500/20', inactive: 'text-red-700 bg-red-50/70 hover:bg-red-100/80 border border-red-100' }
+                  ] as const)
+                    .filter(item => item.type !== 'medical' || currentUser.role !== 'encargado')
+                    .map(item => (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => setEditForm(prev => ({ ...prev, type: item.type }))}
+                      className={`py-2.5 px-2 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all ${
+                        editForm.type === item.type ? item.active : item.inactive
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {(editForm.type === 'continuous' || editForm.type === 'half' || editForm.type === 'half_compensatory') && (
