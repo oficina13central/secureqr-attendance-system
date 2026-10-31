@@ -50,7 +50,7 @@ export interface Profile {
 }
 
 export interface DailyShift {
-  type: 'continuous' | 'split' | 'off';
+  type: 'continuous' | 'split' | 'double' | 'half' | 'half_compensatory' | 'off';
   segments: { start: string; end: string }[];
 }
 

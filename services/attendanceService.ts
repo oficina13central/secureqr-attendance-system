@@ -345,7 +345,7 @@ export const attendanceService = {
         const validEntriesCount = validEntries.length;
         const placeholderRecord = (existingToday || []).find(r => r.check_in === null);
 
-        if (scheduleType === 'continuous' && validEntriesCount >= 1) return null;
+        if ((scheduleType === 'continuous' || scheduleType === 'half' || scheduleType === 'half_compensatory') && validEntriesCount >= 1) return null;
         if ((scheduleType === 'split' || scheduleType === 'double') && validEntriesCount >= 2) return null;
 
         let status: 'en_horario' | 'tarde' | 'sin_presentismo' = 'en_horario';

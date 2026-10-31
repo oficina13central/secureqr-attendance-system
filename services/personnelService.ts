@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Profile } from '../types';
+import { compensatoryRestService } from './compensatoryRestService';
 
 export const personnelService = {
     async getAll(includeArchived = false): Promise<Profile[]> {
@@ -23,11 +24,12 @@ export const personnelService = {
                 if (!includeArchived) retryQuery = retryQuery.is('deleted_at', null);
                 const retry = await retryQuery;
                 // Filtrar usuarios de sistema en memoria como fallback
-                return (retry.data || []).filter((p: any) => p.is_employee !== false);
+                const fallbackList = (retry.data || []).filter((p: any) => p.is_employee !== false);
+                return compensatoryRestService.enrichProfilesWithLedgerBalance(fallbackList);
             }
             return [];
         }
-        return data || [];
+        return compensatoryRestService.enrichProfilesWithLedgerBalance(data || []);
     },
 
     async create(profile: Omit<Profile, 'id'>): Promise<Profile | null> {

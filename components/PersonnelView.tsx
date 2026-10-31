@@ -1508,6 +1508,12 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                         const prevStart = dState.segments?.[0]?.start || '08:00';
                                                         const prevEnd = dState.segments?.[0]?.end || '16:00';
                                                         newSegs = [{ start: prevStart, end: prevEnd }];
+                                                    } else if (newType === 'half') {
+                                                        // Medio Turno: exactamente 1 segmento (por defecto 08:00 a 12:00).
+                                                        const prevStart = dState.segments?.[0]?.start || '08:00';
+                                                        const rawPrevEnd = dState.segments?.[0]?.end || '12:00';
+                                                        const prevEnd = (prevStart === '08:00' && (rawPrevEnd === '16:00' || rawPrevEnd === '17:00')) ? '12:00' : rawPrevEnd;
+                                                        newSegs = [{ start: prevStart, end: prevEnd }];
                                                     } else if (newType === 'split') {
                                                         // Cortado: exactamente 2 segmentos.
                                                         newSegs = [
@@ -1522,29 +1528,30 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
                                                 className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 outline-none w-36 focus:ring-2 focus:ring-indigo-500"
                                             >
                                                 <option value="continuous">Corrido</option>
+                                                <option value="half">Medio Turno</option>
                                                 <option value="split">Cortado</option>
                                                 <option value="off">Descanso / Libre</option>
                                             </select>
                                             
                                             <div className="flex-1 flex gap-2">
-                                                {dState.type === 'continuous' && (
+                                                {(dState.type === 'continuous' || dState.type === 'half') && (
                                                     <div className="flex gap-2 items-center">
                                                         <input 
                                                             type="time" 
                                                             value={dState.segments[0]?.start || '08:00'} 
                                                             onChange={e => {
-                                                                const prevEnd = dState.segments?.[0]?.end || '16:00';
-                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: [{ start: e.target.value, end: prevEnd }] } });
+                                                                const prevEnd = dState.segments?.[0]?.end || (dState.type === 'half' ? '12:00' : '16:00');
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: dState.type, segments: [{ start: e.target.value, end: prevEnd }] } });
                                                             }}
                                                             className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
                                                         />
                                                         <span className="text-slate-400 font-bold">-</span>
                                                         <input 
                                                             type="time" 
-                                                            value={dState.segments[0]?.end || '16:00'} 
+                                                            value={dState.segments[0]?.end || (dState.type === 'half' ? '12:00' : '16:00')} 
                                                             onChange={e => {
                                                                 const prevStart = dState.segments?.[0]?.start || '08:00';
-                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: 'continuous', segments: [{ start: prevStart, end: e.target.value }] } });
+                                                                setScheduleForm({ ...scheduleForm, [day.k]: { type: dState.type, segments: [{ start: prevStart, end: e.target.value }] } });
                                                             }}
                                                             className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold w-24" 
                                                         />

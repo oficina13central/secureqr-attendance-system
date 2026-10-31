@@ -3,9 +3,10 @@ import { supabase } from './supabaseClient';
 export interface ShiftSegment {
     start: string;
     end: string;
+    subType?: 'half' | 'half_compensatory';
 }
 
-export type ShiftType = 'continuous' | 'split' | 'double' | 'off' | 'vacation' | 'medical' | 'compensatory' | 'suspension';
+export type ShiftType = 'continuous' | 'split' | 'double' | 'half' | 'half_compensatory' | 'off' | 'vacation' | 'medical' | 'compensatory' | 'suspension';
 
 export interface ShiftData {
     id: string; // employeeId_dateIso
@@ -69,14 +70,26 @@ export function sanitizeScheduleDayConfig(dayConfig: any): ScheduleDayConfig {
     if (!dayConfig || typeof dayConfig !== 'object') {
         return { type: 'off', segments: [] };
     }
-    const type: ShiftType = dayConfig.type || 'off';
     const rawSegments: ShiftSegment[] = Array.isArray(dayConfig.segments) ? dayConfig.segments : [];
+    const subType = rawSegments[0]?.subType;
+    let type: ShiftType = dayConfig.type || 'off';
+    if (type === 'continuous' && (subType === 'half' || subType === 'half_compensatory')) {
+        type = subType;
+    }
 
     if (type === 'continuous') {
         const first = rawSegments[0] || { start: '08:00', end: '16:00' };
         return {
             type: 'continuous',
             segments: [{ start: first.start || '08:00', end: first.end || '16:00' }]
+        };
+    }
+
+    if (type === 'half' || type === 'half_compensatory') {
+        const first = rawSegments[0] || { start: '08:00', end: '12:00' };
+        return {
+            type,
+            segments: [{ start: first.start || '08:00', end: first.end || '12:00', subType: type }]
         };
     }
 
@@ -344,10 +357,30 @@ export const scheduleService = {
     async save(shifts: ShiftData | ShiftData[]): Promise<(ShiftData | null)[] | ShiftData | null> {
         const rawList = Array.isArray(shifts) ? shifts : [shifts];
         const shiftsToSave = rawList.map(s => sanitizeShiftRow(s));
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('schedules')
             .upsert(shiftsToSave)
             .select();
+
+        // Fallback si el constraint de base de datos aún no incluye 'half' / 'half_compensatory'
+        if (error && (error.code === '23514' || String(error.message || '').includes('schedules_type_check'))) {
+            const fallbackShifts = shiftsToSave.map(s => {
+                if (s.type === 'half' || s.type === 'half_compensatory') {
+                    return {
+                        ...s,
+                        type: 'continuous' as ShiftType,
+                        segments: (s.segments || []).map((seg, i) => i === 0 ? { ...seg, subType: s.type as 'half' | 'half_compensatory' } : seg)
+                    };
+                }
+                return s;
+            });
+            const retryRes = await supabase
+                .from('schedules')
+                .upsert(fallbackShifts)
+                .select();
+            data = retryRes.data;
+            error = retryRes.error;
+        }
 
         if (error) {
             console.error('Error saving schedule(s):', error);
@@ -375,18 +408,36 @@ export const scheduleService = {
     },
 
     /**
-     * Limpia las excepciones de turnos ordinarios ('continuous', 'split', 'double', 'off') en `schedules`
+     * Limpia las excepciones de turnos ordinarios ('continuous', 'split', 'double', 'half', 'off') en `schedules`
      * a partir de `fromDate` (inclusive) para que el nuevo Horario Habitual se refleje en el Cronograma,
-     * preservando licencias/novedades especiales ('vacation', 'medical', 'compensatory', 'suspension').
+     * preservando licencias/novedades especiales ('vacation', 'medical', 'compensatory', 'half_compensatory', 'suspension').
      */
     async clearWorkShiftOverridesFromDate(employeeId: string, fromDate: string): Promise<void> {
         if (!employeeId || !fromDate) return;
+        const { data: existingRows, error: fetchError } = await supabase
+            .from('schedules')
+            .select('id, type, segments')
+            .eq('employee_id', employeeId)
+            .gte('date', fromDate.substring(0, 10));
+
+        if (fetchError) {
+            console.warn('Error consultando overrides de turnos previos:', fetchError);
+            return;
+        }
+
+        const ordinaryTypes = new Set<ShiftType>(['continuous', 'split', 'double', 'half', 'off']);
+        const idsToDelete = (existingRows || [])
+            .map(row => sanitizeShiftRow(row as any))
+            .filter(row => ordinaryTypes.has(row.type))
+            .map(row => row.id)
+            .filter(Boolean);
+
+        if (idsToDelete.length === 0) return;
+
         const { error } = await supabase
             .from('schedules')
             .delete()
-            .eq('employee_id', employeeId)
-            .gte('date', fromDate.substring(0, 10))
-            .in('type', ['continuous', 'split', 'double', 'off']);
+            .in('id', idsToDelete);
         if (error) {
             console.warn('Error limpiando overrides de turnos previos desde la fecha de vigencia:', error);
         }

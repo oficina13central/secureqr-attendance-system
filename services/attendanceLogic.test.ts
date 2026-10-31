@@ -358,6 +358,30 @@ const cases: Array<{ name: string; run: () => void }> = [
                 { status: 'en_horario', minutesLate: 0 }
             );
         }
+    },
+    {
+        name: 'half shift (Medio Turno) and half_compensatory (Medio Descanso) evaluate 1 segment for QR check-in and due records',
+        run: () => {
+            const halfShift = { type: 'half' as const, segments: [{ start: '08:00', end: '12:00' }] };
+            const halfCompShift = { type: 'half_compensatory' as const, segments: [{ start: '14:00', end: '18:00' }] };
+
+            assert.equal(getDueRecordCount(halfShift, '2026-04-25', '2026-04-25', new Date('2026-04-25T10:30:00'), 120), 1);
+            assert.equal(getDueRecordCount(halfCompShift, '2026-04-25', '2026-04-25', new Date('2026-04-25T16:30:00'), 120), 1);
+            assert.equal(getClosedSegmentCount(halfShift, '2026-04-25', '2026-04-25', new Date('2026-04-25T12:15:00')), 1);
+            assert.equal(getClosedSegmentCount(halfCompShift, '2026-04-25', '2026-04-25', new Date('2026-04-25T18:15:00')), 1);
+
+            assert.deepEqual(
+                resolveRecalculatedRecord(
+                    { date: '2026-04-25', check_in: '2026-04-25T14:05:00', status: 'en_horario', minutes_late: 0 },
+                    halfCompShift,
+                    0,
+                    rules,
+                    '2026-04-25',
+                    new Date('2026-04-25T18:30:00')
+                ),
+                { shouldDelete: false, status: 'en_horario', minutesLate: 5 }
+            );
+        }
     }
 ];
 

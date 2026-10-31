@@ -371,8 +371,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       if (shift.type === 'off') return 'Descanso';
       if (shift.type === 'vacation') return 'Vacaciones';
       if (shift.type === 'medical') return 'Licencia Médica';
+      if (shift.type === 'compensatory') return 'Franco Comp.';
       if (shift.segments?.[0]) {
-        return shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+        const hours = shift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+        if (shift.type === 'half') return `M. Turno (${hours})`;
+        if (shift.type === 'half_compensatory') return `M. Descanso (${hours})`;
+        return hours;
       }
     }
     
@@ -384,7 +388,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
         if (defShift.type === 'vacation') return 'Vacaciones';
         if (defShift.type === 'medical') return 'Licencia Médica';
         if (defShift.segments?.[0]) {
-          return defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+          const hours = defShift.segments.map((s: any) => `${s.start}-${s.end}`).join(' / ');
+          if (defShift.type === 'half') return `M. Turno (${hours})`;
+          return hours;
         }
       }
     }

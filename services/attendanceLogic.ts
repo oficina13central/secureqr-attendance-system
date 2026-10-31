@@ -10,7 +10,7 @@ export type ScheduleSegmentLike = {
 };
 
 export type ScheduleLike = {
-    type?: 'continuous' | 'split' | 'double' | 'off' | 'vacation' | 'medical' | 'compensatory' | 'suspension';
+    type?: 'continuous' | 'split' | 'double' | 'half' | 'half_compensatory' | 'off' | 'vacation' | 'medical' | 'compensatory' | 'suspension';
     segments?: ScheduleSegmentLike[];
 };
 

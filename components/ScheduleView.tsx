@@ -395,6 +395,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (activeShift.type === 'suspension') return 'Suspendido';
     if (activeShift.type === 'vacation') return 'Vacaciones';
     if (activeShift.type === 'medical') return 'Licencia Medica';
+    if (activeShift.type === 'half') {
+      const segs = activeShift.segments || [];
+      return `M. Turno ${segs[0]?.start || ''}-${segs[0]?.end || ''}`.trim();
+    }
+    if (activeShift.type === 'half_compensatory') {
+      const segs = activeShift.segments || [];
+      return `M. Descanso ${segs[0]?.start || ''}-${segs[0]?.end || ''}`.trim();
+    }
     if (activeShift.type === 'continuous') {
       const segs = activeShift.segments || [];
       return `${segs[0]?.start || ''}-${segs[0]?.end || ''}`;
@@ -588,7 +596,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       const scheduledUnits = isDoubleForLiquidation
         ? segments.slice(0, scheduledJornadas)
         : [segments[0]];
-      const payableUnits = scheduledUnits.reduce((units: { effectiveDate: Date; hours: number }[], segment: any, index: number) => {
+      const unitJornadaValue = isDoubleForLiquidation
+        ? 1
+        : (activeShift.type === 'half' || activeShift.type === 'half_compensatory') ? 0.5 : 1;
+      const payableUnits = scheduledUnits.reduce((units: { effectiveDate: Date; hours: number; jornadas: number }[], segment: any, index: number) => {
         const segmentStart = new Date(date);
         const [startHours, startMinutes] = (segment.start || '00:00').split(':').map(Number);
         segmentStart.setHours(startHours || 0, startMinutes || 0, 0, 0);
@@ -603,11 +614,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
         units.push({
           effectiveDate: addDays(date, paysNextWeek ? 1 : 0),
-          hours: isDoubleForLiquidation ? getSegmentHours(segment) : totalScheduledHours
+          hours: isDoubleForLiquidation ? getSegmentHours(segment) : totalScheduledHours,
+          jornadas: unitJornadaValue
         });
         return units;
       }, []);
-      const dayJornadas = payableUnits.length;
+      const dayJornadas = payableUnits.reduce((sum, unit) => sum + unit.jornadas, 0);
       const dayHours = payableUnits.reduce((sum, unit) => sum + unit.hours, 0);
 
       const hasCheckIn = dayRecords.some(r => !!r.check_in);
@@ -726,7 +738,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       });
       if (payableUnitsInWeek.length === 0) return;
 
-      workedJornadas += payableUnitsInWeek.length;
+      workedJornadas += payableUnitsInWeek.reduce((sum, unit) => sum + (unit.jornadas ?? 1), 0);
       weeklyHours += payableUnitsInWeek.reduce((sum, unit) => sum + unit.hours, 0);
     });
 
@@ -870,7 +882,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
       } else {
         const segments: ShiftSegment[] = [];
-        if (editForm.type === 'continuous') {
+        if (editForm.type === 'continuous' || editForm.type === 'half' || editForm.type === 'half_compensatory') {
           segments.push({ start: editForm.s1Start, end: editForm.s1End });
         } else if (editForm.type === 'split' || editForm.type === 'double') {
           segments.push({ start: editForm.s1Start, end: editForm.s1End });
@@ -897,15 +909,26 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           const dateKey = formatDate(selectedTarget.date);
           const shiftKey = `${selectedTarget.empId}_${dateKey}`;
           const prevShift = shifts[shiftKey];
+          const wasCompensatory = prevShift?.type === 'compensatory' || prevShift?.type === 'half_compensatory';
+          const isNowCompensatory = editForm.type === 'compensatory' || editForm.type === 'half_compensatory';
 
-          // 1. Manejo de Consumo (-1)
-          if (editForm.type === 'compensatory' && prevShift?.type !== 'compensatory') {
+          // 1. Manejo de Consumo (-1 o -0.5) y Reversión (+1 o +0.5)
+          if (isNowCompensatory) {
+            if (wasCompensatory && prevShift?.type !== editForm.type) {
+              await compensatoryRestService.reverseCompensatoryUsageIfApplied(
+                selectedTarget.empId,
+                dateKey,
+                currentUser.full_name || 'Admin'
+              );
+            }
+            const usageAmount = editForm.type === 'half_compensatory' ? 0.5 : 1;
             changedCompRestUsage = await compensatoryRestService.addCompensatoryUsageIfDue(
               selectedTarget.empId,
               dateKey,
-              currentUser.full_name || 'Admin'
+              currentUser.full_name || 'Admin',
+              usageAmount
             );
-          } else if (prevShift?.type === 'compensatory' && editForm.type !== 'compensatory') {
+          } else if (wasCompensatory) {
             changedCompRestUsage = await compensatoryRestService.reverseCompensatoryUsageIfApplied(
               selectedTarget.empId,
               dateKey,
@@ -913,7 +936,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             );
           }
 
-          // 2. Manejo de Crédito Automático (+1) - Regla de Oro
+          // 2. Manejo de Crédito Automático (+1 o +0.5) - Regla de Oro
           createdCompCredit = await compensatoryRestService.processAutomaticCredit(
             selectedTarget.empId,
             dateKey,
@@ -941,6 +964,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           action: editForm.type === 'vacation' ? 'Asignación de Vacaciones' : 
                   editForm.type === 'medical' ? 'Licencia Médica' : 
                   editForm.type === 'compensatory' ? 'Asignación Franco Comp.' :
+                  editForm.type === 'half_compensatory' ? 'Asignación Medio Descanso' :
+                  editForm.type === 'half' ? 'Asignación Medio Turno' :
                   editForm.type === 'suspension' ? 'Suspensión de Personal' : 'Cambio de Turno',
           old_value: 'N/A',
           new_value: (editForm.type === 'vacation' || editForm.type === 'medical')
@@ -982,6 +1007,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     } else if (activeShift.type === 'compensatory') {
       bgColor = 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-md ring-2 ring-fuchsia-500/20';
       icon = <History className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'half_compensatory') {
+      bgColor = 'bg-pink-600 border-pink-400 text-white shadow-md ring-2 ring-pink-500/20';
+      icon = <History className="w-3 h-3 mr-1" />;
+    } else if (activeShift.type === 'half') {
+      bgColor = 'bg-teal-600 border-teal-400 text-white shadow-sm';
+      icon = <Clock className="w-3 h-3 mr-1" />;
     } else if (activeShift.type === 'suspension') {
       bgColor = 'bg-red-50 border-red-100 text-red-600';
       icon = <AlertTriangle className="w-3 h-3 mr-1" />;
@@ -1397,34 +1428,64 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 p-1.5 bg-slate-100/80 rounded-2xl">
-                {(['continuous', 'split', 'double', 'off', 'compensatory', 'suspension', 'vacation', 'medical'] as const)
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-1.5 bg-slate-100/80 rounded-2xl">
+                {(['continuous', 'half', 'split', 'double', 'off', 'compensatory', 'half_compensatory', 'suspension', 'vacation', 'medical'] as const)
                   .filter(t => t !== 'medical' || currentUser.role !== 'encargado')
                   .map((t) => (
                   <button
                     key={t}
-                    onClick={() => setEditForm(prev => ({ ...prev, type: t }))}
+                    onClick={() => setEditForm(prev => {
+                      const nextEnd = (t === 'half' || t === 'half_compensatory') && prev.s1Start === '08:00' && (prev.s1End === '16:00' || prev.s1End === '17:00')
+                        ? '12:00'
+                        : prev.s1End;
+                      return { ...prev, type: t, s1End: nextEnd };
+                    })}
                     className={`py-3 px-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-normal antialiased transition-all ${
                       editForm.type === t 
                         ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' 
                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                     }`}
                   >
-                    {t === 'continuous' ? 'Corrido' : t === 'split' ? 'Cortado' : t === 'double' ? 'Doble' : t === 'off' ? 'Descanso' : t === 'compensatory' ? 'Franco C.' : t === 'suspension' ? 'Suspendido' : t === 'vacation' ? 'Vacaciones' : 'Licencia Med.'}
+                    {t === 'continuous' ? 'Corrido'
+                      : t === 'half' ? 'Medio Turno'
+                      : t === 'split' ? 'Cortado'
+                      : t === 'double' ? 'Doble'
+                      : t === 'off' ? 'Descanso'
+                      : t === 'compensatory' ? 'Franco C.'
+                      : t === 'half_compensatory' ? 'Medio Desc.'
+                      : t === 'suspension' ? 'Suspendido'
+                      : t === 'vacation' ? 'Vacaciones'
+                      : 'Licencia Med.'}
                   </button>
                 ))}
               </div>
 
-              {editForm.type === 'continuous' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Entrada</label>
-                    <input type="time" value={editForm.s1Start} onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+              {(editForm.type === 'continuous' || editForm.type === 'half' || editForm.type === 'half_compensatory') && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase">
+                        {editForm.type === 'half_compensatory' ? 'Entrada (Medio Turno)' : 'Entrada'}
+                      </label>
+                      <input type="time" value={editForm.s1Start} onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase">
+                        {editForm.type === 'half_compensatory' ? 'Salida (Medio Turno)' : 'Salida'}
+                      </label>
+                      <input type="time" value={editForm.s1End} onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Salida</label>
-                    <input type="time" value={editForm.s1End} onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
-                  </div>
+                  {editForm.type === 'half' && (
+                    <p className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-100 rounded-xl p-3">
+                      <strong>Medio Turno:</strong> Habilita fichada QR de entrada y salida en este horario. Si se trabaja en Domingo o Feriado, acredita <strong>+0.5</strong> franco compensatorio.
+                    </p>
+                  )}
+                  {editForm.type === 'half_compensatory' && (
+                    <p className="text-[11px] font-medium text-pink-700 bg-pink-50 border border-pink-100 rounded-xl p-3">
+                      <strong>Medio Descanso:</strong> Descuenta <strong>-0.5</strong> franco compensatorio y asigna este horario de medio turno para que el empleado pueda marcar su ingreso y salida con código QR.
+                    </p>
+                  )}
                 </div>
               )}
 

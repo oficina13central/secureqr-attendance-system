@@ -1100,8 +1100,25 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
                   <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
                     <h3 className="text-xl font-black text-slate-800">Carga / Ajuste</h3>
                     <div className="space-y-4">
+                      <div className="flex items-center justify-center gap-2">
+                        {[0.5, 1, 1.5, 2].map(preset => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setAmount(preset)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                              amount === preset
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
                       <input 
                         type="number" 
+                        step="0.5"
                         value={amount} 
                         onChange={e => setAmount(Number(e.target.value))} 
                         onWheel={(e) => e.currentTarget.blur()}

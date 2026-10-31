@@ -183,6 +183,12 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                     {lateRecord && lateRecord.minutes_late > 0 && (
                         <span className="text-[8px] font-bold text-amber-600 mt-1">+{lateRecord.minutes_late} min</span>
                     )}
+                    {shift?.type === 'half_compensatory' && (
+                        <span className="text-[8px] font-black text-pink-600 uppercase mt-0.5">½ Descanso</span>
+                    )}
+                    {shift?.type === 'half' && (
+                        <span className="text-[8px] font-black text-teal-600 uppercase mt-0.5">½ Turno</span>
+                    )}
                 </div>
             );
         }
@@ -193,6 +199,12 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
                     <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
                         <CheckCircle2 className="w-3 h-3" /> A Tiempo
                     </span>
+                    {shift?.type === 'half_compensatory' && (
+                        <span className="text-[8px] font-black text-pink-600 uppercase mt-0.5">½ Descanso</span>
+                    )}
+                    {shift?.type === 'half' && (
+                        <span className="text-[8px] font-black text-teal-600 uppercase mt-0.5">½ Turno</span>
+                    )}
                 </div>
             );
         }
