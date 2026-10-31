@@ -161,8 +161,7 @@ const isCompensatoryUsage = (row: { type?: string | null; reason?: string | null
 
 const shouldCountLedgerRow = (row: { type?: string | null; reason?: string | null }): boolean => {
   const compUsageDate = getCompensatoryUsageDateFromReason(row.reason);
-  if (compUsageDate && compUsageDate > getLocalDateString()) return false;
-  if (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row)) return false;
+  if (compUsageDate && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) return false;
   return true;
 };
 
@@ -263,13 +262,12 @@ const fetchPaged = async <T>(
 const calculateEffectiveBalanceFromRows = (
   rows: Array<{ amount?: number | string | null; type?: string | null; reason?: string | null; created_at?: string | null }>
 ): number => {
-  const today = getLocalDateString();
   const automaticCreditsByDate = new Map<string, { amount: number; created_at: string }>();
   const usageStateByDate = new Map<string, { used: boolean; amount: number; created_at?: string | null }>();
 
   rows.forEach(row => {
     const usageDate = getCompensatoryUsageDateFromReason(row.reason);
-    if (usageDate && usageDate <= today && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) {
+    if (usageDate && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) {
       const current = usageStateByDate.get(usageDate);
       const rowCreatedAt = row.created_at || '';
       const currentCreatedAt = current?.created_at || '';
@@ -328,7 +326,8 @@ const syncBalanceFromLedger = async (employeeId: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('compensatory_rest_ledger')
     .select('amount, type, reason, created_at')
-    .eq('employee_id', employeeId);
+    .eq('employee_id', employeeId)
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching compensatory rest ledger balance:', error);
@@ -492,7 +491,6 @@ const buildExistingAutomaticCreditMap = (
 const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): CompensatoryRestLog[] => {
   const seenAutomaticCredits = new Set<string>();
   const latestCompensatoryUsageByDate = new Map<string, CompensatoryRestLog>();
-  const today = getLocalDateString();
 
   const normalizedLogs = logs.map(log => ({
     ...log,
@@ -502,7 +500,7 @@ const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): Compen
 
   normalizedLogs.forEach(log => {
     const usageDate = getCompensatoryUsageDateFromReason(log.reason);
-    if (!usageDate || usageDate > today) return;
+    if (!usageDate) return;
     if (!isCompensatoryUsage(log) && !isCompensatoryUsageCancellation(log)) return;
 
     const key = `${log.employee_id}_${usageDate}`;
@@ -515,7 +513,6 @@ const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): Compen
   return normalizedLogs.filter(log => {
     const usageDate = getCompensatoryUsageDateFromReason(log.reason);
     if (usageDate) {
-      if (usageDate > today) return false;
       if (isCompensatoryUsage(log) || isCompensatoryUsageCancellation(log)) {
         const key = `${log.employee_id}_${usageDate}`;
         return latestCompensatoryUsageByDate.get(key)?.id === log.id;
@@ -557,9 +554,23 @@ export const compensatoryRestService = {
   async enrichProfilesWithLedgerBalance(profiles: Profile[]): Promise<Profile[]> {
     if (!profiles || profiles.length === 0) return profiles;
     try {
+      // Solo consultamos si existen filas con fallback decimal '[MONTO:' (cuando la columna DB aún es INTEGER).
+      // Para todos los demás empleados se respeta directamente profiles.compensatory_rest_balance sin truncar por límite de 1000 filas.
+      const { data: fallbackRows, error: fallbackError } = await supabase
+        .from('compensatory_rest_ledger')
+        .select('employee_id')
+        .ilike('reason', '%[MONTO:%');
+
+      if (fallbackError || !fallbackRows || fallbackRows.length === 0) return profiles;
+
+      const affectedIds = Array.from(new Set(fallbackRows.map(r => r.employee_id).filter(Boolean)));
+      if (affectedIds.length === 0) return profiles;
+
       const { data: ledgerRows, error } = await supabase
         .from('compensatory_rest_ledger')
-        .select('employee_id, amount, type, reason, created_at');
+        .select('employee_id, amount, type, reason, created_at')
+        .in('employee_id', affectedIds)
+        .order('created_at', { ascending: true });
 
       if (error || !ledgerRows || ledgerRows.length === 0) return profiles;
 
@@ -588,7 +599,8 @@ export const compensatoryRestService = {
     const { data: ledgerRows, error: ledgerError } = await supabase
       .from('compensatory_rest_ledger')
       .select('amount, type, reason, created_at')
-      .eq('employee_id', employeeId);
+      .eq('employee_id', employeeId)
+      .order('created_at', { ascending: true });
 
     if (!ledgerError && ledgerRows && ledgerRows.length > 0) {
       return calculateEffectiveBalanceFromRows(ledgerRows);
@@ -626,16 +638,14 @@ export const compensatoryRestService = {
     managerName: string = 'System Auto',
     usageAmount: number = 1
   ): Promise<boolean> {
-    if (date > getLocalDateString()) {
-      await syncBalanceFromLedger(employeeId);
-      return false;
-    }
-
     const normalizedDeduction = Math.abs(usageAmount) === 0.5 ? 0.5 : 1;
     const currentState = await getCompensatoryUsageStateForDate(employeeId, date);
-    if (currentState?.status === 'used' && Math.abs(currentState.amount - normalizedDeduction) < 0.001) {
-      await syncBalanceFromLedger(employeeId);
-      return false;
+    if (currentState?.status === 'used') {
+      if (Math.abs(currentState.amount - normalizedDeduction) < 0.001) {
+        await syncBalanceFromLedger(employeeId);
+        return false;
+      }
+      await this.reverseCompensatoryUsageIfApplied(employeeId, date, managerName);
     }
 
     const isHalf = normalizedDeduction === 0.5;

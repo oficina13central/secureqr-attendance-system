@@ -163,13 +163,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     const syncMissingCompCredits = async () => {
       lastCompCreditSyncKeyRef.current = weekKey;
-      const summary = await compensatoryRestService.reconcileCompensatoryCredits(
+      await compensatoryRestService.reconcileCompensatoryCredits(
         startDate,
         endDate,
         currentUser.full_name || 'System Auto'
       );
 
-      if ((summary.created > 0 || summary.existing > 0) && setEmployees) {
+      if (setEmployees) {
         const updatedEmployees = await personnelService.getAll();
         setEmployees(updatedEmployees);
       }
@@ -908,7 +908,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         if (isCompRestEnabled) {
           const dateKey = formatDate(selectedTarget.date);
           const shiftKey = `${selectedTarget.empId}_${dateKey}`;
-          const prevShift = shifts[shiftKey];
+          const targetEmp = employees.find(e => e.id === selectedTarget.empId);
+          const prevShift = shifts[shiftKey] || (targetEmp ? getActiveShift(targetEmp, selectedTarget.date) : undefined);
           const wasCompensatory = prevShift?.type === 'compensatory' || prevShift?.type === 'half_compensatory';
           const isNowCompensatory = editForm.type === 'compensatory' || editForm.type === 'half_compensatory';
 
@@ -953,7 +954,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         savedArray.forEach(s => { if (s) newShiftsMap[s.id] = s; });
         setShifts(newShiftsMap);
 
-        if ((createdCompCredit || changedCompRestUsage) && setEmployees) {
+        if (isCompRestEnabled && setEmployees) {
           const updatedEmployees = await personnelService.getAll();
           setEmployees(updatedEmployees);
         }
