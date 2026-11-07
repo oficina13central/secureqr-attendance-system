@@ -163,6 +163,8 @@ const shouldCountLedgerRow = (row: { type?: string | null; reason?: string | nul
   const compUsageDate = getCompensatoryUsageDateFromReason(row.reason);
   if (compUsageDate && compUsageDate > getLocalDateString()) return false;
   if (compUsageDate && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) return false;
+  const autoCreditDate = row.type === 'credit' ? getAutomaticCreditDateFromReason(row.reason) : null;
+  if (autoCreditDate && !hasDatePassed(autoCreditDate)) return false;
   return true;
 };
 
@@ -292,6 +294,7 @@ const calculateEffectiveBalanceFromRows = (
       : null;
 
     if (automaticCreditDate) {
+      if (!hasDatePassed(automaticCreditDate)) return;
       const current = automaticCreditsByDate.get(automaticCreditDate);
       const rowCreatedAt = row.created_at || '';
       if (!current || rowCreatedAt >= current.created_at) {
@@ -410,6 +413,11 @@ const addAutomaticCreditIfMissing = async (
   managerName: string,
   creditAmount: number = 1
 ): Promise<boolean> => {
+  if (!hasDatePassed(date)) {
+    await syncBalanceFromLedger(employeeId);
+    return false;
+  }
+
   const { data } = await supabase
     .from('compensatory_rest_ledger')
     .select('id, amount, type, reason, created_at')
@@ -529,6 +537,7 @@ const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): Compen
       : null;
 
     if (!automaticCreditDate) return true;
+    if (!hasDatePassed(automaticCreditDate)) return false;
 
     const key = `${log.employee_id}_${automaticCreditDate}`;
     if (seenAutomaticCredits.has(key)) return false;
@@ -561,7 +570,7 @@ export const compensatoryRestService = {
       const today = getLocalDateString();
       // Consultamos si existen filas con fallback decimal '[MONTO:' o usos de franco con fecha futura
       // que hayan sido descontados prematuramente en profiles.compensatory_rest_balance.
-      const [fallbackRes, usageRes] = await Promise.all([
+      const [fallbackRes, usageRes, creditRes] = await Promise.all([
         supabase
           .from('compensatory_rest_ledger')
           .select('employee_id')
@@ -569,7 +578,11 @@ export const compensatoryRestService = {
         supabase
           .from('compensatory_rest_ledger')
           .select('employee_id, reason')
-          .eq('type', 'usage')
+          .eq('type', 'usage'),
+        supabase
+          .from('compensatory_rest_ledger')
+          .select('employee_id, reason')
+          .eq('type', 'credit')
       ]);
 
       const futureUsageIds = (usageRes.data || [])
@@ -579,9 +592,17 @@ export const compensatoryRestService = {
         })
         .map(r => r.employee_id);
 
+      const futureCreditIds = (creditRes.data || [])
+        .filter(r => {
+          const creditDate = getAutomaticCreditDateFromReason(r.reason);
+          return !!creditDate && !hasDatePassed(creditDate);
+        })
+        .map(r => r.employee_id);
+
       const affectedIds = Array.from(new Set([
         ...(fallbackRes.data || []).map(r => r.employee_id),
-        ...futureUsageIds
+        ...futureUsageIds,
+        ...futureCreditIds
       ].filter(Boolean)));
 
       if (affectedIds.length === 0) return profiles;
