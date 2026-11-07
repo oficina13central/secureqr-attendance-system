@@ -161,6 +161,7 @@ const isCompensatoryUsage = (row: { type?: string | null; reason?: string | null
 
 const shouldCountLedgerRow = (row: { type?: string | null; reason?: string | null }): boolean => {
   const compUsageDate = getCompensatoryUsageDateFromReason(row.reason);
+  if (compUsageDate && compUsageDate > getLocalDateString()) return false;
   if (compUsageDate && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) return false;
   return true;
 };
@@ -262,12 +263,13 @@ const fetchPaged = async <T>(
 const calculateEffectiveBalanceFromRows = (
   rows: Array<{ amount?: number | string | null; type?: string | null; reason?: string | null; created_at?: string | null }>
 ): number => {
+  const today = getLocalDateString();
   const automaticCreditsByDate = new Map<string, { amount: number; created_at: string }>();
   const usageStateByDate = new Map<string, { used: boolean; amount: number; created_at?: string | null }>();
 
   rows.forEach(row => {
     const usageDate = getCompensatoryUsageDateFromReason(row.reason);
-    if (usageDate && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) {
+    if (usageDate && usageDate <= today && (isCompensatoryUsage(row) || isCompensatoryUsageCancellation(row))) {
       const current = usageStateByDate.get(usageDate);
       const rowCreatedAt = row.created_at || '';
       const currentCreatedAt = current?.created_at || '';
@@ -491,6 +493,7 @@ const buildExistingAutomaticCreditMap = (
 const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): CompensatoryRestLog[] => {
   const seenAutomaticCredits = new Set<string>();
   const latestCompensatoryUsageByDate = new Map<string, CompensatoryRestLog>();
+  const today = getLocalDateString();
 
   const normalizedLogs = logs.map(log => ({
     ...log,
@@ -500,7 +503,7 @@ const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): Compen
 
   normalizedLogs.forEach(log => {
     const usageDate = getCompensatoryUsageDateFromReason(log.reason);
-    if (!usageDate) return;
+    if (!usageDate || usageDate > today) return;
     if (!isCompensatoryUsage(log) && !isCompensatoryUsageCancellation(log)) return;
 
     const key = `${log.employee_id}_${usageDate}`;
@@ -513,6 +516,7 @@ const filterDuplicateAutomaticCreditLogs = (logs: CompensatoryRestLog[]): Compen
   return normalizedLogs.filter(log => {
     const usageDate = getCompensatoryUsageDateFromReason(log.reason);
     if (usageDate) {
+      if (usageDate > today) return false;
       if (isCompensatoryUsage(log) || isCompensatoryUsageCancellation(log)) {
         const key = `${log.employee_id}_${usageDate}`;
         return latestCompensatoryUsageByDate.get(key)?.id === log.id;
@@ -554,16 +558,32 @@ export const compensatoryRestService = {
   async enrichProfilesWithLedgerBalance(profiles: Profile[]): Promise<Profile[]> {
     if (!profiles || profiles.length === 0) return profiles;
     try {
-      // Solo consultamos si existen filas con fallback decimal '[MONTO:' (cuando la columna DB aún es INTEGER).
-      // Para todos los demás empleados se respeta directamente profiles.compensatory_rest_balance sin truncar por límite de 1000 filas.
-      const { data: fallbackRows, error: fallbackError } = await supabase
-        .from('compensatory_rest_ledger')
-        .select('employee_id')
-        .ilike('reason', '%[MONTO:%');
+      const today = getLocalDateString();
+      // Consultamos si existen filas con fallback decimal '[MONTO:' o usos de franco con fecha futura
+      // que hayan sido descontados prematuramente en profiles.compensatory_rest_balance.
+      const [fallbackRes, usageRes] = await Promise.all([
+        supabase
+          .from('compensatory_rest_ledger')
+          .select('employee_id')
+          .ilike('reason', '%[MONTO:%'),
+        supabase
+          .from('compensatory_rest_ledger')
+          .select('employee_id, reason')
+          .eq('type', 'usage')
+      ]);
 
-      if (fallbackError || !fallbackRows || fallbackRows.length === 0) return profiles;
+      const futureUsageIds = (usageRes.data || [])
+        .filter(r => {
+          const usageDate = getCompensatoryUsageDateFromReason(r.reason);
+          return !!usageDate && usageDate > today;
+        })
+        .map(r => r.employee_id);
 
-      const affectedIds = Array.from(new Set(fallbackRows.map(r => r.employee_id).filter(Boolean)));
+      const affectedIds = Array.from(new Set([
+        ...(fallbackRes.data || []).map(r => r.employee_id),
+        ...futureUsageIds
+      ].filter(Boolean)));
+
       if (affectedIds.length === 0) return profiles;
 
       const { data: ledgerRows, error } = await supabase
@@ -585,9 +605,16 @@ export const compensatoryRestService = {
       return profiles.map(profile => {
         const empRows = rowsByEmployee.get(profile.id);
         if (!empRows || empRows.length === 0) return profile;
+        const effectiveBalance = calculateEffectiveBalanceFromRows(empRows);
+        if (Number(profile.compensatory_rest_balance) !== effectiveBalance) {
+          void supabase
+            .from('profiles')
+            .update({ compensatory_rest_balance: effectiveBalance })
+            .eq('id', profile.id);
+        }
         return {
           ...profile,
-          compensatory_rest_balance: calculateEffectiveBalanceFromRows(empRows)
+          compensatory_rest_balance: effectiveBalance
         };
       });
     } catch {
@@ -638,6 +665,11 @@ export const compensatoryRestService = {
     managerName: string = 'System Auto',
     usageAmount: number = 1
   ): Promise<boolean> {
+    if (date > getLocalDateString()) {
+      await syncBalanceFromLedger(employeeId);
+      return false;
+    }
+
     const normalizedDeduction = Math.abs(usageAmount) === 0.5 ? 0.5 : 1;
     const currentState = await getCompensatoryUsageStateForDate(employeeId, date);
     if (currentState?.status === 'used') {
@@ -943,6 +975,28 @@ export const compensatoryRestService = {
             summary.errors++;
             addSkippedDetail(summary, employee, creditDate, 'error', 'No se pudo crear el credito');
           }
+        }
+      }
+
+      // Conciliar también francos compensatorios recientes cuya fecha ya llegó o pasó (fuera de la semana visible)
+      if (!providedSchedules) {
+        const today = getLocalDateString();
+        const lookbackStart = addDaysToDateString(today, -45);
+        const { data: dueCompSchedules } = await supabase
+          .from('schedules')
+          .select('employee_id, date, type, segments')
+          .gte('date', lookbackStart)
+          .lte('date', today)
+          .in('type', ['compensatory', 'half_compensatory']);
+
+        for (const rawShift of dueCompSchedules || []) {
+          const shiftDate = normalizeDate(rawShift.date);
+          if (!shiftDate || shiftDate > today || evaluationDates.includes(shiftDate)) continue;
+          const sanitized = sanitizeScheduleDayConfig({ type: rawShift.type as any, segments: rawShift.segments });
+          if (sanitized.type !== 'compensatory' && sanitized.type !== 'half_compensatory') continue;
+          const usageAmount = sanitized.type === 'half_compensatory' ? 0.5 : 1;
+          const used = await this.addCompensatoryUsageIfDue(rawShift.employee_id, shiftDate, managerName, usageAmount);
+          if (used) affectedEmployees.add(rawShift.employee_id);
         }
       }
 

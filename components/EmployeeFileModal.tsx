@@ -204,12 +204,14 @@ const EmployeeFileModal: React.FC<EmployeeFileModalProps> = ({ employeeId, manag
       setSectorName('Sin sector');
     }
     
-    const [logs, docs, score] = await Promise.all([
+    const [logs, docs, score, effectiveBalance] = await Promise.all([
       compensatoryRestService.getLogs(employeeId),
       supabase.from('employee_documents').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }),
-      attendanceService.calculateScoring(employeeId)
+      attendanceService.calculateScoring(employeeId),
+      compensatoryRestService.getBalance(employeeId)
     ]);
     
+    setEmployee(empData ? { ...empData, compensatory_rest_balance: effectiveBalance } : null);
     setRestLogs(logs);
     setDocuments(docs.data || []);
     setScoring(score);
