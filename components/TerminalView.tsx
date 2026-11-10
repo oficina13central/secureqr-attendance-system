@@ -549,14 +549,31 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, 
     }
   };
 
-  const performSync = async () => {
+  const performSync = async (userInitiated = false) => {
     if (offlineService.count === 0 || syncing) return;
     setSyncing(true);
     try {
-      await attendanceService.syncOfflineRecords();
-      setPendingCount(offlineService.count);
+      const res = await attendanceService.syncOfflineRecords();
+      const remaining = offlineService.count;
+      setPendingCount(remaining);
+      if (userInitiated) {
+        if (remaining === 0) {
+          alert('¡Sincronización completada con éxito!');
+        } else if (res.failed > 0) {
+          const confirmClear = window.confirm(
+            `Hay ${remaining} fichada(s) pendiente(s) que el servidor no pudo procesar (probablemente ya registradas o duplicadas).\n\n¿Desea descartarlas de este dispositivo para que no sigan apareciendo como pendientes?`
+          );
+          if (confirmClear) {
+            offlineService.clearQueue();
+            setPendingCount(0);
+          }
+        }
+      }
     } catch (err) {
       console.error("Sync process error:", err);
+      if (userInitiated) {
+        alert('Error al intentar sincronizar. Verifique su conexión a internet.');
+      }
     } finally {
       setSyncing(false);
     }
@@ -661,12 +678,18 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, 
         </div>
         
         {(pendingCount > 0 || syncing) && (
-          <div className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full backdrop-blur-md animate-in slide-in-from-right duration-300">
+          <button
+            type="button"
+            onClick={() => void performSync(true)}
+            disabled={syncing}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/20 text-amber-400 rounded-full backdrop-blur-md animate-in slide-in-from-right duration-300 cursor-pointer transition-all"
+            title="Tocar para sincronizar o descartar fichada pendiente"
+          >
             {syncing ? <RefreshCcw className="w-3 h-3 animate-spin" /> : <ShieldAlert className="w-3 h-3" />}
             <span className="text-[10px] font-black uppercase tracking-widest">
               {syncing ? 'Sincronizando...' : `${pendingCount} Pendiente${pendingCount > 1 ? 's' : ''}`}
             </span>
-          </div>
+          </button>
         )}
       </div>
 

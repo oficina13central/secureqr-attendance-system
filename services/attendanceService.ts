@@ -797,6 +797,27 @@ export const attendanceService = {
                     offlineService.removeScan(scan.id);
                     successCount++;
                 } else {
+                    // Errores definitivos que nunca van a resolverse reintentando (ej: ya ficho, sin registro abierto, etc.)
+                    const isDefinitiveError = [
+                        'already_checked_in',
+                        'already_scanned',
+                        'no_open_record',
+                        'user_not_found',
+                        'daily_limit_reached',
+                        'off_day',
+                        'vacation',
+                        'compensatory_rest',
+                        'suspended',
+                        'medical'
+                    ].includes(result.reason || '');
+
+                    // Fichada demasiado antigua (mas de 48 horas atascada en el dispositivo)
+                    const isStale = (Date.now() - (effectiveTime.getTime() || 0)) > 48 * 60 * 60 * 1000;
+
+                    if (isDefinitiveError || isStale) {
+                        console.warn(`Descartando fichada offline atascada ${scan.id} (${scan.employeeName}): ${result.reason || 'stale'}`);
+                        offlineService.removeScan(scan.id);
+                    }
                     failedCount++;
                 }
             } catch (err) {
