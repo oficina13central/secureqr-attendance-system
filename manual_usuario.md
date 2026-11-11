@@ -81,11 +81,12 @@ La Terminal es el puesto de control donde el personal registra sus entradas y sa
 * **Marcación por DNI (Teclado en Pantalla)**: Si el colaborador olvidó su carnet o la cámara del dispositivo sufre alguna contingencia física, se presiona **"Ingreso Manual"** y se tipea el DNI.
 
 ### 3.2 Controles y Validaciones Automáticas
+* **Control de Horario Asignado**: Si el colaborador no tiene un turno asignado para el día en curso (ni en cronograma especial ni en plantilla habitual), la terminal bloquea la marcación e indica *"No tenés horario asignado"*.
 * **Control Antifraude / Duplicidad**: Impide que una persona marque dos veces seguidas por error (ventana de protección de 10 minutos).
 * **Validación de Licencias y Descansos**: Si el colaborador tiene asignado día de descanso, vacaciones o licencia médica aprobada, la terminal no genera una asistencia común y alerta en pantalla.
 * **Feedback Visual Inmediato**: 
   - **Verde**: Fichada válida registrada con éxito (indica nombre, hora, condición de llegada y tolerancia).
-  - **Rojo / Alerta**: Fichada rechazada (fuera de rango de tolerancia, descanso programado o duplicado).
+  - **Rojo / Alerta**: Fichada rechazada (sin horario asignado, descanso programado o duplicado).
 
 ```mermaid
 flowchart TD
@@ -95,6 +96,7 @@ flowchart TD
     C --> E[Validar Token y Colaborador]
     D --> E
     E --> F{¿Tiene turno / descanso?}
+    F -- Sin Horario Asignado --> G0[Rechazo: No tenés horario asignado]
     F -- Descanso / Vacaciones --> G[Rechazo: Día No Laboral Programado]
     F -- Duplicado < 10m --> H[Rechazo: Ya Fichó Recientemente]
     F -- Turno Válido --> I[Calcular Puntualidad: En Horario / Tarde / Sin Presentismo]

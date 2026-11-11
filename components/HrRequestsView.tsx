@@ -328,11 +328,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
 
       {/* ── MODAL EDITAR RESOLUCIÓN ── */}
       {editingRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingRequest(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto" onClick={() => setEditingRequest(null)}>
           <form
             onSubmit={handleEditResolution}
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-[2rem] shadow-2xl p-8 w-full max-w-lg space-y-6"
+            className="bg-white rounded-[2rem] shadow-2xl p-5 sm:p-8 w-full max-w-lg space-y-5 sm:space-y-6 max-h-[92dvh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between">
               <div>

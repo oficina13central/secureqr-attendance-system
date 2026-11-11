@@ -358,8 +358,8 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({
 
       {/* Detail Modal */}
       {selectedRecord && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-5 sm:p-8 animate-in fade-in zoom-in duration-300 max-h-[92dvh] overflow-y-auto custom-scrollbar my-auto">
             <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-amber-50 rounded-2xl">

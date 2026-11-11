@@ -263,7 +263,7 @@ export const attendanceService = {
 
         // Infer split status if type is missing but there are multiple segments
         let scheduleType = activeSchedule?.type || 
-                           ((activeSchedule?.segments?.length || 0) > 1 ? 'split' : 'continuous');
+                           ((activeSchedule?.segments?.length || 0) > 1 ? 'split' : undefined);
 
         // ── VENTANA DE PRE-FICHADA NOCTURNA ──────────────────────────────────────
         // Si el día actual es descanso (o sin horario) y son las 23:00 o más,
@@ -324,11 +324,21 @@ export const attendanceService = {
         }
         // ─────────────────────────────────────────────────────────────────────────
 
+        if (!activeSchedule) throw new Error('no_schedule');
+
         if (scheduleType === 'off') throw new Error('off_day');
         if (scheduleType === 'compensatory') throw new Error('compensatory_rest');
         if (scheduleType === 'suspension') throw new Error('suspended');
         if (scheduleType === 'vacation') throw new Error('vacation');
         if (scheduleType === 'medical') throw new Error('medical');
+
+        if (!activeSchedule.segments || activeSchedule.segments.length === 0) {
+            throw new Error('no_schedule');
+        }
+
+        if (!scheduleType) {
+            scheduleType = activeSchedule.segments.length > 1 ? 'split' : 'continuous';
+        }
 
         const { data: existingToday, error: fetchError } = await supabase
             .from('attendance_records')
@@ -804,6 +814,7 @@ export const attendanceService = {
                         'no_open_record',
                         'user_not_found',
                         'daily_limit_reached',
+                        'no_schedule',
                         'off_day',
                         'vacation',
                         'compensatory_rest',
@@ -902,6 +913,7 @@ export const attendanceService = {
             }
         } catch (err: any) {
             console.error("Network error during scan:", err);
+            if (err.message === 'no_schedule') return { type: 'error', record: null, reason: 'no_schedule' };
             if (err.message === 'off_day') return { type: 'error', record: null, reason: 'off_day' };
             if (err.message === 'vacation') return { type: 'error', record: null, reason: 'vacation' };
             if (err.message === 'compensatory_rest') return { type: 'error', record: null, reason: 'compensatory_rest' };

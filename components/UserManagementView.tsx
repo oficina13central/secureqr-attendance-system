@@ -692,8 +692,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
 
       {/* Suspend Modal */}
       {showSuspendModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+          <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] w-full max-w-md p-5 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300 max-h-[92dvh] overflow-y-auto custom-scrollbar my-auto">
             <div className="flex items-center space-x-4">
               <div className="p-4 bg-red-50 text-red-600 rounded-2xl">
                 <ShieldAlert className="w-6 h-6" />
@@ -759,8 +759,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) 
 
       {/* System Account Modal */}
       {showSystemAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300 text-left">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+          <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] w-full max-w-md p-5 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300 text-left max-h-[92dvh] overflow-y-auto custom-scrollbar my-auto">
             <div className="flex items-center space-x-4">
               <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
                 <UserCheck className="w-6 h-6" />

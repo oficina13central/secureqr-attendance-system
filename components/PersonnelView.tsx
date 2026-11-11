@@ -932,8 +932,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
             {/* Add/Edit Employee Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-                    <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col" style={{ maxHeight: '90vh' }}>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 print:hidden overflow-y-auto">
+                    <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col my-auto max-h-[92dvh]" style={{ maxHeight: '92dvh' }}>
                         
                         {/* Fixed Header */}
                         <div className="flex justify-between items-center px-8 pt-7 pb-4 border-b border-slate-100 flex-shrink-0">
@@ -1431,8 +1431,8 @@ const PersonnelView: React.FC<PersonnelViewProps> = ({ employees, setEmployees, 
 
             {/* Default Schedule Modal */}
             {showScheduleModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-                    <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in flex flex-col" style={{ maxHeight: '90vh' }}>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 print:hidden overflow-y-auto">
+                    <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in flex flex-col my-auto max-h-[92dvh]" style={{ maxHeight: '92dvh' }}>
                         <div className="flex justify-between items-center px-8 pt-7 pb-4 border-b border-slate-100 flex-shrink-0">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800">Horario Habitual</h3>

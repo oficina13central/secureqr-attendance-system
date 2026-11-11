@@ -1416,23 +1416,30 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       {/* ── MODAL ── */}
       {isModalOpen && selectedTarget && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md sm:max-w-lg shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-between items-start mb-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] w-full max-w-md sm:max-w-lg shadow-2xl p-4 sm:p-8 animate-in fade-in zoom-in duration-300 max-h-[92dvh] sm:max-h-[90vh] flex flex-col my-auto">
+            <div className="flex justify-between items-start mb-3 sm:mb-6 shrink-0 pb-2 sm:pb-0 border-b sm:border-b-0 border-slate-100">
               <div>
-                <h3 className="text-xl font-black text-slate-800">Asignar Turno</h3>
-                <p className="text-sm text-slate-500 font-medium mt-1">
+                <h3 className="text-lg sm:text-xl font-black text-slate-800">Asignar Turno</h3>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5 sm:mt-1">
                   {selectedTarget.empName} • {selectedTarget.date.toLocaleDateString()}
                 </p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6 text-slate-400" /></button>
+              <button 
+                type="button"
+                onClick={() => setIsModalOpen(false)} 
+                className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Cerrar modal"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5 overflow-y-auto flex-1 pr-1 -mr-1 custom-scrollbar">
               {/* Bloque 1: Turnos Laborales */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Turnos Laborales</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
                   {([
                     { type: 'continuous', label: 'Corrido', active: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20', inactive: 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-100' },
                     { type: 'half', label: 'Medio Turno', badge: '½', active: 'bg-teal-600 text-white shadow-md shadow-teal-500/20', inactive: 'text-teal-700 bg-teal-50/70 hover:bg-teal-100/80 border border-teal-100' },
@@ -1448,13 +1455,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                           : prev.s1End;
                         return { ...prev, type: item.type, s1End: nextEnd };
                       })}
-                      className={`py-2.5 px-2 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex items-center justify-center gap-1 ${
+                      className={`py-2 sm:py-2.5 px-1.5 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex items-center justify-center gap-1 ${
                         editForm.type === item.type ? item.active : item.inactive
                       }`}
                     >
                       <span>{item.label}</span>
                       {'badge' in item && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black ${
+                        <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-md font-black ${
                           editForm.type === item.type ? 'bg-white/20 text-white' : 'bg-teal-200/70 text-teal-800'
                         }`}>
                           {item.badge}
@@ -1468,7 +1475,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               {/* Bloque 2: Descansos y Francos Compensatorios */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Descanso Semanal y Francos Compensatorios</span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
                   {([
                     { type: 'off', label: 'Descanso', sub: 'Semanal', active: 'bg-amber-500 text-white shadow-md shadow-amber-500/20', inactive: 'text-amber-700 bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/70', pillActive: 'bg-white/20 text-white', pillInactive: 'bg-amber-200/60 text-amber-800' },
                     { type: 'compensatory', label: 'Franco C.', sub: '-1 Franco', active: 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-500/20', inactive: 'text-fuchsia-700 bg-fuchsia-50/80 hover:bg-fuchsia-100/80 border border-fuchsia-200/70', pillActive: 'bg-white/20 text-white', pillInactive: 'bg-fuchsia-200/60 text-fuchsia-800' },
@@ -1483,12 +1490,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                           : prev.s1End;
                         return { ...prev, type: item.type, s1End: nextEnd };
                       })}
-                      className={`py-2.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex flex-col items-center justify-center gap-0.5 ${
+                      className={`py-2 sm:py-2.5 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all flex flex-col items-center justify-center gap-0.5 ${
                         editForm.type === item.type ? item.active : item.inactive
                       }`}
                     >
                       <span>{item.label}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold tracking-tight ${
+                      <span className={`text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded-md font-bold tracking-tight ${
                         editForm.type === item.type ? item.pillActive : item.pillInactive
                       }`}>
                         {item.sub}
@@ -1501,7 +1508,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               {/* Bloque 3: Licencias y Sanciones */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Licencias y Sanciones</span>
-                <div className={`grid grid-cols-2 ${currentUser.role !== 'encargado' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2 p-1.5 bg-slate-100/80 rounded-2xl`}>
+                <div className={`grid grid-cols-2 ${currentUser.role !== 'encargado' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-1.5 sm:gap-2 p-1.5 bg-slate-100/80 rounded-2xl`}>
                   {([
                     { type: 'vacation', label: 'Vacaciones', active: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20', inactive: 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-100' },
                     { type: 'medical', label: 'Licencia Méd.', active: 'bg-rose-600 text-white shadow-md shadow-rose-500/20', inactive: 'text-rose-700 bg-rose-50/70 hover:bg-rose-100/80 border border-rose-100' },
@@ -1513,7 +1520,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
                       key={item.type}
                       type="button"
                       onClick={() => setEditForm(prev => ({ ...prev, type: item.type }))}
-                      className={`py-2.5 px-2 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all ${
+                      className={`py-2 sm:py-2.5 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-normal antialiased transition-all ${
                         editForm.type === item.type ? item.active : item.inactive
                       }`}
                     >
@@ -1524,28 +1531,38 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               </div>
 
               {(editForm.type === 'continuous' || editForm.type === 'half' || editForm.type === 'half_compensatory') && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase">
-                        {editForm.type === 'half_compensatory' ? 'Entrada (Medio Turno)' : 'Entrada'}
+                <div className="space-y-2.5 sm:space-y-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div className="space-y-1 sm:space-y-2">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase truncate block">
+                        {editForm.type === 'half_compensatory' ? 'Entrada (M. Turno)' : 'Entrada'}
                       </label>
-                      <input type="time" value={editForm.s1Start} onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                      <input 
+                        type="time" 
+                        value={editForm.s1Start} 
+                        onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase">
-                        {editForm.type === 'half_compensatory' ? 'Salida (Medio Turno)' : 'Salida'}
+                    <div className="space-y-1 sm:space-y-2">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase truncate block">
+                        {editForm.type === 'half_compensatory' ? 'Salida (M. Turno)' : 'Salida'}
                       </label>
-                      <input type="time" value={editForm.s1End} onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                      <input 
+                        type="time" 
+                        value={editForm.s1End} 
+                        onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
                     </div>
                   </div>
                   {editForm.type === 'half' && (
-                    <p className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-100 rounded-xl p-3">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-100 rounded-xl p-2.5 sm:p-3 leading-relaxed">
                       <strong>Medio Turno:</strong> Habilita fichada QR de entrada y salida en este horario. Si se trabaja en Domingo o Feriado, acredita <strong>+0.5</strong> franco compensatorio.
                     </p>
                   )}
                   {editForm.type === 'half_compensatory' && (
-                    <p className="text-[11px] font-medium text-pink-700 bg-pink-50 border border-pink-100 rounded-xl p-3">
+                    <p className="text-[10px] sm:text-[11px] font-medium text-pink-700 bg-pink-50 border border-pink-100 rounded-xl p-2.5 sm:p-3 leading-relaxed">
                       <strong>Medio Franco Compensatorio:</strong> Descuenta <strong>-0.5</strong> franco compensatorio y asigna este horario de medio turno para que el empleado pueda marcar su ingreso y salida con código QR.
                     </p>
                   )}
@@ -1553,75 +1570,96 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               )}
 
               {(editForm.type === 'split' || editForm.type === 'double') && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Turno 1</span>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input type="time" value={editForm.s1Start} onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
-                      <input type="time" value={editForm.s1End} onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-1 sm:space-y-2">
+                    <span className="text-[10px] sm:text-xs font-black text-indigo-400 uppercase tracking-widest">Turno 1</span>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                      <input 
+                        type="time" 
+                        value={editForm.s1Start} 
+                        onChange={e => setEditForm({ ...editForm, s1Start: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
+                      <input 
+                        type="time" 
+                        value={editForm.s1End} 
+                        onChange={e => setEditForm({ ...editForm, s1End: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Turno 2</span>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input type="time" value={editForm.s2Start} onChange={e => setEditForm({ ...editForm, s2Start: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
-                      <input type="time" value={editForm.s2End} onChange={e => setEditForm({ ...editForm, s2End: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700" />
+                  <div className="space-y-1 sm:space-y-2">
+                    <span className="text-[10px] sm:text-xs font-black text-indigo-400 uppercase tracking-widest">Turno 2</span>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                      <input 
+                        type="time" 
+                        value={editForm.s2Start} 
+                        onChange={e => setEditForm({ ...editForm, s2Start: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
+                      <input 
+                        type="time" 
+                        value={editForm.s2End} 
+                        onChange={e => setEditForm({ ...editForm, s2End: e.target.value })} 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-base outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
                     </div>
                   </div>
                 </div>
               )}
 
               {(editForm.type === 'vacation' || editForm.type === 'medical') && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Desde (Inicio)</label>
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div className="space-y-1 sm:space-y-2">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest truncate block">Desde (Inicio)</label>
                       <input
                         type="date"
                         value={editForm.startDate}
                         onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hasta (Fin)</label>
+                    <div className="space-y-1 sm:space-y-2">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest truncate block">Hasta (Fin)</label>
                       <input
                         type="date"
                         value={editForm.endDate}
                         onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 font-bold text-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
                       />
                     </div>
                   </div>
-                  <p className={`text-[10px] italic mt-1 p-3 rounded-lg border ${editForm.type === 'vacation' ? 'bg-emerald-50 text-slate-500 border-emerald-100' : 'bg-red-50 text-slate-500 border-red-100'}`}>
+                  <p className={`text-[10px] italic mt-1 p-2.5 sm:p-3 rounded-lg border leading-relaxed ${editForm.type === 'vacation' ? 'bg-emerald-50 text-slate-500 border-emerald-100' : 'bg-red-50 text-slate-500 border-red-100'}`}>
                     Se marcarán todos los días en el rango seleccionado como {editForm.type === 'vacation' ? 'vacaciones' : 'licencia médica'}.
                   </p>
                 </div>
               )}
 
               {message && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                  {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                  <span className="font-bold text-sm">{message.text}</span>
+                <div className={`p-3 sm:p-4 rounded-xl flex items-center gap-2.5 sm:gap-3 animate-in slide-in-from-top-2 duration-300 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                  {message.type === 'success' ? <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> : <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />}
+                  <span className="font-bold text-xs sm:text-sm">{message.text}</span>
                 </div>
               )}
+            </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                <button 
-                  onClick={handleSave} 
-                  disabled={saving}
-                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center space-x-2"
-                >
-                  {saving ? (
-                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      <span>Guardar Cronograma</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="pt-3 sm:pt-4 border-t border-slate-100 shrink-0 mt-2">
+              <button 
+                type="button"
+                onClick={handleSave} 
+                disabled={saving}
+                className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center space-x-2 active:scale-[0.99]"
+              >
+                {saving ? (
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    <span>Guardar Cronograma</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

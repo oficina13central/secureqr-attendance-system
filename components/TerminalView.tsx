@@ -107,6 +107,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({ onExit, role, currentUser, 
     }
 
     switch (reason) {
+      case 'no_schedule':
+        return { status: 'error' as const, message: 'No tenés horario asignado' };
       case 'already_checked_in':
         return { status: 'duplicate' as const, message: 'Ya tenés una entrada abierta' };
       case 'no_open_record':

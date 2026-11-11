@@ -1087,22 +1087,22 @@ const PersonnelAudit: React.FC<PersonnelAuditProps> = ({
             </div>
 
             {selectedEmployeeId && selectedEmployeeData && selectedEmployee && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+                    <div className="bg-white w-full max-w-4xl rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[92dvh] flex flex-col my-auto">
+                        <div className="p-4 sm:p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white shrink-0">
                             <div>
-                                <h3 className="text-2xl font-black lowercase first-letter:uppercase">{selectedEmployeeData.name}</h3>
-                                <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest">Detalle Diario - {months[selectedDate.getMonth()]} {selectedDate.getFullYear()}</p>
+                                <h3 className="text-xl sm:text-2xl font-black lowercase first-letter:uppercase">{selectedEmployeeData.name}</h3>
+                                <p className="text-indigo-100 text-[10px] sm:text-xs font-bold uppercase tracking-widest">Detalle Diario - {months[selectedDate.getMonth()]} {selectedDate.getFullYear()}</p>
                             </div>
                             <button
                                 onClick={() => { setSelectedEmployeeId(null); setSelectedEmployee(null); }}
-                                className="p-3 hover:bg-white/10 rounded-2xl transition-colors"
+                                className="p-2 sm:p-3 hover:bg-white/10 rounded-2xl transition-colors"
                             >
-                                <XCircle className="w-8 h-8" />
+                                <XCircle className="w-6 h-6 sm:w-8 sm:h-8" />
                             </button>
                         </div>
 
-                        <div className="max-h-[60vh] overflow-y-auto p-8">
+                        <div className="overflow-y-auto p-4 sm:p-8 flex-1 custom-scrollbar">
                             <div className="mb-6 bg-slate-50 rounded-2xl p-6 border border-slate-100">
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
