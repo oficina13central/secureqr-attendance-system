@@ -256,6 +256,28 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       return { totalSlots: 0, affectedEmployees: [] as string[] };
     }
 
+    const todayWeekStartObj = getStartOfWeek(new Date());
+    const todayWeekStartStr = formatDate(todayWeekStartObj);
+    const nextWeekStartStr = formatDate(addDays(todayWeekStartObj, 7));
+    const viewingWeekStartStr = formatDate(currentWeekStart);
+
+    // No evaluar semanas futuras lejanas (más allá de la próxima semana)
+    if (viewingWeekStartStr > nextWeekStartStr) {
+      return { totalSlots: 0, affectedEmployees: [] as string[] };
+    }
+
+    // Si es la próxima semana, solo advertir si ya empezaron a cargar turnos laborales en ella
+    if (viewingWeekStartStr > todayWeekStartStr) {
+      const workTypes = new Set<ShiftType>(['continuous', 'split', 'double', 'half', 'half_compensatory', 'off']);
+      const visibleEmpIds = new Set(filteredEmployees.map(e => e.id));
+      const hasWorkShiftsInView = Object.values(shifts).some(
+        s => s && visibleEmpIds.has(s.employee_id) && workTypes.has(s.type)
+      );
+      if (!hasWorkShiftsInView) {
+        return { totalSlots: 0, affectedEmployees: [] as string[] };
+      }
+    }
+
     let totalSlots = 0;
     const affectedSet = new Set<string>();
 
@@ -284,7 +306,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       totalSlots,
       affectedEmployees: Array.from(affectedSet)
     };
-  }, [filteredEmployees, weekDays, shifts]);
+  }, [filteredEmployees, weekDays, shifts, currentWeekStart]);
 
   const getSpecialDayInfo = (date: Date) => {
     const dateKey = formatDate(date);
