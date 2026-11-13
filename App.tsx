@@ -402,7 +402,7 @@ const App: React.FC = () => {
     'schedule': ['MANAGE_SCHEDULES', 'MANAGE_SECTOR_SCHEDULES'],
     'personnel': ['MANAGE_PERSONNEL'],
     'employee_files': ['MANAGE_PERSONNEL'],
-    'hr_requests': ['MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE', 'VIEW_SECTOR_PERSONNEL', 'MANAGE_SECTOR_SCHEDULES', 'SELF_VIEW'],
+    'hr_requests': ['MANAGE_HR_REQUESTS', 'MANAGE_PERSONNEL', 'VIEW_PERSONNEL_AUDIT', 'MANUAL_ATTENDANCE', 'VIEW_SECTOR_PERSONNEL', 'MANAGE_SECTOR_SCHEDULES', 'SELF_VIEW'],
     'audit': ['VIEW_AUDIT_LOGS'],
     'settings': ['MANAGE_SETTINGS'],
     'fraud': ['VIEW_AUDIT_LOGS'],
@@ -417,9 +417,11 @@ const App: React.FC = () => {
     if (!currentUser) return null;
 
     // 1. Roles y permisos básicos
-    const isSuperUser = currentUser?.role === 'superusuario';
+    const roleLow = (currentUser?.role || '').toLowerCase().trim();
+    const roleNameLow = (currentUser?.roles?.name || '').toLowerCase().trim();
+    const isSuperUser = roleLow === 'superusuario' || roleLow === 'superuser' || roleLow === 'superadmin' || roleLow.includes('super') || roleNameLow.includes('super');
     // Mantenemos esta variable genérica para ciertas acciones UI
-    const isAdminUser = currentUser?.role === 'superusuario' || currentUser?.role === 'administrador';
+    const isAdminUser = isSuperUser || roleLow === 'administrador' || roleLow === 'admin' || roleLow.includes('admin') || roleNameLow.includes('admin');
     
     // 2. Verificación de permiso para la vista actual
     const requiredPerms = viewPermissions[adminSubView];
@@ -667,7 +669,9 @@ const App: React.FC = () => {
                   const subViewId = item.id as AdminSubView;
                   
                   // Superusuario siempre ve todo
-                  if (currentUser?.role === 'superusuario') return true;
+                  const userRoleLow = (currentUser?.role || '').toLowerCase().trim();
+                  const userRoleNameLow = (currentUser?.roles?.name || '').toLowerCase().trim();
+                  if (userRoleLow === 'superusuario' || userRoleLow === 'superuser' || userRoleLow.includes('super') || userRoleNameLow.includes('super')) return true;
                   
                   // Ajustes solo para superusuario
                   if (subViewId === 'settings') return false;

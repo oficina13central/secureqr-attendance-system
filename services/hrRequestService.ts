@@ -244,12 +244,36 @@ export const getRequestTypeLabel = (type: HrRequestType) => {
   return 'Licencia medica';
 };
 
+export const isUserAdminOrSuper = (user?: Profile | null): boolean => {
+  if (!user) return false;
+  const role = (user.role || '').toLowerCase().trim();
+  const roleName = (user.roles?.name || '').toLowerCase().trim();
+  const roleId = (user.roles?.id || '').toLowerCase().trim();
+  const perms = user.roles?.permissions || [];
+  return (
+    role === 'superusuario' ||
+    role === 'administrador' ||
+    role === 'superadmin' ||
+    role === 'superuser' ||
+    role === 'admin' ||
+    role.includes('super') ||
+    roleId === 'superusuario' ||
+    roleId.includes('super') ||
+    roleName.includes('super') ||
+    roleName.includes('admin') ||
+    perms.includes('MANAGE_HR_REQUESTS') ||
+    perms.includes('MANAGE_PERSONNEL')
+  );
+};
+
 export const canAccessHrRequest = (
   request: Pick<HrRequest, 'employee_id' | 'sector_id' | 'requested_by_id'>,
   user: Profile
 ) => {
-  if (user.role === 'administrador' || user.role === 'superusuario') return true;
-  if (user.role === 'encargado') {
+  if (isUserAdminOrSuper(user)) return true;
+  const role = (user.role || '').toLowerCase().trim();
+  const roleName = (user.roles?.name || '').toLowerCase().trim();
+  if (role === 'encargado' || role.includes('encargad') || roleName.includes('encargad')) {
     const sectorIds = new Set([user.sector_id, ...(user.managed_sectors || [])].filter(Boolean));
     return !!request.sector_id && sectorIds.has(request.sector_id);
   }

@@ -38,7 +38,7 @@ import { sectorService, Sector } from '../services/sectorService';
 import { supabase } from '../services/supabaseClient';
 import { scheduleService, resolveDefaultScheduleForDate } from '../services/scheduleService';
 import { getLocalDateString } from '../utils/dateUtils';
-import { hrRequestService } from '../services/hrRequestService';
+import { hrRequestService, isUserAdminOrSuper } from '../services/hrRequestService';
 
 const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -79,7 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
 
   const getEmploymentTypeLabel = (type?: string) => type === 'jornalero' ? 'Jornalero' : 'Efectivo';
-  const canResolveHrRequests = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
+  const canResolveHrRequests = isUserAdminOrSuper(currentUser);
 
   useEffect(() => {
     const loadDashboardData = async () => {

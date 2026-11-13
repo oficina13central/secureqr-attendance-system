@@ -22,7 +22,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { Profile, HrRequest, HrRequestStatus, HrRequestType } from '../types';
-import { hrRequestService, getRequestTypeLabel, canAccessHrRequest } from '../services/hrRequestService';
+import { hrRequestService, getRequestTypeLabel, canAccessHrRequest, isUserAdminOrSuper } from '../services/hrRequestService';
 import { scheduleService, MissingScheduleAlert } from '../services/scheduleService';
 import { sectorService, Sector } from '../services/sectorService';
 import { auditService } from '../services/auditService';
@@ -105,9 +105,11 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser,
     attachmentUrl: ''
   });
 
-  const canResolve = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
-  const isAdminScope = currentUser.role === 'administrador' || currentUser.role === 'superusuario';
-  const isManagerScope = currentUser.role === 'encargado';
+  const isAdminScope = isUserAdminOrSuper(currentUser);
+  const canResolve = isAdminScope;
+  const roleLow = (currentUser.role || '').toLowerCase().trim();
+  const roleNameLow = (currentUser.roles?.name || '').toLowerCase().trim();
+  const isManagerScope = !isAdminScope && (roleLow === 'encargado' || roleLow.includes('encargad') || roleNameLow.includes('encargad'));
   const accessibleSectorIds = useMemo(() => {
     const ids = new Set<string>();
     if (currentUser.sector_id) ids.add(currentUser.sector_id);
