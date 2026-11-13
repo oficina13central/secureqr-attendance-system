@@ -566,6 +566,9 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser,
                 <p className="text-xs font-bold text-amber-800/80 mt-0.5">
                   Días ya cerrados donde la persona no tuvo turno ni franco en el cronograma. Revise si corresponde asignar franco, licencia médica, vacaciones o dar de baja si ya no pertenece a la empresa.
                 </p>
+                <p className="text-[11px] font-black text-amber-900 bg-amber-200/50 border border-amber-300/60 rounded-lg px-2.5 py-1 mt-1.5 inline-block">
+                  Aviso de transición: Por ahora el sistema permite dejar turnos sin asignar, pero próximamente no lo permitirá y será obligatorio cargar el cronograma semanal completo.
+                </p>
               </div>
             </div>
 

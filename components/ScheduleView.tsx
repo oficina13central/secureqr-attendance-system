@@ -251,6 +251,41 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return days;
   }, [currentWeekStart]);
 
+  const unassignedWeekSummary = useMemo(() => {
+    if (filteredEmployees.length === 0 || weekDays.length === 0) {
+      return { totalSlots: 0, affectedEmployees: [] as string[] };
+    }
+
+    let totalSlots = 0;
+    const affectedSet = new Set<string>();
+
+    for (const emp of filteredEmployees) {
+      if (emp.is_employee === false || emp.deleted_at) continue;
+
+      for (const dateObj of weekDays) {
+        const dateStr = formatDate(dateObj);
+
+        if (emp.hire_date && dateStr < emp.hire_date.substring(0, 10)) continue;
+        if (emp.is_suspended && (!emp.suspended_until || dateStr <= emp.suspended_until.substring(0, 10))) continue;
+
+        const shiftKey = `${emp.id}_${dateStr}`;
+        const explicitShift = shifts[shiftKey];
+        if (explicitShift && explicitShift.type) continue;
+
+        const base = emp.default_schedule ? resolveDefaultScheduleForDate(emp.default_schedule, dateObj) : null;
+        if (base && base.type) continue;
+
+        totalSlots++;
+        affectedSet.add(emp.full_name);
+      }
+    }
+
+    return {
+      totalSlots,
+      affectedEmployees: Array.from(affectedSet)
+    };
+  }, [filteredEmployees, weekDays, shifts]);
+
   const getSpecialDayInfo = (date: Date) => {
     const dateKey = formatDate(date);
     const holidayName = holidayMap[dateKey];
@@ -1148,6 +1183,33 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
               Ultimos movimientos: {compRestSummary.details.slice(0, 5).map(d => `${d.employee_name} ${d.date}: ${d.reason}`).join(' | ')}
             </p>
           )}
+        </div>
+      )}
+
+      {unassignedWeekSummary.totalSlots > 0 && (
+        <div className="no-print mb-4 bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-black text-slate-800">
+                Hay {unassignedWeekSummary.totalSlots} {unassignedWeekSummary.totalSlots === 1 ? 'día sin turno asignado' : 'días sin turno asignado'} en esta semana
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 text-[11px] font-black">
+                {unassignedWeekSummary.affectedEmployees.length} {unassignedWeekSummary.affectedEmployees.length === 1 ? 'empleado' : 'empleados'}
+              </span>
+            </div>
+            <p className="text-xs font-bold text-amber-900/90 leading-relaxed">
+              Por ahora el sistema permite dejar turnos sin asignar, pero <span className="underline decoration-amber-500/60 decoration-2">en poco tiempo dejará de permitirlo</span> y será obligatorio completar la programación semanal (turnos o francos) de todo el personal.
+            </p>
+            {unassignedWeekSummary.affectedEmployees.length > 0 && (
+              <p className="text-[11px] font-bold text-amber-800/80 pt-0.5">
+                Personal pendiente en esta vista: {unassignedWeekSummary.affectedEmployees.slice(0, 5).join(', ')}
+                {unassignedWeekSummary.affectedEmployees.length > 5 ? ` y ${unassignedWeekSummary.affectedEmployees.length - 5} más` : ''}.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
