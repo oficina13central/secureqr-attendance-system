@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { Profile } from '../types';
+import { getLocalDateString } from '../utils/dateUtils';
 
 export interface ShiftSegment {
     start: string;
@@ -44,6 +46,29 @@ export interface DefaultScheduleData {
     };
     history?: ScheduleHistoryEntry[];
     [key: string]: any;
+}
+
+export interface MissingScheduleAlert {
+    employeeId: string;
+    employeeName: string;
+    sectorId?: string;
+    missingDates: string[]; // YYYY-MM-DD ordenadas cronológicamente
+}
+
+/**
+ * Obtiene el rango de fechas pasadas cerradas/cumplidas (desde ayer hacia atrás).
+ */
+export function getPastCompletedDateRange(daysCount: number = 15, referenceDate: Date = new Date()): { startDate: string; endDate: string; dates: string[] } {
+    const dates: string[] = [];
+    for (let i = daysCount; i >= 1; i--) {
+        const d = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() - i, 12, 0, 0);
+        dates.push(getLocalDateString(d));
+    }
+    return {
+        startDate: dates[0],
+        endDate: dates[dates.length - 1],
+        dates
+    };
 }
 
 /**
@@ -441,5 +466,77 @@ export const scheduleService = {
         if (error) {
             console.warn('Error limpiando overrides de turnos previos desde la fecha de vigencia:', error);
         }
+    },
+
+    /**
+     * Detecta empleados activos sin cronograma (schedules) ni horario habitual (default_schedule)
+     * en los últimos N días cerrados/cumplidos (excluye hoy y días futuros).
+     */
+    async getMissingScheduleAlerts(
+        employees: Profile[],
+        daysCount: number = 15
+    ): Promise<MissingScheduleAlert[]> {
+        if (!employees || employees.length === 0) return [];
+
+        const { startDate, endDate, dates } = getPastCompletedDateRange(daysCount);
+        const schedules = await this.getAllSchedulesInRange(startDate, endDate);
+
+        // Agrupar turnos por fecha para búsquedas directas
+        const schedulesByDate = new Map<string, ShiftData[]>();
+        for (const s of schedules) {
+            const d = (s.date || '').substring(0, 10);
+            if (!schedulesByDate.has(d)) schedulesByDate.set(d, []);
+            schedulesByDate.get(d)!.push(s);
+        }
+
+        const alerts: MissingScheduleAlert[] = [];
+
+        for (const emp of employees) {
+            // Excluir usuarios de sistema y personal archivado/dado de baja
+            if (emp.is_employee === false || emp.deleted_at) continue;
+
+            const missingDatesForEmp: string[] = [];
+
+            for (const dateStr of dates) {
+                // 1. Si la fecha es previa a su fecha de ingreso, ignorar
+                if (emp.hire_date && dateStr < emp.hire_date.substring(0, 10)) {
+                    continue;
+                }
+
+                // 2. Si estaba formalmente suspendido en esa fecha, ignorar
+                if (emp.is_suspended) {
+                    if (!emp.suspended_until || dateStr <= emp.suspended_until.substring(0, 10)) {
+                        continue;
+                    }
+                }
+
+                // 3. Revisar si tiene horario en tabla schedules (override puntual)
+                const daySchedules = schedulesByDate.get(dateStr) || [];
+                const scheduleRow = pickScheduleRow(daySchedules, emp.id, dateStr, [emp.dni, emp.full_name]);
+                if (scheduleRow && scheduleRow.type) {
+                    continue;
+                }
+
+                // 4. Revisar si tiene horario habitual en default_schedule
+                const base = resolveDefaultScheduleForDate(emp.default_schedule, dateStr);
+                if (base && base.type) {
+                    continue;
+                }
+
+                // Si no tiene ninguno de los dos, está sin horario asignado
+                missingDatesForEmp.push(dateStr);
+            }
+
+            if (missingDatesForEmp.length > 0) {
+                alerts.push({
+                    employeeId: emp.id,
+                    employeeName: emp.full_name,
+                    sectorId: emp.sector_id,
+                    missingDates: missingDatesForEmp
+                });
+            }
+        }
+
+        return alerts;
     }
 };

@@ -453,7 +453,7 @@ const App: React.FC = () => {
       case 'schedule': return <ScheduleView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'personnel': return <PersonnelView employees={employees} setEmployees={setEmployees} currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'employee_files': return <EmployeeFilesView employees={employees} currentUser={currentUser!} />;
-      case 'hr_requests': return <HrRequestsView employees={employees} currentUser={currentUser!} />;
+      case 'hr_requests': return <HrRequestsView employees={employees} currentUser={currentUser!} onNavigateToSchedule={() => setAdminSubView('schedule')} />;
       case 'audit': return <AuditView />;
       case 'settings': return <SettingsView currentUser={currentUser || { full_name: 'Invitado', role: '' } as any} />;
       case 'fraud': return <FraudAnalysis />;

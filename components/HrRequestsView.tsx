@@ -4,12 +4,16 @@ import {
   Archive,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardCheck,
   Clock,
   ExternalLink,
   FileText,
   Paperclip,
   Pencil,
+  PlusCircle,
+  RefreshCw,
   Search,
   Send,
   Upload,
@@ -19,11 +23,14 @@ import {
 } from 'lucide-react';
 import { Profile, HrRequest, HrRequestStatus, HrRequestType } from '../types';
 import { hrRequestService, getRequestTypeLabel, canAccessHrRequest } from '../services/hrRequestService';
+import { scheduleService, MissingScheduleAlert } from '../services/scheduleService';
+import { sectorService, Sector } from '../services/sectorService';
 import { auditService } from '../services/auditService';
 
 type HrRequestsViewProps = {
   employees: Profile[];
   currentUser: Profile;
+  onNavigateToSchedule?: () => void;
 };
 
 const requestStatusLabel: Record<HrRequestStatus, string> = {
@@ -60,7 +67,16 @@ const formatDateTime = (value?: string | null) => {
   }).format(date);
 };
 
-const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser }) => {
+const formatDateShort = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.substring(0, 10).split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return dateStr;
+};
+
+const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser, onNavigateToSchedule }) => {
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,6 +90,10 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const [statusFilter, setStatusFilter] = useState<HrRequestStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<HrRequestType | 'all'>('all');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [scheduleAlerts, setScheduleAlerts] = useState<MissingScheduleAlert[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [alertsExpanded, setAlertsExpanded] = useState(true);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [form, setForm] = useState({
     employeeId: '',
     requestType: 'attendance_correction' as HrRequestType,
@@ -125,6 +145,37 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
     }
   };
 
+  const sectorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    sectors.forEach(s => map.set(s.id, s.name));
+    return map;
+  }, [sectors]);
+
+  const loadScheduleAlerts = async () => {
+    if (scopedEmployees.length === 0) {
+      setScheduleAlerts([]);
+      return;
+    }
+    setLoadingAlerts(true);
+    try {
+      // Evaluamos únicamente scopedEmployees para respetar la privacidad y alcance de sector del encargado
+      const detected = await scheduleService.getMissingScheduleAlerts(scopedEmployees, 15);
+      setScheduleAlerts(detected);
+    } catch (err) {
+      console.error('Error calculando alertas de horarios:', err);
+    } finally {
+      setLoadingAlerts(false);
+    }
+  };
+
+  useEffect(() => {
+    sectorService.getAll().then(setSectors).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadScheduleAlerts();
+  }, [scopedEmployees]);
+
   useEffect(() => {
     loadRequests();
   }, []);
@@ -174,6 +225,25 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
   const showFeedback = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
     window.setTimeout(() => setMessage(null), 4500);
+  };
+
+  const handlePreFillRequest = (alert: MissingScheduleAlert) => {
+    const firstDate = alert.missingDates[0];
+    const lastDate = alert.missingDates[alert.missingDates.length - 1];
+    setForm(prev => ({
+      ...prev,
+      employeeId: alert.employeeId,
+      requestType: 'absence_justification',
+      targetDate: firstDate,
+      endDate: lastDate,
+      reason: `Regularización por días sin horario asignado (${alert.missingDates.map(d => formatDateShort(d)).join(', ')})`
+    }));
+
+    const formElement = document.getElementById('create-hr-request-card');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+    showFeedback(`Formulario precargado para ${alert.employeeName}`, 'success');
   };
 
   const handleCreate = async (event: React.FormEvent) => {
@@ -474,8 +544,120 @@ const HrRequestsView: React.FC<HrRequestsViewProps> = ({ employees, currentUser 
         </div>
       )}
 
+      {/* ── BANNER DE ALERTAS DE HORARIO NO ASIGNADO (ÚLTIMOS 15 DÍAS) ── */}
+      {scheduleAlerts.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-500/10 border-2 border-amber-300 rounded-[2rem] p-5 sm:p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-800">
+                    Personal sin horario asignado (Últimos 15 días cumplidos)
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-xs font-black">
+                    {scheduleAlerts.length} {scheduleAlerts.length === 1 ? 'persona' : 'personas'}
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-amber-800/80 mt-0.5">
+                  Días ya cerrados donde la persona no tuvo turno ni franco en el cronograma. Revise si corresponde asignar franco, licencia médica, vacaciones o dar de baja si ya no pertenece a la empresa.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={loadScheduleAlerts}
+                disabled={loadingAlerts}
+                title="Actualizar alertas"
+                className="p-2.5 rounded-xl bg-white hover:bg-amber-100/60 text-amber-700 border border-amber-200 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingAlerts ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertsExpanded(prev => !prev)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-amber-100/60 text-amber-800 border border-amber-200 text-xs font-black transition-colors"
+              >
+                <span>{alertsExpanded ? 'Ocultar' : 'Ver detalle'}</span>
+                {alertsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {alertsExpanded && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              {scheduleAlerts.map(alert => {
+                const sectorName = alert.sectorId ? (sectorMap.get(alert.sectorId) || 'Sector') : 'Sin sector';
+                return (
+                  <div
+                    key={alert.employeeId}
+                    className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-3 hover:border-amber-300 transition-all"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800">{alert.employeeName}</h4>
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                            {sectorName}
+                          </span>
+                        </div>
+                        <span className="px-2 py-1 rounded-lg bg-red-50 text-red-700 border border-red-100 text-[11px] font-black shrink-0">
+                          {alert.missingDates.length} {alert.missingDates.length === 1 ? 'día sin turno' : 'días sin turno'}
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                          Fechas afectadas:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {alert.missingDates.map(dateStr => (
+                            <span
+                              key={dateStr}
+                              className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/60 text-xs font-bold"
+                              title={dateStr}
+                            >
+                              {formatDateShort(dateStr)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => handlePreFillRequest(alert)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black transition-colors"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Cargar solicitud</span>
+                      </button>
+                      {onNavigateToSchedule && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToSchedule}
+                          className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-colors"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Cronograma</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <section className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6">
-        <form onSubmit={handleCreate} className="bg-white border border-slate-100 rounded-[2rem] shadow-sm p-6 space-y-5 h-fit">
+        <form id="create-hr-request-card" onSubmit={handleCreate} className="bg-white border border-slate-100 rounded-[2rem] shadow-sm p-6 space-y-5 h-fit">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Nueva solicitud</p>
             <h2 className="text-xl font-black text-slate-800">Carga controlada</h2>
