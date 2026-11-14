@@ -12,11 +12,6 @@ import {
   CalendarCheck,
   Briefcase,
   Palmtree,
-  CloudSun,
-  CloudRain,
-  Sun,
-  Cloud,
-  Wind,
   ClipboardCheck,
   CreditCard,
 } from 'lucide-react';
@@ -46,23 +41,6 @@ interface AdminDashboardProps {
   currentUser: Profile;
 }
 
-type WeatherState = {
-  temperature: number;
-  apparentTemperature: number;
-  windSpeed: number;
-  precipitation: number;
-  weatherCode: number;
-};
-
-type DailyWeatherContext = {
-  date: string;
-  label: string;
-  impact: string;
-  precipitation: number;
-  maxTemperature: number;
-  maxWindSpeed: number;
-};
-
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Profile[]>([]);
@@ -71,9 +49,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [schedules, setSchedules] = useState<any[]>([]); // Today's schedules
   const [rules, setRules] = useState<AttendanceRules | null>(null);
-  const [weather, setWeather] = useState<WeatherState | null>(null);
-  const [dailyWeather, setDailyWeather] = useState<Record<string, DailyWeatherContext>>({});
-  const [weatherError, setWeatherError] = useState(false);
   const [pendingHrRequestsCount, setPendingHrRequestsCount] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'working' | 'present' | 'late' | 'absent' | 'off' | 'compensatory' | 'vacation' | 'medical' | 'history_all' | 'history_late' | 'history_absent'>('all');
   const [selectedEmploymentType, setSelectedEmploymentType] = useState<'all' | 'efectivo' | 'jornalero'>('all');
@@ -152,59 +127,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
     loadPendingCount();
   }, [canResolveHrRequests, currentUser]);
 
-  useEffect(() => {
-    const loadWeather = async () => {
-      try {
-        setWeatherError(false);
-        const params = new URLSearchParams({
-          latitude: '-26.8241',
-          longitude: '-65.2226',
-          current: 'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m',
-          daily: 'weather_code,precipitation_sum,temperature_2m_max,wind_speed_10m_max',
-          past_days: '14',
-          forecast_days: '1',
-          timezone: 'America/Argentina/Tucuman'
-        });
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
-        if (!response.ok) throw new Error('Weather request failed');
-        const data = await response.json();
-        setWeather({
-          temperature: Math.round(data.current.temperature_2m),
-          apparentTemperature: Math.round(data.current.apparent_temperature),
-          windSpeed: Math.round(data.current.wind_speed_10m),
-          precipitation: data.current.precipitation || 0,
-          weatherCode: data.current.weather_code
-        });
-
-        const dailyMap: Record<string, DailyWeatherContext> = {};
-        (data.daily?.time || []).forEach((date: string, index: number) => {
-          const precipitation = data.daily.precipitation_sum?.[index] || 0;
-          const weatherCode = data.daily.weather_code?.[index] || 0;
-          const maxWindSpeed = Math.round(data.daily.wind_speed_10m_max?.[index] || 0);
-          const maxTemperature = Math.round(data.daily.temperature_2m_max?.[index] || 0);
-          const isRainy = precipitation > 0 || (weatherCode >= 51 && weatherCode <= 99);
-          const isWindy = maxWindSpeed >= 35;
-          const isHot = maxTemperature >= 35;
-
-          dailyMap[date] = {
-            date,
-            label: isRainy ? 'Lluvia' : weatherCode === 0 ? 'Despejado' : weatherCode <= 3 ? 'Nublado' : 'Variable',
-            impact: isRainy || isWindy ? 'Riesgo de demoras' : isHot ? 'Calor intenso' : 'Normal',
-            precipitation,
-            maxTemperature,
-            maxWindSpeed
-          };
-        });
-        setDailyWeather(dailyMap);
-      } catch (error) {
-        console.error('Error loading weather:', error);
-        setWeatherError(true);
-      }
-    };
-
-    loadWeather();
-  }, []);
-
   // ── OPTIMIZED LOOKUP: SCHEDULE MAP ──
   // Creamos un mapa indexado por employeeId_date para búsqueda O(1) ultra rápida y fiable
   // IMPORTANTE: Normalizamos los IDs a minúsculas para evitar discrepancias de formato
@@ -235,60 +157,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
       (recordName && (e.full_name || '').toLowerCase().trim() === recordName)
     );
   };
-
-  const weatherDisplay = useMemo(() => {
-    if (!weather) return null;
-
-    const impact = weather.precipitation > 0 || weather.weatherCode >= 51
-      ? 'Riesgo de demoras'
-      : weather.apparentTemperature >= 35
-        ? 'Calor intenso'
-        : weather.windSpeed >= 35
-          ? 'Viento fuerte'
-          : 'Normal';
-
-    if (weather.precipitation > 0 || (weather.weatherCode >= 51 && weather.weatherCode <= 99)) {
-      return {
-        label: 'Lluvia',
-        detail: weather.precipitation > 0 ? `${weather.precipitation} mm` : 'Inestable',
-        impact,
-        icon: CloudRain,
-        color: 'text-sky-600',
-        bg: 'bg-sky-50'
-      };
-    }
-
-    if (weather.weatherCode === 0) {
-      return {
-        label: 'Despejado',
-        detail: `ST ${weather.apparentTemperature}°`,
-        impact,
-        icon: Sun,
-        color: 'text-amber-500',
-        bg: 'bg-amber-50'
-      };
-    }
-
-    if (weather.weatherCode <= 3) {
-      return {
-        label: 'Nublado',
-        detail: `ST ${weather.apparentTemperature}°`,
-        impact,
-        icon: Cloud,
-        color: 'text-slate-500',
-        bg: 'bg-slate-50'
-      };
-    }
-
-    return {
-      label: 'Clima',
-      detail: `ST ${weather.apparentTemperature}°`,
-      impact,
-      icon: CloudSun,
-      color: 'text-indigo-500',
-      bg: 'bg-indigo-50'
-    };
-  }, [weather]);
 
   // Determine authorized sectors based on role and permissions
   const authorizedSectors = useMemo(() => {
@@ -820,34 +688,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
             </div>
           </div>
 
-          <div className="w-full lg:w-auto">
-            {weather && weatherDisplay ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3 shadow-sm">
-                <div className={`p-2.5 rounded-xl ${weatherDisplay.bg}`}>
-                  <weatherDisplay.icon className={`w-5 h-5 ${weatherDisplay.color}`} strokeWidth={2.5} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clima Operativo</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-black text-slate-800">{weather.temperature}°</span>
-                    <span className="text-xs font-black text-slate-500">{weatherDisplay.label}</span>
-                  </div>
-                  <p className={`mt-0.5 text-[10px] font-black uppercase tracking-widest ${weatherDisplay.impact === 'Normal' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {weatherDisplay.impact}
-                  </p>
-                </div>
-                <div className="hidden sm:flex items-center gap-1 border-l border-slate-200 pl-3 text-slate-400">
-                  <Wind className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-black">{weather.windSpeed} km/h</span>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3 shadow-sm">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clima Operativo</p>
-                <p className="text-sm font-black text-slate-500">{weatherError ? 'No disponible' : 'Cargando...'}</p>
-              </div>
-            )}
-            {canResolveHrRequests && (
+          {canResolveHrRequests && (
+            <div className="w-full lg:w-auto">
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'hr_requests' }))}
@@ -869,8 +711,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
                   </div>
                 </div>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 xl:grid-cols-9 gap-3 md:gap-4">
